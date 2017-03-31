@@ -3,6 +3,7 @@ require 'test/unit'
 require 'date'
 
 class TestDateAttr < Test::Unit::TestCase
+  alias :skip :omit unless respond_to?(:skip)
 
   def test__attr
     date = Date.new(1965, 5, 23)

@@ -3,6 +3,7 @@ require 'test/unit'
 require 'date'
 
 class TestSH < Test::Unit::TestCase
+  alias :skip :omit unless respond_to?(:skip)
 
   def test_new
     [Date.new,

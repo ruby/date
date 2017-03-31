@@ -9,6 +9,7 @@ rescue LoadError
 end
 
 class TestDateBase < Test::Unit::TestCase
+  alias :skip :omit unless respond_to?(:skip)
 
   def setup
     if defined?(Calendar)
