@@ -3,7 +3,6 @@ require 'test/unit'
 require 'date'
 
 class TestDateStrftime < Test::Unit::TestCase
-  alias :skip :omit unless respond_to?(:skip)
 
   STRFTIME_2001_02_03 = {
     '%A'=>['Saturday',{:wday=>6}],

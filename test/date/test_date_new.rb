@@ -3,7 +3,6 @@ require 'test/unit'
 require 'date'
 
 class TestDateNew < Test::Unit::TestCase
-  alias :skip :omit unless respond_to?(:skip)
 
   def test_jd
     d = Date.jd
