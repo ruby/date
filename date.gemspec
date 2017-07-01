@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 Gem::Specification.new do |s|
   s.name = "date"
   s.version = '0.0.1'
@@ -12,7 +13,7 @@ Gem::Specification.new do |s|
 
   s.authors = ["Tadayoshi Funaba"]
   s.email = [nil]
-  s.homepage = "https://www.ruby-lang.org"
+  s.homepage = "https://github.com/ruby/date"
   s.license = "BSD-2-Clause"
 
   s.add_development_dependency "rake-compiler"
