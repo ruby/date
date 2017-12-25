@@ -22,13 +22,13 @@ Or install it yourself as:
 
 ## Usage
 
-```
+```ruby
 require 'date'
 ```
 
 A Date object is created with Date::new, Date::jd, Date::ordinal, Date::commercial, ate::parse, Date::strptime, Date::today, Time#to_date, etc.
 
-```
+```ruby
 require 'date'
 
 Date.new(2001,2,3)
@@ -78,7 +78,7 @@ S  M Tu  W Th  F  S
 
 A Date object has various methods. See each reference.
 
-```
+```ruby
 d = Date.parse('3rd Feb 2001')
 					#=> #<Date: 2001-02-03 ...>
 d.year			#=> 2001
