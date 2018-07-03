@@ -26,7 +26,7 @@ Or install it yourself as:
 require 'date'
 ```
 
-A Date object is created with Date::new, Date::jd, Date::ordinal, Date::commercial, ate::parse, Date::strptime, Date::today, Time#to_date, etc.
+A Date object is created with Date::new, Date::jd, Date::ordinal, Date::commercial, Date::parse, Date::strptime, Date::today, Time#to_date, etc.
 
 ```ruby
 require 'date'
