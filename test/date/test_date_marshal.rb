@@ -30,7 +30,7 @@ class TestDateMarshal < Test::Unit::TestCase
     a = d.marshal_dump
     d.freeze
     assert(d.frozen?)
-    if RUBY_VERSION >= '2.5'
+    if defined?(FrozenError)
       assert_raise(FrozenError){d.marshal_load(a)}
     else
       assert_raise(RuntimeError){d.marshal_load(a)}
@@ -40,7 +40,7 @@ class TestDateMarshal < Test::Unit::TestCase
     a = d.marshal_dump
     d.freeze
     assert(d.frozen?)
-    if RUBY_VERSION >= '2.5'
+    if defined?(FrozenError)
       assert_raise(FrozenError){d.marshal_load(a)}
     else
       assert_raise(RuntimeError){d.marshal_load(a)}
