@@ -412,6 +412,17 @@ eom
           super
         end
       end
+
+      def exception_details e, msg
+        [
+          "#{msg}",
+          "Class: <#{e.class}>",
+          "Message: <#{e.message.inspect}>",
+          "---Backtrace---",
+          "#{e.backtrace.join("\n")}",
+          "---------------",
+        ].join "\n"
+      end
     end
   end
 end
