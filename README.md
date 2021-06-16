@@ -1,7 +1,5 @@
 # Date
 
-[![Build Status](https://travis-ci.org/ruby/date.svg?branch=master)](https://travis-ci.org/ruby/date)
-
 A subclass of Object that includes the Comparable module and easily handles date.
 
 ## Installation
