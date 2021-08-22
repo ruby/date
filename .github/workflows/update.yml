@@ -18,8 +18,7 @@ jobs:
     - name: Update zonetab
       working-directory: ext/date
       run: |
-        make -f prereq.mk update-zonetab
-        make -f prereq.mk zonetab.h
+        make -f prereq.mk update=zonetab zonetab.h
       env:
         top_srcdir: ../..
         srcdir: .
