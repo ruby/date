@@ -24,12 +24,17 @@ jobs:
         srcdir: .
         RUBY: /usr/bin/ruby
     - name: Check diffs
+      id: diff
       run: |
-        git config --global user.email "nobu@ruby-lang.org"
-        git config --global user.name "Nobuyoshi Nakada"
-        git commit --allow-empty --message="Update zonetab.h at $(date +%F)" ext/date
-        git diff --no-ext-diff --ignore-submodules --exit-code HEAD^..HEAD ||
-        {
-          git pull --ff-only origin ${GITHUB_REF#refs/heads/}
-          git push origin ${GITHUB_REF#refs/heads/}
-        }
+        git diff --no-ext-diff --ignore-submodules --exit-code ||
+        echo "::set-output name=diff::true"
+    - name: Commit
+      run: |
+        git commit --message="Update zonetab.h at $(date +%F)" ext/date
+        git pull --ff-only origin ${GITHUB_REF#refs/heads/}
+        git push origin ${GITHUB_REF#refs/heads/}
+      env:
+        EMAIL: nobu@ruby-lang.org
+        GIT_AUTHOR_NAME: Nobuyoshi Nakada
+        GIT_COMMITTER_NAME: Nobuyoshi Nakada
+      if: ${{ steps.diff.outputs.diff }}
