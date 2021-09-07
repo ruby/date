@@ -1,6 +1,10 @@
 name: build
 
-on: [push, pull_request]
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: '10 3 * * *'
 
 jobs:
   build:
@@ -24,13 +28,6 @@ jobs:
       uses: ruby/setup-ruby@v1
       with:
         ruby-version: ${{ matrix.ruby }}
-      if: ${{ ! contains(matrix.os, 'windows') }}
-    - name: Set up Ruby
-      uses: MSP-Greg/setup-ruby-pkgs@v1
-      with:
-        ruby-version: ${{ matrix.ruby }}
-        mingw: _upgrade_
-      if: ${{ contains(matrix.os, 'windows') }}
     - name: Install dependencies
       run: bundle install
     - name: Run test
