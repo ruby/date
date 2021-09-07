@@ -2,10 +2,11 @@ name: update
 
 on:
   schedule:
-    - cron: '0/10 * * * *'
+    - cron: '0 10 * * 3'
 
 jobs:
   update:
+    if: ${{ github.repository == 'ruby/date' }}
     name: update zonetab
     runs-on: ubuntu-latest
     steps:
