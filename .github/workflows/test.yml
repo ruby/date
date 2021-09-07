@@ -8,6 +8,7 @@ on:
 
 jobs:
   build:
+    if: ${{ startsWith(github.repository, 'ruby/') || github.event_name != 'schedule' }}
     name: build (${{ matrix.ruby }} / ${{ matrix.os }})
     strategy:
       matrix:

@@ -6,7 +6,7 @@ on:
 
 jobs:
   update:
-    if: ${{ github.repository == 'ruby/date' }}
+    if: ${{ startsWith(github.repository, 'ruby/') }}
     name: update zonetab
     runs-on: ubuntu-latest
     steps:
