@@ -4337,6 +4337,7 @@ static void
 check_limit(VALUE str, VALUE opt)
 {
     if (NIL_P(str)) return;
+    if (SYMBOL_P(str)) str = rb_sym2str(str);
 
     StringValue(str);
     size_t slen = RSTRING_LEN(str);
