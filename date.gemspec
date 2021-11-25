@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 version = File.foreach(File.expand_path("../lib/date.rb", __FILE__)).find do |line|
-  /^\s*VERSION\s*=\s*["'](.*)["']/ =~ line and break $1
+  /^\s*VERSION\s*=\s*["']([^'"]+)/ =~ line and break $1
 end
 
 Gem::Specification.new do |s|
