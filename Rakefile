@@ -10,6 +10,7 @@ end
 require 'rake/extensiontask'
 Rake::ExtensionTask.new("date") do |ext|
   ext.name = "date_core"
+  ext.lib_dir.sub!(%r[(?=/|\z)], "/#{RUBY_VERSION}/#{ext.platform}")
 end
 
 task :sync_tool do
