@@ -1,11 +1,10 @@
 /.bundle/
-/.yardoc
 /Gemfile.lock
-/_yardoc/
 /coverage/
 /doc/
 /pkg/
-/spec/reports/
-/tmp/
-date_core.bundle
-Gemfile.lock
+*.bundle
+*.dll
+*.lib
+*.so
+*.[ao]
