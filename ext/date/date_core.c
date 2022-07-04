@@ -2732,13 +2732,15 @@ date_s__valid_commercial_p(int argc, VALUE *argv, VALUE klass)
 
 /*
  * call-seq:
- *    Date.valid_commercial?(cwyear, cweek, cwday, start = Date::ITALY) -> true or false
+ *   Date.valid_commercial?(cwyear, cweek, cwday, start = Date::ITALY) -> true or false
  *
  * Returns +true+ if the arguments define a valid commercial date,
  * +false+ otherwise:
  *
  *   Date.valid_commercial?(2001, 5, 6) # => true
  *   Date.valid_commercial?(2001, 5, 8) # => false
+ *
+ * See Date.commercial.
  *
  * See {Argument start}[rdoc-ref:Date@Argument+start].
  *
@@ -3527,19 +3529,64 @@ date_initialize(int argc, VALUE *argv, VALUE self)
 
 /*
  * call-seq:
- *    Date.commercial([cwyear=-4712[, cweek=1[, cwday=1[, start=Date::ITALY]]]])  ->  date
+ *   Date.commercial(cwyear=-4712, cweek=1, cwday=1, start=Date::ITALY) -> date
  *
- * Creates a date object denoting the given week date.
+ * Returns a new \Date object constructed from the arguments.
  *
- * The week and the day of week should be a negative or a positive
- * number (as a relative week/day from the end of year/week when
- * negative).  They should not be zero.
+ * Argument +cwyear+ should be an integer.
+ * The actual year in the new date is:
  *
- *    Date.commercial(2001)	#=> #<Date: 2001-01-01 ...>
- *    Date.commercial(2002)	#=> #<Date: 2001-12-31 ...>
- *    Date.commercial(2001,5,6)	#=> #<Date: 2001-02-03 ...>
+ * - +cwyear+, if January 1 of that year is a Friday, Saturday,
+ *   Sunday, or Monday
+ *   (that is, if the first Monday in calendar year +cwyear+
+ *   is on or before January 4):
  *
- * See also ::jd and ::new.
+ *     [2010, 2000, 2006, 2001].each do |year|
+ *       wday = Date::ABBR_DAYNAMES[Date.new(year, 1, 1).wday]
+ *       cdate = Date.commercial(year)
+ *       p [year, wday, cdate.to_s]
+ *     end
+ *
+ *   Output:
+ *
+ *     [2010, "Fri", "2010-01-04"]
+ *     [2000, "Sat", "2000-01-03"]
+ *     [2006, "Sun", "2006-01-02"]
+ *     [2001, "Mon", "2001-01-01"]
+ *
+ * - <tt>cwyear - 1</tt>, otherwise:
+ *
+ *     [2002, 2003, 2004].each do |year|
+ *       wday = Date::ABBR_DAYNAMES[Date.new(year, 1, 1).wday]
+ *       cdate = Date.commercial(year)
+ *       p [year, wday, cdate.to_s]
+ *     end
+ *
+ *   Output:
+ *
+ *     [2002, "Tue", "2001-12-31"]
+ *     [2003, "Wed", "2002-12-30"]
+ *     [2004, "Thu", "2003-12-29"]
+ *
+ * Argument +cweek+ gives the index of the week within the year,
+ * and should be in range (1..53) or (-53..-1);
+ * in some years, 53 or -53 will be out-of-range;
+ * if negative, counts backward from the end of the year:
+ *
+ *   Date.commercial(2022, 1, 1).to_s  # => "2022-01-03"
+ *   Date.commercial(2022, 52, 1).to_s # => "2022-12-26"
+ *
+ * Argument +cwday+ gives the indes of the weekday within the week,
+ * and should be in range (1..7) or (-7..-1);
+ * 1 or -7 is Monday;
+ * if negative, counts backward from the end of the week:
+ *
+ *   Date.commercial(2022, 1, 1).to_s  # => "2022-01-03"
+ *   Date.commercial(2022, 1, -7).to_s # => "2022-01-03"
+ *
+ * See {Argument start}[rdoc-ref:Date@Argument+start].
+ *
+ * Related: Date.jd, Date.new, Date.ordinal.
  */
 static VALUE
 date_s_commercial(int argc, VALUE *argv, VALUE klass)
@@ -5226,12 +5273,14 @@ d_lite_day_fraction(VALUE self)
 
 /*
  * call-seq:
- *    d.cwyear  ->  integer
+ *   cwyear -> integer
  *
- * Returns the calendar week based year.
+ * Returns commercial-date year for +self+
+ * (see Date.commercial):
  *
- *    Date.new(2001,2,3).cwyear		#=> 2001
- *    Date.new(2000,1,1).cwyear		#=> 1999
+ *   Date.new(2001, 2, 3).cwyear # => 2001
+ *   Date.new(2000, 1, 1).cwyear # => 1999
+ *
  */
 static VALUE
 d_lite_cwyear(VALUE self)
@@ -5242,11 +5291,13 @@ d_lite_cwyear(VALUE self)
 
 /*
  * call-seq:
- *    d.cweek  ->  fixnum
+ *   cweek -> integer
  *
- * Returns the calendar week number (1-53).
+ * Returns commercial-date week index for +self+
+ * (see Date.commercial):
  *
- *    Date.new(2001,2,3).cweek		#=> 5
+ *   Date.new(2001, 2, 3).cweek # => 5
+ *
  */
 static VALUE
 d_lite_cweek(VALUE self)
@@ -5257,11 +5308,14 @@ d_lite_cweek(VALUE self)
 
 /*
  * call-seq:
- *    d.cwday  ->  fixnum
+ *   cwday -> integer
  *
- * Returns the day of calendar week (1-7, Monday is 1).
+ * Returns the commercial-date weekday index for +self+
+ * (see Date.commercial);
+ * 1 is Monday:
  *
- *    Date.new(2001,2,3).cwday		#=> 6
+ *   Date.new(2001, 2, 3).cwday # => 6
+ *
  */
 static VALUE
 d_lite_cwday(VALUE self)
