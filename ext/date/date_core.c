@@ -3533,7 +3533,7 @@ date_initialize(int argc, VALUE *argv, VALUE self)
  *
  * Returns a new \Date object constructed from the arguments.
  *
- * Argument +cwyear+ should be an integer.
+ * Argument +cwyear+ gives the year, and should be an integer.
  *
  * Argument +cweek+ gives the index of the week within the year,
  * and should be in range (1..53) or (-53..-1);
@@ -3551,41 +3551,20 @@ date_initialize(int argc, VALUE *argv, VALUE self)
  *   Date.commercial(2022, 1, 1).to_s  # => "2022-01-03"
  *   Date.commercial(2022, 1, -7).to_s # => "2022-01-03"
  *
- * When +cweek+ is 1, the actual year in the new date
- * may be different from +cwyear+;
- * the actual year is:
+ * When +cweek+ is 1:
  *
- * - +cwyear+, if January 1 of that year is a Friday, Saturday,
- *   Sunday, or Monday
- *   (that is, if the first Monday in calendar year +cwyear+
- *   is on or before January 4):
+ * - If January 1 is a Friday, Saturday, Sunday, or Monday,
+ *   the first week begins in the year +cwyear+:
  *
- *     [2010, 2000, 2006, 2001].each do |year|
- *       wday = Date::ABBR_DAYNAMES[Date.new(year, 1, 1).wday]
- *       cdate = Date.commercial(year)
- *       p [year, wday, cdate.to_s]
- *     end
+ *     # January 1 is a Monday.
+ *     Date.commercial(2001, 1, 1).to_s # => "2001-01-01"
+ *     Date.commercial(2001, 1, 7).to_s # => "2001-01-07"
  *
- *   Output:
+ * - Otherwise, the first begins in the year <tt>cwyear + 1</tt>:
  *
- *     [2010, "Fri", "2010-01-04"]
- *     [2000, "Sat", "2000-01-03"]
- *     [2006, "Sun", "2006-01-02"]
- *     [2001, "Mon", "2001-01-01"]
- *
- * - <tt>cwyear - 1</tt>, otherwise:
- *
- *     [2002, 2003, 2004].each do |year|
- *       wday = Date::ABBR_DAYNAMES[Date.new(year, 1, 1).wday]
- *       cdate = Date.commercial(year)
- *       p [year, wday, cdate.to_s]
- *     end
- *
- *   Output:
- *
- *     [2002, "Tue", "2001-12-31"]
- *     [2003, "Wed", "2002-12-30"]
- *     [2004, "Thu", "2003-12-29"]
+ *     # January 1 is a Thursday.
+ *     Date.commercial(2004, 1, 1).to_s # => "2003-12-29"
+ *     Date.commercial(2004, 1, 7).to_s # => "2004-01-04"
  *
  * See {Argument start}[rdoc-ref:Date@Argument+start].
  *
