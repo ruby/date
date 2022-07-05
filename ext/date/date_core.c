@@ -3534,7 +3534,26 @@ date_initialize(int argc, VALUE *argv, VALUE self)
  * Returns a new \Date object constructed from the arguments.
  *
  * Argument +cwyear+ should be an integer.
- * The actual year in the new date is:
+ *
+ * Argument +cweek+ gives the index of the week within the year,
+ * and should be in range (1..53) or (-53..-1);
+ * in some years, 53 or -53 will be out-of-range;
+ * if negative, counts backward from the end of the year:
+ *
+ *   Date.commercial(2022, 1, 1).to_s  # => "2022-01-03"
+ *   Date.commercial(2022, 52, 1).to_s # => "2022-12-26"
+ *
+ * Argument +cwday+ gives the indes of the weekday within the week,
+ * and should be in range (1..7) or (-7..-1);
+ * 1 or -7 is Monday;
+ * if negative, counts backward from the end of the week:
+ *
+ *   Date.commercial(2022, 1, 1).to_s  # => "2022-01-03"
+ *   Date.commercial(2022, 1, -7).to_s # => "2022-01-03"
+ *
+ * When +cweek+ is 1, the actual year in the new date
+ * may be different from +cwyear+;
+ * the actual year is:
  *
  * - +cwyear+, if January 1 of that year is a Friday, Saturday,
  *   Sunday, or Monday
@@ -3567,22 +3586,6 @@ date_initialize(int argc, VALUE *argv, VALUE self)
  *     [2002, "Tue", "2001-12-31"]
  *     [2003, "Wed", "2002-12-30"]
  *     [2004, "Thu", "2003-12-29"]
- *
- * Argument +cweek+ gives the index of the week within the year,
- * and should be in range (1..53) or (-53..-1);
- * in some years, 53 or -53 will be out-of-range;
- * if negative, counts backward from the end of the year:
- *
- *   Date.commercial(2022, 1, 1).to_s  # => "2022-01-03"
- *   Date.commercial(2022, 52, 1).to_s # => "2022-12-26"
- *
- * Argument +cwday+ gives the indes of the weekday within the week,
- * and should be in range (1..7) or (-7..-1);
- * 1 or -7 is Monday;
- * if negative, counts backward from the end of the week:
- *
- *   Date.commercial(2022, 1, 1).to_s  # => "2022-01-03"
- *   Date.commercial(2022, 1, -7).to_s # => "2022-01-03"
  *
  * See {Argument start}[rdoc-ref:Date@Argument+start].
  *
