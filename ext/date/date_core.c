@@ -3553,18 +3553,19 @@ date_initialize(int argc, VALUE *argv, VALUE self)
  *
  * When +cweek+ is 1:
  *
- * - If January 1 is a Friday, Saturday, Sunday, or Monday,
- *   the first week begins in the year +cwyear+:
+ * - If January 1 is a Friday, Saturday, or Sunday,
+ *   the first week begins in the week after:
  *
- *     # January 1 is a Monday.
- *     Date.commercial(2001, 1, 1).to_s # => "2001-01-01"
- *     Date.commercial(2001, 1, 7).to_s # => "2001-01-07"
+ *     Date::ABBR_DAYNAMES[Date.new(2023, 1, 1).wday] # => "Sun"
+ *     Date.commercial(2023, 1, 1).to_s # => "2023-01-02"
+       Date.commercial(2023, 1, 7).to_s # => "2023-01-08"
  *
- * - Otherwise, the first begins in the year <tt>cwyear + 1</tt>:
+ * - Otherwise, the first week is the week of January 1,
+ *   which may mean some of the days fall on the year before:
  *
- *     # January 1 is a Thursday.
- *     Date.commercial(2004, 1, 1).to_s # => "2003-12-29"
- *     Date.commercial(2004, 1, 7).to_s # => "2004-01-04"
+ *     Date::ABBR_DAYNAMES[Date.new(2020, 1, 1).wday] # => "Wed"
+ *     Date.commercial(2020, 1, 1).to_s # => "2019-12-30"
+       Date.commercial(2020, 1, 7).to_s # => "2020-01-05"
  *
  * See {Argument start}[rdoc-ref:Date@Argument+start].
  *
