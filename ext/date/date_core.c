@@ -2473,7 +2473,7 @@ date_s__valid_jd_p(int argc, VALUE *argv, VALUE klass)
  *
  *   Date.valid_jd?(2451944) # => true
  *
- * See {Argument start}[rdoc-ref:Date@Argument+start].
+ * See {Argument +start+}[rdoc-ref:Date@Argument+start].
  *
  * Related: Date.jd.
  */
@@ -2566,7 +2566,7 @@ date_s__valid_civil_p(int argc, VALUE *argv, VALUE klass)
  *   Date.valid_date?(2001, 2, 29) # => false
  *   Date.valid_date?(2001, 2, -1) # => true
  *
- * See {Argument start}[rdoc-ref:Date@Argument+start].
+ * See {Argument +start+}[rdoc-ref:Date@Argument+start].
  *
  * Date.valid_date? is an alias for Date.valid_civil?.
  *
@@ -2655,7 +2655,7 @@ date_s__valid_ordinal_p(int argc, VALUE *argv, VALUE klass)
  *   Date.valid_ordinal?(2001, 34)  # => true
  *   Date.valid_ordinal?(2001, 366) # => false
  *
- * See {Argument start}[rdoc-ref:Date@Argument+start].
+ * See {Argument +start+}[rdoc-ref:Date@Argument+start].
  *
  * Related: Date.jd, Date.ordinal.
  */
@@ -2744,7 +2744,7 @@ date_s__valid_commercial_p(int argc, VALUE *argv, VALUE klass)
  *
  * See Date.commercial.
  *
- * See {Argument start}[rdoc-ref:Date@Argument+start].
+ * See {Argument +start+}[rdoc-ref:Date@Argument+start].
  *
  * Related: Date.jd, Date.commercial.
  */
@@ -3319,7 +3319,7 @@ static VALUE d_lite_plus(VALUE, VALUE);
  *
  *     Date.jd(Date::ITALY - 1).julian?    # => true
  *
- * See {Argument start}[rdoc-ref:Date@Argument+start].
+ * See {Argument +start+}[rdoc-ref:Date@Argument+start].
  *
  * Related: Date.new.
  */
@@ -3384,7 +3384,7 @@ date_s_jd(int argc, VALUE *argv, VALUE klass)
  *
  * Raises an exception if +yday+ is zero or out of range.
  *
- * See {Argument start}[rdoc-ref:Date@Argument+start].
+ * See {Argument +start+}[rdoc-ref:Date@Argument+start].
  *
  * Related: Date.jd, Date.new.
  */
@@ -3461,7 +3461,7 @@ date_s_civil(int argc, VALUE *argv, VALUE klass)
  * where +n+ is the number of days in the month;
  * when the argument is negative, counts backward from the end of the month.
  *
- * See {Argument start}[rdoc-ref:Date@Argument+start].
+ * See {Argument +start+}[rdoc-ref:Date@Argument+start].
  *
  * Date.civil is an alias for Date.new.
  *
@@ -3569,7 +3569,7 @@ date_initialize(int argc, VALUE *argv, VALUE self)
  *     Date.commercial(2020, 1, 1).to_s # => "2019-12-30"
        Date.commercial(2020, 1, 7).to_s # => "2020-01-05"
  *
- * See {Argument start}[rdoc-ref:Date@Argument+start].
+ * See {Argument +start+}[rdoc-ref:Date@Argument+start].
  *
  * Related: Date.jd, Date.new, Date.ordinal.
  */
@@ -3752,7 +3752,7 @@ static void set_sg(union DateData *, double);
  *
  *   Date.today.to_s # => "2022-07-06"
  *
- * See {Argument start}[rdoc-ref:Date@Argument+start].
+ * See {Argument +start+}[rdoc-ref:Date@Argument+start].
  *
  */
 static VALUE
@@ -4377,7 +4377,7 @@ date_s__strptime(int argc, VALUE *argv, VALUE klass)
  *    Date.strptime('2001 05 6', '%Y %W %u')	#=> #<Date: 2001-02-03 ...>
  *    Date.strptime('sat3feb01', '%a%d%b%y')	#=> #<Date: 2001-02-03 ...>
  *
- * See {Argument start}[rdoc-ref:Date@Argument+start].
+ * See {Argument +start+}[rdoc-ref:Date@Argument+start].
  *
  * See also strptime(3) and #strftime.
  */
@@ -4516,7 +4516,7 @@ date_s__parse(int argc, VALUE *argv, VALUE klass)
  * You can stop this check by passing `limit: nil`, but note that
  * it may take a long time to parse.
  ^
- * See {Argument start}[rdoc-ref:Date@Argument+start].
+ * See {Argument +start+}[rdoc-ref:Date@Argument+start].
  */
 static VALUE
 date_s_parse(int argc, VALUE *argv, VALUE klass)
@@ -4589,7 +4589,7 @@ date_s__iso8601(int argc, VALUE *argv, VALUE klass)
  * You can stop this check by passing `limit: nil`, but note that
  * it may take a long time to parse.
  *
- * See {Argument start}[rdoc-ref:Date@Argument+start].
+ * See {Argument +start+}[rdoc-ref:Date@Argument+start].
  */
 static VALUE
 date_s_iso8601(int argc, VALUE *argv, VALUE klass)
@@ -4650,7 +4650,7 @@ date_s__rfc3339(int argc, VALUE *argv, VALUE klass)
  * You can stop this check by passing `limit: nil`, but note that
  * it may take a long time to parse.
  *
- * See {Argument start}[rdoc-ref:Date@Argument+start].
+ * See {Argument +start+}[rdoc-ref:Date@Argument+start].
  */
 static VALUE
 date_s_rfc3339(int argc, VALUE *argv, VALUE klass)
@@ -4711,7 +4711,7 @@ date_s__xmlschema(int argc, VALUE *argv, VALUE klass)
  * You can stop this check by passing `limit: nil`, but note that
  * it may take a long time to parse.
  *
- * See {Argument start}[rdoc-ref:Date@Argument+start].
+ * See {Argument +start+}[rdoc-ref:Date@Argument+start].
  *
  */
 static VALUE
@@ -4776,7 +4776,7 @@ date_s__rfc2822(int argc, VALUE *argv, VALUE klass)
  * You can stop this check by passing `limit: nil`, but note that
  * it may take a long time to parse.
  *
- * See {Argument start}[rdoc-ref:Date@Argument+start].
+ * See {Argument +start+}[rdoc-ref:Date@Argument+start].
  *
  * Date.rfc822 is an alias for Date.rfc2822.
  */
@@ -4839,7 +4839,7 @@ date_s__httpdate(int argc, VALUE *argv, VALUE klass)
  * You can stop this check by passing `limit: nil`, but note that
  * it may take a long time to parse.
  *
- * See {Argument start}[rdoc-ref:Date@Argument+start].
+ * See {Argument +start+}[rdoc-ref:Date@Argument+start].
  *
  */
 static VALUE
@@ -4904,7 +4904,7 @@ date_s__jisx0301(int argc, VALUE *argv, VALUE klass)
  * You can stop this check by passing `limit: nil`, but note that
  * it may take a long time to parse.
  *
- * See {Argument start}[rdoc-ref:Date@Argument+start].
+ * See {Argument +start+}[rdoc-ref:Date@Argument+start].
  *
  */
 static VALUE
