@@ -4515,7 +4515,7 @@ date_s__parse(int argc, VALUE *argv, VALUE klass)
  * Raise an ArgumentError when the string length is longer than _limit_.
  * You can stop this check by passing `limit: nil`, but note that
  * it may take a long time to parse.
- ^
+ *
  * See {Argument start}[rdoc-ref:Date@Argument+start].
  */
 static VALUE
