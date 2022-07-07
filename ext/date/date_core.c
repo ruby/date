@@ -4827,7 +4827,7 @@ date_s__httpdate(int argc, VALUE *argv, VALUE klass)
 
 /*
  * call-seq:
- *   Date.httpdate( string = 'Mon, 01 Jan -4712 00:00:00 GMT', start = Date::ITALY, limit: 128) -> date
+ *   Date.httpdate(string = 'Mon, 01 Jan -4712 00:00:00 GMT', start = Date::ITALY, limit: 128) -> date
  *
  * Creates a new Date object by parsing from a string according to
  * some RFC 2616 format.
