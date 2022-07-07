@@ -5520,7 +5520,7 @@ d_lite_min(VALUE self)
 /*
  * call-seq:
  *   sec -> integer
-t *
+ *
  * Returns the second in range (0..59):
  *
  *   DateTime.new(2001, 2, 3, 4, 5, 6).sec # => 6
