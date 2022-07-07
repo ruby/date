@@ -5504,7 +5504,7 @@ d_lite_hour(VALUE self)
  * call-seq:
  *   min -> integer
  *
- * Returns the minute in range (0..59):0
+ * Returns the minute in range (0..59):
  *
  *   DateTime.new(2001, 2, 3, 4, 5, 6).min # => 5
  *
