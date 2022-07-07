@@ -5193,7 +5193,7 @@ d_lite_mjd(VALUE self)
  * which is the number of days since the beginning of the Gregorian
  * calendar, October 15, 1582.
  *
- *   Date.new(2001,2,3).ld # => 152784
+ *   Date.new(2001, 2, 3).ld # => 152784
  *
  */
 static VALUE
@@ -5209,8 +5209,8 @@ d_lite_ld(VALUE self)
  *
  * Returns the year:
  *
- *   Date.new(2001,2,3).year    # => 2001
- *   (Date.new(1,1,1) - 1).year # => 0
+ *   Date.new(2001, 2, 3).year    # => 2001
+ *   (Date.new(1, 1, 1) - 1).year # => 0
  *
  */
 static VALUE
@@ -5226,7 +5226,7 @@ d_lite_year(VALUE self)
  *
  * Returns the day of the year, in range (1..366):
  *
- *   Date.new(2001,2,3).yday # => 34
+ *   Date.new(2001, 2, 3).yday # => 34
  *
  */
 static VALUE
@@ -5242,7 +5242,7 @@ d_lite_yday(VALUE self)
  *
  * Returns the month in range (1..12):
  *
- *   Date.new(2001,2,3).mon # => 2
+ *   Date.new(2001, 2, 3).mon # => 2
  *
  * Date#month is an alias for Date#mon.
  */
@@ -5259,7 +5259,7 @@ d_lite_mon(VALUE self)
  *
  * Returns the day of the month in range (1..31):
  *
- *   Date.new(2001,2,3).mday # => 3
+ *   Date.new(2001, 2, 3).mday # => 3
  *
  * Date#day is an alias for Date#mday.
  */
@@ -5363,7 +5363,7 @@ d_lite_wnum1(VALUE self)
  *
  * Returns the day of week in range (0..6); Sunday is 0:
  *
- *   Date.new(2001,2,3).wday # => 6
+ *   Date.new(2001, 2, 3).wday # => 6
  *
  */
 static VALUE
@@ -5547,7 +5547,7 @@ d_lite_sec(VALUE self)
  */
 static VALUE
 d_lite_sec_fraction(VALUE self)
-
+{
     get_d1(self);
     return m_sf_in_sec(dat);
 }
