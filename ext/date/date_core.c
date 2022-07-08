@@ -5539,7 +5539,7 @@ d_lite_sec(VALUE self)
  *   sec_fraction -> rational
  *
  * Returns the fractional part of the second in range
- * (Rational(0, 1)..Rational(59, 1)):
+ * (Rational(0, 1)...Rational(1, 1)):
  *
  *   DateTime.new(2001, 2, 3, 4, 5, 6.5).sec_fraction # => (1/2)
  *
