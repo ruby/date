@@ -5774,7 +5774,7 @@ d_lite_italy(VALUE self)
  * call-seq:
  *   england -> new_date
  *
- * Equivalent to Date#new_start with argument  Date::ENGLAND.
+ * Equivalent to Date#new_start with argument Date::ENGLAND.
  */
 static VALUE
 d_lite_england(VALUE self)
