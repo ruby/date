@@ -4496,10 +4496,10 @@ date_s__parse_internal(int argc, VALUE *argv, VALUE klass)
  * Parses the given representation of date and time, and returns a
  * hash of parsed elements.
  *
- * This method *does not* function as a validator.  If the input
+ * This method *does* *not* function as a validator.  If the input
  * string does not match valid formats strictly, you may get a cryptic
- * result.  Should consider to use `Date._strptime` or
- * `DateTime._strptime` instead of this method as possible.
+ * result.  Should consider to use Date._strptime or DateTime._strptime
+ * instead of this method as possible.
  *
  * If the optional second argument is true and the detected year is in
  * the range "00" to "99", considers the year a 2-digit form and makes
@@ -4508,8 +4508,8 @@ date_s__parse_internal(int argc, VALUE *argv, VALUE klass)
  *    Date._parse('2001-02-03')	#=> {:year=>2001, :mon=>2, :mday=>3}
  *
  * Raise an ArgumentError when the string length is longer than _limit_.
- * You can stop this check by passing `limit: nil`, but note that
- * it may take a long time to parse.
+ * You can stop this check by passing <code>limit: nil</code>, but note
+ * that it may take a long time to parse.
  */
 static VALUE
 date_s__parse(int argc, VALUE *argv, VALUE klass)
@@ -4524,10 +4524,10 @@ date_s__parse(int argc, VALUE *argv, VALUE klass)
  * Parses the given representation of date and time, and creates a
  * date object.
  *
- * This method *does not* function as a validator.  If the input
+ * This method *does* *not* function as a validator.  If the input
  * string does not match valid formats strictly, you may get a cryptic
- * result.  Should consider to use `Date.strptime` instead of this
- * method as possible.
+ * result.  Should consider to use Date.strptime instead of this method
+ * as possible.
  *
  * If the optional second argument is true and the detected year is in
  * the range "00" to "99", considers the year a 2-digit form and makes
@@ -4538,8 +4538,8 @@ date_s__parse(int argc, VALUE *argv, VALUE klass)
  *    Date.parse('3rd Feb 2001')	#=> #<Date: 2001-02-03 ...>
  *
  * Raise an ArgumentError when the string length is longer than _limit_.
- * You can stop this check by passing `limit: nil`, but note that
- * it may take a long time to parse.
+ * You can stop this check by passing <code>limit: nil</code>, but note
+ * that it may take a long time to parse.
  *
  * See argument {start}[rdoc-ref:Date@Argument+start].
  */
@@ -4585,8 +4585,8 @@ VALUE date__jisx0301(VALUE);
  * Returns a hash of parsed elements.
  *
  * Raise an ArgumentError when the string length is longer than _limit_.
- * You can stop this check by passing `limit: nil`, but note that
- * it may take a long time to parse.
+ * You can stop this check by passing <code>limit: nil</code>, but note
+ * that it may take a long time to parse.
  */
 static VALUE
 date_s__iso8601(int argc, VALUE *argv, VALUE klass)
@@ -4611,8 +4611,8 @@ date_s__iso8601(int argc, VALUE *argv, VALUE klass)
  *    Date.iso8601('2001-W05-6')	#=> #<Date: 2001-02-03 ...>
  *
  * Raise an ArgumentError when the string length is longer than _limit_.
- * You can stop this check by passing `limit: nil`, but note that
- * it may take a long time to parse.
+ * You can stop this check by passing <code>limit: nil</code>, but note
+ * that it may take a long time to parse.
  *
  * See argument {start}[rdoc-ref:Date@Argument+start].
  */
@@ -4648,8 +4648,8 @@ date_s_iso8601(int argc, VALUE *argv, VALUE klass)
  * Returns a hash of parsed elements.
  *
  * Raise an ArgumentError when the string length is longer than _limit_.
- * You can stop this check by passing `limit: nil`, but note that
- * it may take a long time to parse.
+ * You can stop this check by passing <code>limit: nil</code>, but note
+ * that it may take a long time to parse.
  */
 static VALUE
 date_s__rfc3339(int argc, VALUE *argv, VALUE klass)
@@ -4672,8 +4672,8 @@ date_s__rfc3339(int argc, VALUE *argv, VALUE klass)
  *    Date.rfc3339('2001-02-03T04:05:06+07:00')	#=> #<Date: 2001-02-03 ...>
  *
  * Raise an ArgumentError when the string length is longer than _limit_.
- * You can stop this check by passing `limit: nil`, but note that
- * it may take a long time to parse.
+ * You can stop this check by passing <code>limit: nil</code>, but note
+ * that it may take a long time to parse.
  *
  * See argument {start}[rdoc-ref:Date@Argument+start].
  */
@@ -4709,8 +4709,8 @@ date_s_rfc3339(int argc, VALUE *argv, VALUE klass)
  * Returns a hash of parsed elements.
  *
  * Raise an ArgumentError when the string length is longer than _limit_.
- * You can stop this check by passing `limit: nil`, but note that
- * it may take a long time to parse.
+ * You can stop this check by passing <code>limit: nil</code>, but note
+ * that it may take a long time to parse.
  */
 static VALUE
 date_s__xmlschema(int argc, VALUE *argv, VALUE klass)
@@ -4733,8 +4733,8 @@ date_s__xmlschema(int argc, VALUE *argv, VALUE klass)
  *    Date.xmlschema('2001-02-03')	#=> #<Date: 2001-02-03 ...>
  *
  * Raise an ArgumentError when the string length is longer than _limit_.
- * You can stop this check by passing `limit: nil`, but note that
- * it may take a long time to parse.
+ * You can stop this check by passing <code>limit: nil</code>, but note
+ * that it may take a long time to parse.
  *
  * See argument {start}[rdoc-ref:Date@Argument+start].
  *
@@ -4771,8 +4771,8 @@ date_s_xmlschema(int argc, VALUE *argv, VALUE klass)
  * Returns a hash of parsed elements.
  *
  * Raise an ArgumentError when the string length is longer than _limit_.
- * You can stop this check by passing `limit: nil`, but note that
- * it may take a long time to parse.
+ * You can stop this check by passing <code>limit: nil</code>, but note
+ * that it may take a long time to parse.
  *
  * Date._rfc822 is an alias for Date._rfc2822.
  */
@@ -4798,8 +4798,8 @@ date_s__rfc2822(int argc, VALUE *argv, VALUE klass)
  *						#=> #<Date: 2001-02-03 ...>
  *
  * Raise an ArgumentError when the string length is longer than _limit_.
- * You can stop this check by passing `limit: nil`, but note that
- * it may take a long time to parse.
+ * You can stop this check by passing <code>limit: nil</code>, but note
+ * that it may take a long time to parse.
  *
  * See argument {start}[rdoc-ref:Date@Argument+start].
  *
@@ -4836,8 +4836,8 @@ date_s_rfc2822(int argc, VALUE *argv, VALUE klass)
  * Returns a hash of parsed elements.
  *
  * Raise an ArgumentError when the string length is longer than _limit_.
- * You can stop this check by passing `limit: nil`, but note that
- * it may take a long time to parse.
+ * You can stop this check by passing <code>limit: nil</code>, but note
+ * that it may take a long time to parse.
  */
 static VALUE
 date_s__httpdate(int argc, VALUE *argv, VALUE klass)
@@ -4861,8 +4861,8 @@ date_s__httpdate(int argc, VALUE *argv, VALUE klass)
  *						#=> #<Date: 2001-02-03 ...>
  *
  * Raise an ArgumentError when the string length is longer than _limit_.
- * You can stop this check by passing `limit: nil`, but note that
- * it may take a long time to parse.
+ * You can stop this check by passing <code>limit: nil</code>, but note
+ * that it may take a long time to parse.
  *
  * See argument {start}[rdoc-ref:Date@Argument+start].
  *
@@ -4898,8 +4898,8 @@ date_s_httpdate(int argc, VALUE *argv, VALUE klass)
  * Returns a hash of parsed elements.
  *
  * Raise an ArgumentError when the string length is longer than _limit_.
- * You can stop this check by passing `limit: nil`, but note that
- * it may take a long time to parse.
+ * You can stop this check by passing <code>limit: nil</code>, but note
+ * that it may take a long time to parse.
  */
 static VALUE
 date_s__jisx0301(int argc, VALUE *argv, VALUE klass)
@@ -4926,8 +4926,8 @@ date_s__jisx0301(int argc, VALUE *argv, VALUE klass)
  *    Date.jisx0301('13.02.03') 		#=> #<Date: 2001-02-03 ...>
  *
  * Raise an ArgumentError when the string length is longer than _limit_.
- * You can stop this check by passing `limit: nil`, but note that
- * it may take a long time to parse.
+ * You can stop this check by passing <code>limit: nil</code>, but note
+ * that it may take a long time to parse.
  *
  * See argument {start}[rdoc-ref:Date@Argument+start].
  *
@@ -8176,9 +8176,9 @@ datetime_s_strptime(int argc, VALUE *argv, VALUE klass)
  * Parses the given representation of date and time, and creates a
  * DateTime object.
  *
- * This method *does not* function as a validator.  If the input
+ * This method *does* *not* function as a validator.  If the input
  * string does not match valid formats strictly, you may get a cryptic
- * result.  Should consider to use `DateTime.strptime` instead of this
+ * result.  Should consider to use DateTime.strptime instead of this
  * method as possible.
  *
  * If the optional second argument is true and the detected year is in
@@ -8192,8 +8192,8 @@ datetime_s_strptime(int argc, VALUE *argv, VALUE klass)
  *				#=> #<DateTime: 2001-02-03T16:05:06+00:00 ...>
  *
  * Raise an ArgumentError when the string length is longer than _limit_.
- * You can stop this check by passing `limit: nil`, but note that
- * it may take a long time to parse.
+ * You can stop this check by passing <code>limit: nil</code>, but note
+ * that it may take a long time to parse.
  */
 static VALUE
 datetime_s_parse(int argc, VALUE *argv, VALUE klass)
@@ -8239,8 +8239,8 @@ datetime_s_parse(int argc, VALUE *argv, VALUE klass)
  *				#=> #<DateTime: 2001-02-03T04:05:06+07:00 ...>
  *
  * Raise an ArgumentError when the string length is longer than _limit_.
- * You can stop this check by passing `limit: nil`, but note that
- * it may take a long time to parse.
+ * You can stop this check by passing <code>limit: nil</code>, but note
+ * that it may take a long time to parse.
  */
 static VALUE
 datetime_s_iso8601(int argc, VALUE *argv, VALUE klass)
@@ -8279,8 +8279,8 @@ datetime_s_iso8601(int argc, VALUE *argv, VALUE klass)
  *				#=> #<DateTime: 2001-02-03T04:05:06+07:00 ...>
  *
  * Raise an ArgumentError when the string length is longer than _limit_.
- * You can stop this check by passing `limit: nil`, but note that
- * it may take a long time to parse.
+ * You can stop this check by passing <code>limit: nil</code>, but note
+ * that it may take a long time to parse.
  */
 static VALUE
 datetime_s_rfc3339(int argc, VALUE *argv, VALUE klass)
@@ -8319,8 +8319,8 @@ datetime_s_rfc3339(int argc, VALUE *argv, VALUE klass)
  *				#=> #<DateTime: 2001-02-03T04:05:06+07:00 ...>
  *
  * Raise an ArgumentError when the string length is longer than _limit_.
- * You can stop this check by passing `limit: nil`, but note that
- * it may take a long time to parse.
+ * You can stop this check by passing <code>limit: nil</code>, but note
+ * that it may take a long time to parse.
  */
 static VALUE
 datetime_s_xmlschema(int argc, VALUE *argv, VALUE klass)
@@ -8360,8 +8360,8 @@ datetime_s_xmlschema(int argc, VALUE *argv, VALUE klass)
  *				#=> #<DateTime: 2001-02-03T04:05:06+07:00 ...>
  *
  * Raise an ArgumentError when the string length is longer than _limit_.
- * You can stop this check by passing `limit: nil`, but note that
- * it may take a long time to parse.
+ * You can stop this check by passing <code>limit: nil</code>, but note
+ * that it may take a long time to parse.
  */
 static VALUE
 datetime_s_rfc2822(int argc, VALUE *argv, VALUE klass)
@@ -8400,8 +8400,8 @@ datetime_s_rfc2822(int argc, VALUE *argv, VALUE klass)
  *				#=> #<DateTime: 2001-02-03T04:05:06+00:00 ...>
  *
  * Raise an ArgumentError when the string length is longer than _limit_.
- * You can stop this check by passing `limit: nil`, but note that
- * it may take a long time to parse.
+ * You can stop this check by passing <code>limit: nil</code>, but note
+ * that it may take a long time to parse.
  */
 static VALUE
 datetime_s_httpdate(int argc, VALUE *argv, VALUE klass)
@@ -8445,8 +8445,8 @@ datetime_s_httpdate(int argc, VALUE *argv, VALUE klass)
  *				#=> #<DateTime: 2001-02-03T04:05:06+07:00 ...>
  *
  * Raise an ArgumentError when the string length is longer than _limit_.
- * You can stop this check by passing `limit: nil`, but note that
- * it may take a long time to parse.
+ * You can stop this check by passing <code>limit: nil</code>, but note
+ * that it may take a long time to parse.
  */
 static VALUE
 datetime_s_jisx0301(int argc, VALUE *argv, VALUE klass)
