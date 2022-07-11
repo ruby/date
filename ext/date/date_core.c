@@ -6332,7 +6332,7 @@ d_lite_next(VALUE self)
  *   d >> n -> new_date
  *
  * Returns a new \Date object representing the date
- * +n+ months later; +n+ should be numeric:
+ * +n+ months later; +n+ should be a numeric:
  *
  *   (Date.new(2001, 2, 3) >> 1).to_s  # => "2001-03-03"
  *   (Date.new(2001, 2, 3) >> -2).to_s # => "2000-12-03"
@@ -6346,7 +6346,7 @@ d_lite_next(VALUE self)
  * This results in the following, possibly unexpected, behaviors:
  *
  *   d0 = Date.new(2001, 1, 31)
- *   d1 = d0 >> 1 # => #<Date: 2001-02-28)>
+ *   d1 = d0 >> 1 # => #<Date: 2001-02-28>
  *   d2 = d1 >> 1 # => #<Date: 2001-03-28>
  *
  *   d0 = Date.new(2001, 1, 31)
@@ -6400,8 +6400,8 @@ d_lite_rshift(VALUE self, VALUE other)
  * Returns a new \Date object representing the date
  * +n+ months earlier; +n+ should be numeric:
  *
- *   (Date.new(2001 ,2, 3) << 1).to_s  # => "2001-01-03"
- *   (Date.new(2001 ,2, 3) << -2).to_s # => "2001-04-03"
+ *   (Date.new(2001,2 , 3) << 1).to_s  # => "2001-01-03"
+ *   (Date.new(2001,2 , 3) << -2).to_s # => "2001-04-03"
  *
  * When the same day does not exist for the new month,
  * the last day of that month is used instead:
@@ -6412,11 +6412,11 @@ d_lite_rshift(VALUE self, VALUE other)
  * This results in the following, possibly unexpected, behaviors:
  *
  *   d0 = Date.new(2001, 3, 31)
- *   d1 = d0 << 2      # => #<Date: 2001-01-31>
- *   d2 = d0 << 1 << 1 # => #<Date: 2001-01-28>
+ *   d0 << 2      # => #<Date: 2001-01-31>
+ *   d0 << 1 << 1 # => #<Date: 2001-01-28>
  *
  *   d0 = Date.new(2001, 3, 31)
- *   d1 = d0 << 1  # => #<Date: 2001-02-28 (>
+ *   d1 = d0 << 1  # => #<Date: 2001-02-28>
  *   d2 = d1 << -1 # => #<Date: 2001-03-28>
  *
  */
@@ -6591,7 +6591,7 @@ d_lite_upto(VALUE self, VALUE max)
  * call-seq:
  *   downto(min){|date| ... } -> self
  *
- * This method is equivalent to step(min, -1){|date| ...}.
+ * Equivalent to #step with arguments +min+ and <tt>-1</tt>.
  */
 static VALUE
 d_lite_downto(VALUE self, VALUE min)
