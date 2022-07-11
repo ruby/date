@@ -7569,6 +7569,9 @@ datetime_s_ordinal(int argc, VALUE *argv, VALUE klass)
     return ret;
 }
 
+/*
+ * Same as DateTime.new.
+ */
 static VALUE
 datetime_s_civil(int argc, VALUE *argv, VALUE klass)
 {
@@ -9417,6 +9420,8 @@ Init_date_core(void)
      *
      */
     cDate = rb_define_class("Date", rb_cObject);
+
+    /* Exception for invalid date/time */
     eDateError = rb_define_class_under(cDate, "Error", rb_eArgError);
 
     rb_include_module(cDate, rb_mComparable);
