@@ -465,6 +465,7 @@ c_find_ldoy(int y, double sg, int *rjd, int *ns)
 }
 
 #ifndef NDEBUG
+/* :nodoc: */
 static int
 c_find_fdom(int y, int m, double sg, int *rjd, int *ns)
 {
@@ -621,6 +622,7 @@ c_jd_to_weeknum(int jd, int f, double sg, int *ry, int *rw, int *rd)
 }
 
 #ifndef NDEBUG
+/* :nodoc: */
 static void
 c_nth_kday_to_jd(int y, int m, int n, int k, double sg, int *rjd, int *ns)
 {
@@ -646,6 +648,7 @@ c_jd_to_wday(int jd)
 }
 
 #ifndef NDEBUG
+/* :nodoc: */
 static void
 c_jd_to_nth_kday(int jd, double sg, int *ry, int *rm, int *rn, int *rk)
 {
@@ -822,6 +825,7 @@ c_valid_weeknum_p(int y, int w, int d, int f, double sg,
 }
 
 #ifndef NDEBUG
+/* :nodoc: */
 static int
 c_valid_nth_kday_p(int y, int m, int n, int k, double sg,
 		   int *rm, int *rn, int *rk, int *rjd, int *ns)
@@ -963,6 +967,7 @@ ns_to_day(VALUE n)
 }
 
 #ifndef NDEBUG
+/* :nodoc: */
 static VALUE
 ms_to_sec(VALUE m)
 {
@@ -981,6 +986,7 @@ ns_to_sec(VALUE n)
 }
 
 #ifndef NDEBUG
+/* :nodoc: */
 inline static VALUE
 ins_to_day(int n)
 {
@@ -1016,6 +1022,7 @@ day_to_sec(VALUE d)
 }
 
 #ifndef NDEBUG
+/* :nodoc: */
 static VALUE
 day_to_ns(VALUE d)
 {
@@ -1040,6 +1047,7 @@ sec_to_ns(VALUE s)
 }
 
 #ifndef NDEBUG
+/* :nodoc: */
 static VALUE
 isec_to_ns(int s)
 {
@@ -1066,6 +1074,7 @@ div_df(VALUE d, VALUE *f)
 }
 
 #ifndef NDEBUG
+/* :nodoc: */
 static VALUE
 div_sf(VALUE s, VALUE *f)
 {
@@ -1500,6 +1509,7 @@ m_df(union DateData *x)
 }
 
 #ifndef NDEBUG
+/* :nodoc: */
 static VALUE
 m_df_in_day(union DateData *x)
 {
@@ -1997,6 +2007,7 @@ expect_numeric(VALUE x)
 }
 
 #ifndef NDEBUG
+/* :nodoc: */
 static void
 civil_to_jd(VALUE y, int m, int d, double sg,
 	    VALUE *nth, int *ry,
@@ -2309,6 +2320,7 @@ valid_weeknum_p(VALUE y, int w, int d, int f, double sg,
 }
 
 #ifndef NDEBUG
+/* :nodoc: */
 static int
 valid_nth_kday_p(VALUE y, int m, int n, int k, double sg,
 		 VALUE *nth, int *ry,
@@ -2446,6 +2458,7 @@ valid_jd_sub(int argc, VALUE *argv, VALUE klass, int need_jd)
 }
 
 #ifndef NDEBUG
+/* :nodoc: */
 static VALUE
 date_s__valid_jd_p(int argc, VALUE *argv, VALUE klass)
 {
@@ -2535,6 +2548,7 @@ valid_civil_sub(int argc, VALUE *argv, VALUE klass, int need_jd)
 }
 
 #ifndef NDEBUG
+/* :nodoc: */
 static VALUE
 date_s__valid_civil_p(int argc, VALUE *argv, VALUE klass)
 {
@@ -2626,6 +2640,7 @@ valid_ordinal_sub(int argc, VALUE *argv, VALUE klass, int need_jd)
 }
 
 #ifndef NDEBUG
+/* :nodoc: */
 static VALUE
 date_s__valid_ordinal_p(int argc, VALUE *argv, VALUE klass)
 {
@@ -2712,6 +2727,7 @@ valid_commercial_sub(int argc, VALUE *argv, VALUE klass, int need_jd)
 }
 
 #ifndef NDEBUG
+/* :nodoc: */
 static VALUE
 date_s__valid_commercial_p(int argc, VALUE *argv, VALUE klass)
 {
@@ -2773,6 +2789,7 @@ date_s_valid_commercial_p(int argc, VALUE *argv, VALUE klass)
 }
 
 #ifndef NDEBUG
+/* :nodoc: */
 static VALUE
 valid_weeknum_sub(int argc, VALUE *argv, VALUE klass, int need_jd)
 {
@@ -2804,6 +2821,7 @@ valid_weeknum_sub(int argc, VALUE *argv, VALUE klass, int need_jd)
     }
 }
 
+/* :nodoc: */
 static VALUE
 date_s__valid_weeknum_p(int argc, VALUE *argv, VALUE klass)
 {
@@ -2824,6 +2842,7 @@ date_s__valid_weeknum_p(int argc, VALUE *argv, VALUE klass)
     return valid_weeknum_sub(5, argv2, klass, 1);
 }
 
+/* :nodoc: */
 static VALUE
 date_s_valid_weeknum_p(int argc, VALUE *argv, VALUE klass)
 {
@@ -2875,6 +2894,7 @@ valid_nth_kday_sub(int argc, VALUE *argv, VALUE klass, int need_jd)
     }
 }
 
+/* :nodoc: */
 static VALUE
 date_s__valid_nth_kday_p(int argc, VALUE *argv, VALUE klass)
 {
@@ -2895,6 +2915,7 @@ date_s__valid_nth_kday_p(int argc, VALUE *argv, VALUE klass)
     return valid_nth_kday_sub(5, argv2, klass, 1);
 }
 
+/* :nodoc: */
 static VALUE
 date_s_valid_nth_kday_p(int argc, VALUE *argv, VALUE klass)
 {
@@ -2917,6 +2938,7 @@ date_s_valid_nth_kday_p(int argc, VALUE *argv, VALUE klass)
     return Qtrue;
 }
 
+/* :nodoc: */
 static VALUE
 date_s_zone_to_diff(VALUE klass, VALUE str)
 {
@@ -3112,6 +3134,7 @@ old_to_new(VALUE ajd, VALUE of, VALUE sg,
 }
 
 #ifndef NDEBUG
+/* :nodoc: */
 static VALUE
 date_s_new_bang(int argc, VALUE *argv, VALUE klass)
 {
@@ -3623,6 +3646,7 @@ date_s_commercial(int argc, VALUE *argv, VALUE klass)
 }
 
 #ifndef NDEBUG
+/* :nodoc: */
 static VALUE
 date_s_weeknum(int argc, VALUE *argv, VALUE klass)
 {
@@ -3672,6 +3696,7 @@ date_s_weeknum(int argc, VALUE *argv, VALUE klass)
     return ret;
 }
 
+/* :nodoc: */
 static VALUE
 date_s_nth_kday(int argc, VALUE *argv, VALUE klass)
 {
@@ -5097,6 +5122,7 @@ d_lite_initialize_copy(VALUE copy, VALUE date)
 }
 
 #ifndef NDEBUG
+/* :nodoc: */
 static VALUE
 d_lite_fill(VALUE self)
 {
@@ -5342,6 +5368,7 @@ d_lite_cwday(VALUE self)
 }
 
 #ifndef NDEBUG
+/* :nodoc: */
 static VALUE
 d_lite_wnum0(VALUE self)
 {
@@ -5349,6 +5376,7 @@ d_lite_wnum0(VALUE self)
     return INT2FIX(m_wnum0(dat));
 }
 
+/* :nodoc: */
 static VALUE
 d_lite_wnum1(VALUE self)
 {
@@ -5465,6 +5493,7 @@ d_lite_saturday_p(VALUE self)
 }
 
 #ifndef NDEBUG
+/* :nodoc: */
 static VALUE
 d_lite_nth_kday_p(VALUE self, VALUE n, VALUE k)
 {
@@ -6827,6 +6856,7 @@ d_lite_to_s(VALUE self)
 }
 
 #ifndef NDEBUG
+/* :nodoc: */
 static VALUE
 mk_inspect_raw(union DateData *x, VALUE klass)
 {
@@ -6876,6 +6906,7 @@ mk_inspect_raw(union DateData *x, VALUE klass)
     }
 }
 
+/* :nodoc: */
 static VALUE
 d_lite_inspect_raw(VALUE self)
 {
@@ -7251,6 +7282,7 @@ d_lite_jisx0301(VALUE self)
 }
 
 #ifndef NDEBUG
+/* :nodoc: */
 static VALUE
 d_lite_marshal_dump_old(VALUE self)
 {
@@ -7725,6 +7757,7 @@ datetime_s_commercial(int argc, VALUE *argv, VALUE klass)
 }
 
 #ifndef NDEBUG
+/* :nodoc: */
 static VALUE
 datetime_s_weeknum(int argc, VALUE *argv, VALUE klass)
 {
@@ -7794,6 +7827,7 @@ datetime_s_weeknum(int argc, VALUE *argv, VALUE klass)
     return ret;
 }
 
+/* :nodoc: */
 static VALUE
 datetime_s_nth_kday(int argc, VALUE *argv, VALUE klass)
 {
@@ -8799,6 +8833,7 @@ datetime_to_datetime(VALUE self)
 #define MIN_JD -327
 #define MAX_JD 366963925
 
+/* :nodoc: */
 static int
 test_civil(int from, int to, double sg)
 {
@@ -8819,6 +8854,7 @@ test_civil(int from, int to, double sg)
     return 1;
 }
 
+/* :nodoc: */
 static VALUE
 date_s_test_civil(VALUE klass)
 {
@@ -8839,6 +8875,7 @@ date_s_test_civil(VALUE klass)
     return Qtrue;
 }
 
+/* :nodoc: */
 static int
 test_ordinal(int from, int to, double sg)
 {
@@ -8859,6 +8896,7 @@ test_ordinal(int from, int to, double sg)
     return 1;
 }
 
+/* :nodoc: */
 static VALUE
 date_s_test_ordinal(VALUE klass)
 {
@@ -8879,6 +8917,7 @@ date_s_test_ordinal(VALUE klass)
     return Qtrue;
 }
 
+/* :nodoc: */
 static int
 test_commercial(int from, int to, double sg)
 {
@@ -8899,6 +8938,7 @@ test_commercial(int from, int to, double sg)
     return 1;
 }
 
+/* :nodoc: */
 static VALUE
 date_s_test_commercial(VALUE klass)
 {
@@ -8919,6 +8959,7 @@ date_s_test_commercial(VALUE klass)
     return Qtrue;
 }
 
+/* :nodoc: */
 static int
 test_weeknum(int from, int to, int f, double sg)
 {
@@ -8939,6 +8980,7 @@ test_weeknum(int from, int to, int f, double sg)
     return 1;
 }
 
+/* :nodoc: */
 static VALUE
 date_s_test_weeknum(VALUE klass)
 {
@@ -8963,6 +9005,7 @@ date_s_test_weeknum(VALUE klass)
     return Qtrue;
 }
 
+/* :nodoc: */
 static int
 test_nth_kday(int from, int to, double sg)
 {
@@ -8983,6 +9026,7 @@ test_nth_kday(int from, int to, double sg)
     return 1;
 }
 
+/* :nodoc: */
 static VALUE
 date_s_test_nth_kday(VALUE klass)
 {
@@ -9003,6 +9047,7 @@ date_s_test_nth_kday(VALUE klass)
     return Qtrue;
 }
 
+/* :nodoc: */
 static int
 test_unit_v2v(VALUE i,
 	      VALUE (* conv1)(VALUE),
@@ -9014,6 +9059,7 @@ test_unit_v2v(VALUE i,
     return f_eqeq_p(o, i);
 }
 
+/* :nodoc: */
 static int
 test_unit_v2v_iter2(VALUE (* conv1)(VALUE),
 		    VALUE (* conv2)(VALUE))
@@ -9045,6 +9091,7 @@ test_unit_v2v_iter2(VALUE (* conv1)(VALUE),
     return 1;
 }
 
+/* :nodoc: */
 static int
 test_unit_v2v_iter(VALUE (* conv1)(VALUE),
 		   VALUE (* conv2)(VALUE))
@@ -9056,6 +9103,7 @@ test_unit_v2v_iter(VALUE (* conv1)(VALUE),
     return 1;
 }
 
+/* :nodoc: */
 static VALUE
 date_s_test_unit_conv(VALUE klass)
 {
@@ -9070,6 +9118,7 @@ date_s_test_unit_conv(VALUE klass)
     return Qtrue;
 }
 
+/* :nodoc: */
 static VALUE
 date_s_test_all(VALUE klass)
 {
