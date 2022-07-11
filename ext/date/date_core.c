@@ -5649,7 +5649,7 @@ d_lite_leap_p(VALUE self)
  *
  * Returns the Julian start date for calendar reform;
  * if not an infinity, the returned value is suitable
- * for passing to Date#jd(
+ * for passing to Date#jd:
  *
  *   d = Date.new(2001, 2, 3, Date::ITALY)
  *   s = d.start     # => 2299161.0
@@ -5661,8 +5661,6 @@ d_lite_leap_p(VALUE self)
  *
  *   Date.new(2001, 2, 3, Date::GREGORIAN).start # => -Infinity
  *   Date.new(2001, 2, 3, Date::JULIAN).start    # => Infinity
- *
- * The returned value is sui
  *
  * See argument {start}[rdoc-ref:Date@Argument+start].
  *
