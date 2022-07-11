@@ -6400,8 +6400,8 @@ d_lite_rshift(VALUE self, VALUE other)
  * Returns a new \Date object representing the date
  * +n+ months earlier; +n+ should be a numeric:
  *
- *   (Date.new(2001,2 , 3) << 1).to_s  # => "2001-01-03"
- *   (Date.new(2001,2 , 3) << -2).to_s # => "2001-04-03"
+ *   (Date.new(2001, 2, 3) << 1).to_s  # => "2001-01-03"
+ *   (Date.new(2001, 2, 3) << -2).to_s # => "2001-04-03"
  *
  * When the same day does not exist for the new month,
  * the last day of that month is used instead:
