@@ -6735,7 +6735,7 @@ cmp_dd(VALUE self, VALUE other)
  *     d <=> DateTime.new(2022, 7, 27) # => 0
  *     d <=> DateTime.new(2022, 7, 29) # => -1
  *
- * - A numeric (compares <tt>self.jd</tt> to +other+):
+ * - A numeric (compares <tt>self.ajd</tt> to +other+):
  *
  *     d <=> 2459789 # => -1
  *     d <=> 2459788 # => -1
