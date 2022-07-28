@@ -6721,13 +6721,13 @@ cmp_dd(VALUE self, VALUE other)
  *
  * - Another \Date object:
  *
- *     d = Date.today         # => #<Date: 2022-07-27 ((2459788j,0s,0n),+0s,2299161j)>
- *     prev_date = d.prev_day # => #<Date: 2022-07-26 ((2459787j,0s,0n),+0s,2299161j)>
- *     next_date = d.next_day # => #<Date: 2022-07-28 ((2459789j,0s,0n),+0s,2299161j)>
- *     d <=> next_date        # => -1
- *     d <=> d                # => 0
- *     d <=> prev_date        # => 1
- *
+ *     d = Date.new(2022, 7, 27) # => #<Date: 2022-07-27 ((2459788j,0s,0n),+0s,2299161j)>
+ *     prev_date = d.prev_day    # => #<Date: 2022-07-26 ((2459787j,0s,0n),+0s,2299161j)>
+ *     next_date = d.next_day    # => #<Date: 2022-07-28 ((2459789j,0s,0n),+0s,2299161j)>
+ *     d <=> next_date           # => -1
+ *     d <=> d                   # => 0
+ *     d <=> prev_date           # => 1
+ *     d <=> d.ajd               # => 0
  *
  * - A DateTime object:
  *
