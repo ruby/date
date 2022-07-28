@@ -6730,7 +6730,7 @@ cmp_dd(VALUE self, VALUE other)
  *
  * - A DateTime object:
  *
- *     d <=> DateTime.new(2022, 7, 28) # => -1
+ *     d <=> DateTime.new(2022, 7, 26) # => 1
  *     d <=> DateTime.new(2022, 7, 27) # => 0
  *     d <=> DateTime.new(2022, 7, 29) # => -1
  *
