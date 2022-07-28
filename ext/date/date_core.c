@@ -6727,7 +6727,6 @@ cmp_dd(VALUE self, VALUE other)
  *     d <=> next_date           # => -1
  *     d <=> d                   # => 0
  *     d <=> prev_date           # => 1
- *     d <=> d.ajd               # => 0
  *
  * - A DateTime object:
  *
@@ -6740,6 +6739,7 @@ cmp_dd(VALUE self, VALUE other)
  *     d <=> 2459789 # => -1
  *     d <=> 2459788 # => -1
  *     d <=> 2459787 # => 1
+ *     d <=> d.ajd   # => 0
  *
  * - Any other object:
  *
