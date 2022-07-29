@@ -6738,7 +6738,7 @@ cmp_dd(VALUE self, VALUE other)
  *
  *     d <=> 2459788 # => -1
  *     d <=> 2459787 # => 1
- *     d <=> 2459786 # => -1
+ *     d <=> 2459786 # => 1
  *     d <=> d.ajd   # => 0
  *
  * - Any other object:
