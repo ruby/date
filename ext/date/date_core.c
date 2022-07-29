@@ -6344,9 +6344,9 @@ d_lite_prev_day(int argc, VALUE *argv, VALUE self)
  *
  * Returns a new \Date object representing the following day:
  *
- *   d = Date.today
- *   d.to_s      # => "2022-07-11"
- *   d.next.to_s # => "2022-07-12"
+ *   d = Date.new(2001, 2, 3)
+ *   d.to_s      # => "2001-02-03"
+ *   d.next.to_s # => "2001-02-04"
  *
  * Date#succ is an alias for Date#next.
  */
@@ -6734,7 +6734,7 @@ cmp_dd(VALUE self, VALUE other)
  *     d <=> DateTime.new(2022, 7, 27) # => 0
  *     d <=> DateTime.new(2022, 7, 28) # => -1
  *
- * - A numeric (compares <tt>self.jd</tt> to +other+):
+ * - A numeric (compares <tt>self.ajd</tt> to +other+):
  *
  *     d <=> 2459788 # => -1
  *     d <=> 2459787 # => 1
@@ -6807,7 +6807,7 @@ equal_gen(VALUE self, VALUE other)
  *   self === other -> true, false, or nil.
  *
  * Returns +true+ if +self+ and +other+ represent the same date,
- * +false+ if not, +nil+ if the two are incommensurate.
+ * +false+ if not, +nil+ if the two are not comparable.
  *
  * Argument +other+ may be:
  *
@@ -6833,7 +6833,7 @@ equal_gen(VALUE self, VALUE other)
  *     d === 2459786 # => false
  *     d === d.jd    # => true
  *
- * - An incommensurate object:
+ * - An object not comparable:
  *
  *     d === Object.new # => nil
  *
@@ -7180,7 +7180,7 @@ date_strftime_internal(int argc, VALUE *argv, VALUE self,
  * Returns a string representation of the date in +self+,
  * formatted according the given +format+:
  *
- *   Date.today.strftime # => "2022-07-01"
+ *   Date.new(2001, 2, 3).strftime # => "2001-02-03"
  *
  * For other formats, see
  * {Formats for Dates and Times}[https://docs.ruby-lang.org/en/master/strftime_formatting_rdoc.html].
@@ -7216,9 +7216,11 @@ strftimev(const char *fmt, VALUE self,
  *
  * Equivalent to #strftime with argument <tt>'%a %b %e %T %Y'</tt>
  * (or its {shorthand form}[https://docs.ruby-lang.org/en/master/strftime_formatting_rdoc.html#label-Shorthand+Conversion+Specifiers]
- * <tt>'%c'</tt>);
+ * <tt>'%c'</tt>):
  *
- *   Date.today.asctime # => "Fri Jul 29 00:00:00 2022"
+ *   Date.new(2001, 2, 3).asctime # => "Sat Feb  3 00:00:00 2001"
+ *
+ * See {asctime}[https://linux.die.net/man/3/asctime].
  *
  * Date#ctime is an alias for Date#asctime.
  */
@@ -7236,7 +7238,7 @@ d_lite_asctime(VALUE self)
  * (or its {shorthand form}[https://docs.ruby-lang.org/en/master/strftime_formatting_rdoc.html#label-Shorthand+Conversion+Specifiers]
  * <tt>'%F'</tt>);
  *
- *   Date.today.iso8601 # => "2022-07-29"
+ *   Date.new(2001, 2, 3).iso8601 # => "2001-02-03"
  *
  * Date#xmlschema is an alias for Date#iso8601.
  */
@@ -7253,7 +7255,7 @@ d_lite_iso8601(VALUE self)
  * Equivalent to #strftime with argument <tt>'%FT%T%:z'</tt>;
  * see {Formats for Dates and Times}[https://docs.ruby-lang.org/en/master/strftime_formatting_rdoc.html]:
  *
- *   Date.today.rfc3339 # => "2022-07-29T00:00:00+00:00"
+ *   Date.new(2001, 2, 3).rfc3339 # => "2001-02-03T00:00:00+00:00"
  *
  */
 static VALUE
@@ -7269,7 +7271,7 @@ d_lite_rfc3339(VALUE self)
  * Equivalent to #strftime with argument <tt>'%a, %-d %b %Y %T %z'</tt>;
  * see {Formats for Dates and Times}[https://docs.ruby-lang.org/en/master/strftime_formatting_rdoc.html]:
  *
- *   Date.today.rfc2822 # => "Fri, 29 Jul 2022 00:00:00 +0000"
+ *   Date.new(2001, 2, 3).rfc2822 # => "Sat, 3 Feb 2001 00:00:00 +0000"
  *
  * Date#rfc822 is an alias for Date#rfc2822.
  */
@@ -7286,7 +7288,7 @@ d_lite_rfc2822(VALUE self)
  * Equivalent to #strftime with argument <tt>'%a, %d %b %Y %T GMT'</tt>;
  * see {Formats for Dates and Times}[https://docs.ruby-lang.org/en/master/strftime_formatting_rdoc.html]:
  *
- *   Date.today.httpdate # => "Fri, 29 Jul 2022 00:00:00 GMT"
+ *   Date.new(2001, 2, 3).httpdate # => "Sat, 03 Feb 2001 00:00:00 GMT"
  *
  */
 static VALUE
@@ -7343,7 +7345,7 @@ jisx0301_date_format(char *fmt, size_t size, VALUE jd, VALUE y)
  * Returns a string representation of the date in +self+
  * in JIS X 0301 format.
  *
- *   Date.today.jisx0301 # => "R04.07.29"
+ *   Date.new(2001, 2, 3).jisx0301 # => "H13.02.03"
  *
  */
 static VALUE
