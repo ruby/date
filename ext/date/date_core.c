@@ -4533,7 +4533,9 @@ date_s__parse(int argc, VALUE *argv, VALUE klass)
  *
  * Returns a new \Date object with values parsed from +string+:
  *
- *   Date.parse('2001-02-03') # => #<Date: 2001-02-03>
+ *   Date.parse('2001-02-03')   # => #<Date: 2001-02-03>
+ *   Date.parse('20010203')     # => #<Date: 2001-02-03 ...>
+ *   Date.parse('3rd Feb 2001') # => #<Date: 2001-02-03 ...>
  *
  * If +comp+ is +true+ and the given year is in the range <tt>(0..99)</tt>,
  * the current century is supplied;
@@ -4544,8 +4546,8 @@ date_s__parse(int argc, VALUE *argv, VALUE klass)
  *
  * See:
  *
- * - Argument {limit}[rdoc-ref:Date@Argument+limit].
  * - Argument {start}[rdoc-ref:Date@Argument+start].
+ * - Argument {limit}[rdoc-ref:Date@Argument+limit].
  *
  */
 static VALUE
@@ -4621,8 +4623,9 @@ date_s__iso8601(int argc, VALUE *argv, VALUE klass)
  *
  * See:
  *
- * - Argument {limit}[rdoc-ref:Date@Argument+limit].
  * - Argument {start}[rdoc-ref:Date@Argument+start].
+ * - Argument {limit}[rdoc-ref:Date@Argument+limit].
+ *
  */
 static VALUE
 date_s_iso8601(int argc, VALUE *argv, VALUE klass)
@@ -4688,8 +4691,9 @@ date_s__rfc3339(int argc, VALUE *argv, VALUE klass)
  *
  * See:
  *
- * - Argument {limit}[rdoc-ref:Date@Argument+limit].
  * - Argument {start}[rdoc-ref:Date@Argument+start].
+ * - Argument {limit}[rdoc-ref:Date@Argument+limit].
+ *
  */
 static VALUE
 date_s_rfc3339(int argc, VALUE *argv, VALUE klass)
@@ -4753,8 +4757,9 @@ date_s__xmlschema(int argc, VALUE *argv, VALUE klass)
  *
  * See:
  *
- * - Argument {limit}[rdoc-ref:Date@Argument+limit].
  * - Argument {start}[rdoc-ref:Date@Argument+start].
+ * - Argument {limit}[rdoc-ref:Date@Argument+limit].
+ *
  */
 static VALUE
 date_s_xmlschema(int argc, VALUE *argv, VALUE klass)
@@ -4786,7 +4791,7 @@ date_s_xmlschema(int argc, VALUE *argv, VALUE klass)
  *   Date._rfc2822(string, limit: 128) -> hash
  *
  * Returns a hash of values parsed from +string+, which should be a valid
- * {RFC 2822 date format:}[https://datatracker.ietf.org/doc/html/rfc2822]:
+ * {RFC 2822 date format}[https://datatracker.ietf.org/doc/html/rfc2822]:
  *
  *   d = Date.new(2001, 2, 3)
  *   s = d.rfc2822 # => "Sat, 3 Feb 2001 00:00:00 +0000"
@@ -4814,7 +4819,7 @@ date_s__rfc2822(int argc, VALUE *argv, VALUE klass)
  *
  * Returns a new \Date object with values parsed from +string+,
  * which should be a valid
- * {RFC 2822 date format:}[https://datatracker.ietf.org/doc/html/rfc2822]:
+ * {RFC 2822 date format}[https://datatracker.ietf.org/doc/html/rfc2822]:
  *
  *   d = Date.new(2001, 2, 3)
  *   s = d.rfc2822   # => "Sat, 3 Feb 2001 00:00:00 +0000"
@@ -4822,8 +4827,8 @@ date_s__rfc2822(int argc, VALUE *argv, VALUE klass)
  *
  * See:
  *
- * - Argument {limit}[rdoc-ref:Date@Argument+limit].
  * - Argument {start}[rdoc-ref:Date@Argument+start].
+ * - Argument {limit}[rdoc-ref:Date@Argument+limit].
  *
  * Date.rfc822 is an alias for Date.rfc2822.
  */
@@ -4881,7 +4886,7 @@ date_s__httpdate(int argc, VALUE *argv, VALUE klass)
  *
  * Returns a new \Date object with values parsed from +string+,
  * which should be a valid
- * {RFC 2616 date format:}[https://datatracker.ietf.org/doc/html/rfc2616]:
+ * {RFC 2616 date format}[https://datatracker.ietf.org/doc/html/rfc2616]:
  *
  *   d = Date.new(2001, 2, 3)
      s = d.httpdate   # => "Sat, 03 Feb 2001 00:00:00 GMT"
@@ -4889,8 +4894,9 @@ date_s__httpdate(int argc, VALUE *argv, VALUE klass)
  *
  * See:
  *
- * - Argument {limit}[rdoc-ref:Date@Argument+limit].
  * - Argument {start}[rdoc-ref:Date@Argument+start].
+ * - Argument {limit}[rdoc-ref:Date@Argument+limit].
+ *
  */
 static VALUE
 date_s_httpdate(int argc, VALUE *argv, VALUE klass)
@@ -4957,8 +4963,9 @@ date_s__jisx0301(int argc, VALUE *argv, VALUE klass)
  *
  * See:
  *
- * - Argument {limit}[rdoc-ref:Date@Argument+limit].
  * - Argument {start}[rdoc-ref:Date@Argument+start].
+ * - Argument {limit}[rdoc-ref:Date@Argument+limit].
+ *
  */
 static VALUE
 date_s_jisx0301(int argc, VALUE *argv, VALUE klass)
