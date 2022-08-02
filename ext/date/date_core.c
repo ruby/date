@@ -4534,8 +4534,8 @@ date_s__parse(int argc, VALUE *argv, VALUE klass)
  * Returns a new \Date object with values parsed from +string+:
  *
  *   Date.parse('2001-02-03')   # => #<Date: 2001-02-03>
- *   Date.parse('20010203')     # => #<Date: 2001-02-03 ...>
- *   Date.parse('3rd Feb 2001') # => #<Date: 2001-02-03 ...>
+ *   Date.parse('20010203')     # => #<Date: 2001-02-03>
+ *   Date.parse('3rd Feb 2001') # => #<Date: 2001-02-03>
  *
  * If +comp+ is +true+ and the given year is in the range <tt>(0..99)</tt>,
  * the current century is supplied;
