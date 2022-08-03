@@ -9537,7 +9537,7 @@ Init_date_core(void)
      *
      * The value of the +start+ argument may be:
      *
-     * - Date::ITALY (the default) - the changeover date is October 10, 1582:
+     * - Date::ITALY (the default) - the changeover date is October 15, 1582:
      *
      *     Date::ITALY               # => 2299161
      *     Date.jd(Date::ITALY).to_s # => "1582-10-15"
@@ -9552,7 +9552,7 @@ Init_date_core(void)
      *     # Gregorian base date, Julian result date.
      *     (Date.new(1583, 1, 1, Date::ITALY) - 365).to_s # => "1581-12-22"
      *
-     * - Date::ENGLAND - the changeover date is September 9, 1752:
+     * - Date::ENGLAND - the changeover date is September 14, 1752:
      *
      *     Date::ENGLAND               # => 2361222
      *     Date.jd(Date::ENGLAND).to_s # => "1752-09-14"
@@ -9584,6 +9584,7 @@ Init_date_core(void)
      * - Other non-numeric: raises TypeError.
      *
      */
+
     cDate = rb_define_class("Date", rb_cObject);
 
     /* Exception for invalid date/time */

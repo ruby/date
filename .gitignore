@@ -1,7 +1,6 @@
 /.bundle/
 /Gemfile.lock
 /coverage/
-/doc/
 /pkg/
 *.bundle
 *.dll
