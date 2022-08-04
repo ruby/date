@@ -61,18 +61,3 @@ by accepting an optional argument +start+, whose value may be:
     d = Date.new(1752, 9, 14, Date::GREGORIAN)
     d.prev_day.gregorian? # => true
 
-For a \Date object created with Date::JULIAN or Date::GREGORIAN,
-there are implications when the date is incremented or decremented:
-
-  # Julian date, incremented to a Gregorian date.
-  d0 = Date.new(1582, 1, 1, Date::ITALY)  # => #<Date: 1582-01-01>
-  d0.julian?                              # => true
-  d1 = d0.next_year                       # => #<Date: 1583-01-01 >
-  d1.gregorian?                           # => true
-
-  # Gregorian date, decremented to a Julian date.
-  d0 = Date.new(1583, 1, 1, Date::ITALY)  # => #<Date: 1583-01-01)>
-  d0.gregorian?                           # => true
-  d1 = d0.prev_year                       # => #<Date: 1582-01-01>
-  d1.julian?                              # => true
-
