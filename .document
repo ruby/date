@@ -1,5 +1,5 @@
 README.md
 ext/date/*.[ch]
 lib/date.rb
-doc/date/calendars.rdoc
+doc/date/*
 
