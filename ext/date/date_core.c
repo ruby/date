@@ -4505,6 +4505,9 @@ date_s__parse_internal(int argc, VALUE *argv, VALUE klass)
  * <b>Note</b>:
  * This method recognizes many forms in +string+,
  * but it is not a validator.
+ * For formats, see
+ * {Formats for Dates and Times}[https://docs.ruby-lang.org/en/master/strftime_formatting_rdoc.html].
+ *
  * If +string+ does not specify a valid date,
  * the result is unpredictable;
  * consider using Date._strptime instead.
@@ -4537,6 +4540,8 @@ date_s__parse(int argc, VALUE *argv, VALUE klass)
  * <b>Note</b>:
  * This method recognizes many forms in +string+,
  * but it is not a validator.
+ * For formats, see
+ * {Formats for Dates and Times}[https://docs.ruby-lang.org/en/master/strftime_formatting_rdoc.html].
  * If +string+ does not specify a valid date,
  * the result is unpredictable;
  * consider using Date._strptime instead.
@@ -4671,7 +4676,7 @@ date_s_iso8601(int argc, VALUE *argv, VALUE klass)
  *   Date._rfc3339(string, limit: 128) -> hash
  *
  * Returns a hash of values parsed from +string+, which should be a valid
- * {RFC 3339 format}[https://datatracker.ietf.org/doc/html/rfc3339]:
+ * {RFC 3339 format}[https://docs.ruby-lang.org/en/master/strftime_formatting_rdoc.html#label-RFC+3339+Format]:
  *
  *   d = Date.new(2001, 2, 3)
  *   s = d.rfc3339     # => "2001-02-03T00:00:00+00:00"
@@ -4699,7 +4704,7 @@ date_s__rfc3339(int argc, VALUE *argv, VALUE klass)
  *
  * Returns a new \Date object with values parsed from +string+,
  * which should be a valid
- * {RFC 3339 format}[https://datatracker.ietf.org/doc/html/rfc3339]:
+ * {RFC 3339 format}[https://docs.ruby-lang.org/en/master/strftime_formatting_rdoc.html#label-RFC+3339+Format]:
  *
  *   d = Date.new(2001, 2, 3)
  *   s = d.rfc3339   # => "2001-02-03T00:00:00+00:00"
@@ -4811,7 +4816,7 @@ date_s_xmlschema(int argc, VALUE *argv, VALUE klass)
  *   Date._rfc2822(string, limit: 128) -> hash
  *
  * Returns a hash of values parsed from +string+, which should be a valid
- * {RFC 2822 date format}[https://datatracker.ietf.org/doc/html/rfc2822]:
+ * {RFC 2822 date format}[https://docs.ruby-lang.org/en/master/strftime_formatting_rdoc.html#label-RFC+2822+Format]:
  *
  *   d = Date.new(2001, 2, 3)
  *   s = d.rfc2822 # => "Sat, 3 Feb 2001 00:00:00 +0000"
@@ -4841,7 +4846,7 @@ date_s__rfc2822(int argc, VALUE *argv, VALUE klass)
  *
  * Returns a new \Date object with values parsed from +string+,
  * which should be a valid
- * {RFC 2822 date format}[https://datatracker.ietf.org/doc/html/rfc2822]:
+ * {RFC 2822 date format}[https://docs.ruby-lang.org/en/master/strftime_formatting_rdoc.html#label-RFC+2822+Format]:
  *
  *   d = Date.new(2001, 2, 3)
  *   s = d.rfc2822   # => "Sat, 3 Feb 2001 00:00:00 +0000"
@@ -4885,7 +4890,7 @@ date_s_rfc2822(int argc, VALUE *argv, VALUE klass)
  *   Date._httpdate(string, limit: 128) -> hash
  *
  * Returns a hash of values parsed from +string+, which should be a valid
- * HTTP date format:
+ * {HTTP date format}[https://docs.ruby-lang.org/en/master/strftime_formatting_rdoc.html#label-HTTP+Format]:
  *
  *   d = Date.new(2001, 2, 3)
  *   s = d.httpdate # => "Sat, 03 Feb 2001 00:00:00 GMT"
@@ -4911,7 +4916,7 @@ date_s__httpdate(int argc, VALUE *argv, VALUE klass)
  *
  * Returns a new \Date object with values parsed from +string+,
  * which should be a valid
- * {RFC 2616 date format}[https://datatracker.ietf.org/doc/html/rfc2616]:
+ * {HTTP date format}[https://docs.ruby-lang.org/en/master/strftime_formatting_rdoc.html#label-HTTP+Format]:
  *
  *   d = Date.new(2001, 2, 3)
      s = d.httpdate   # => "Sat, 03 Feb 2001 00:00:00 GMT"
@@ -4953,7 +4958,7 @@ date_s_httpdate(int argc, VALUE *argv, VALUE klass)
  *   Date._jisx0301(string, limit: 128) -> hash
  *
  * Returns a hash of values parsed from +string+, which should be a valid
- * JIS X 0301 date format:
+ * {JIS X 0301 date format}[https://docs.ruby-lang.org/en/master/strftime_formatting_rdoc.html#label-JIS+X+0301+Format]:
  *
  *   d = Date.new(2001, 2, 3)
  *   s = d.jisx0301    # => "H13.02.03"
@@ -4979,7 +4984,7 @@ date_s__jisx0301(int argc, VALUE *argv, VALUE klass)
  *   Date.jisx0301(string = '-4712-01-01', start = Date::ITALY, limit: 128) -> date
  *
  * Returns a new \Date object with values parsed from +string+,
- * which should be a valid JIS X 0301 format:
+ * which should be a valid {JIS X 0301 format}[https://docs.ruby-lang.org/en/master/strftime_formatting_rdoc.html#label-JIS+X+0301+Format]:
  *
  *   d = Date.new(2001, 2, 3)
  *   s = d.jisx0301   # => "H13.02.03"
@@ -9435,86 +9440,6 @@ Init_date_core(void)
      *
      * See also the specialized methods in
      * {Standard Format Strings}[rdoc-ref:Date@Standard+Format+Strings].
-     *
-     * == Standard Format Strings
-     *
-     * === HTTP Format
-     *
-     * The HTTP date format is based on
-     * {RFC 2616}[https://datatracker.ietf.org/doc/html/rfc2616],
-     * and treats dates in the format <tt>'%a, %d %b %Y %T GMT'</tt>;
-     * see {Formats for Dates and Times}[https://docs.ruby-lang.org/en/master/strftime_formatting_rdoc.html]:
-     *
-     *   d = Date.new(2001, 2, 3) # => #<Date: 2001-02-03>
-     *   # Return HTTP-formatted string.
-     *   httpdate = d.httpdate    # => "Sat, 03 Feb 2001 00:00:00 GMT"
-     *   # Return new date parsed from HTTP-formatted string.
-     *   Date.httpdate(httpdate)  # => #<Date: 2001-02-03>
-     *   # Return hash parsed from HTTP-formatted string.
-     *   Date._httpdate(httpdate)
-     *   # => {:wday=>6, :mday=>3, :mon=>2, :year=>2001, :hour=>0, :min=>0, :sec=>0, :zone=>"GMT", :offset=>0}
-     *
-     * === ISO 8601 Format
-     *
-     * The ISO 8601 date format is based on
-     * {ISO 8601}[https://en.wikipedia.org/wiki/ISO_8601],
-     * and treats dates in the format <tt>'%Y-%m-%d'</tt>;
-     * see {ISO 8601 Format Specifications}[https://docs.ruby-lang.org/en/master/strftime_formatting_rdoc.html#label-ISO+8601+Format+Specifications]:
-     *
-     *   d = Date.new(2001, 2, 3) # => #<Date: 2001-02-03>
-     *   # Return 8601-formatted string.
-     *   iso8601 = d.iso8601      # => "2001-02-03"
-     *   # Return new date parsed from 8601-formatted string.
-     *   Date.iso8601(iso8601)    # => #<Date: 2001-02-03>
-     *   # Return hash parsed from 8601-formatted string.
-     *   Date._iso8601(iso8601)   # => {:mday=>3, :year=>2001, :mon=>2}
-     *
-     * === RFC 3339 Format
-     *
-     * The RFC 3339 date format is based on
-     * {RFC 3339}[https://datatracker.ietf.org/doc/html/rfc3339],
-     * see {Formats for Dates and Times}[https://docs.ruby-lang.org/en/master/strftime_formatting_rdoc.html]:
-     *
-     *   d = Date.new(2001, 2, 3) # => #<Date: 2001-02-03>
-     *   # Return 3339-formatted string.
-     *   rfc3339 = d.rfc3339      # => "2001-02-03T00:00:00+00:00"
-     *   # Return new date parsed from 3339-formatted string.
-     *   Date.rfc3339(rfc3339)    # => #<Date: 2001-02-03>
-     *   # Return hash parsed from 3339-formatted string.
-     *   Date._rfc3339(rfc3339)
-     *   # => {:year=>2001, :mon=>2, :mday=>3, :hour=>0, :min=>0, :sec=>0, :zone=>"+00:00", :offset=>0}
-     *
-     * === RFC 2822 Format
-     *
-     * The RFC 2822 date format is based on
-     * {RFC 2822}[https://datatracker.ietf.org/doc/html/rfc2822],
-     * and treats dates in the format <tt>'%a, %-d %b %Y %T %z'</tt>;
-     * see {Formats for Dates and Times}[https://docs.ruby-lang.org/en/master/strftime_formatting_rdoc.html]:
-     *
-     *   d = Date.new(2001, 2, 3) # => #<Date: 2001-02-03>
-     *   # Return 2822-formatted string.
-     *   rfc2822 = d.rfc2822      # => "Sat, 3 Feb 2001 00:00:00 +0000"
-     *   # Return new date parsed from 2822-formatted string.
-     *   Date.rfc2822(rfc2822)    # => #<Date: 2001-02-03>
-     *   # Return hash parsed from 2822-formatted string.
-     *   Date._rfc2822(rfc2822)
-     *   # => {:wday=>6, :mday=>3, :mon=>2, :year=>2001, :hour=>0, :min=>0, :sec=>0, :zone=>"+0000", :offset=>0}
-     *
-     * === JIS X 0301 Format
-     *
-     * The JIS X 0301 format includes the
-     * {Japanese era name}[https://en.wikipedia.org/wiki/Japanese_era_name],
-     * and treats dates in the format <tt>'%Y-%m-%d'</tt>
-     * with the first letter of the romanized era name prefixed;
-     * see {Formats for Dates and Times}[https://docs.ruby-lang.org/en/master/strftime_formatting_rdoc.html]:
-     *
-     *   d = Date.new(2001, 2, 3) # => #<Date: 2001-02-03>
-     *   # Return 0301-formatted string.
-     *   jisx0301 = d.jisx0301    # => "H13.02.03"
-     *   # Return new date parsed from 0301-formatted string.
-     *   Date.jisx0301(jisx0301)  # => #<Date: 2001-02-03>
-     *   # Return hash parsed from 0301-formatted string.
-     *   Date._jisx0301(jisx0301) # => {:year=>2001, :mon=>2, :mday=>3}
      *
      * == Argument +limit+
      *
