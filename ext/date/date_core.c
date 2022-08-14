@@ -4506,7 +4506,7 @@ date_s__parse_internal(int argc, VALUE *argv, VALUE klass)
  * This method recognizes many forms in +string+,
  * but it is not a validator.
  * For formats, see
- * {Formats for Dates and Times}[https://docs.ruby-lang.org/en/master/strftime_formatting_rdoc.html].
+ * {Standard Format Strings}[rdoc-ref:Date@Standard+Format+Strings].
  *
  * If +string+ does not specify a valid date,
  * the result is unpredictable;
@@ -4541,7 +4541,7 @@ date_s__parse(int argc, VALUE *argv, VALUE klass)
  * This method recognizes many forms in +string+,
  * but it is not a validator.
  * For formats, see
- * {Formats for Dates and Times}[https://docs.ruby-lang.org/en/master/strftime_formatting_rdoc.html].
+ * {Standard Format Strings}[rdoc-ref:Date@Standard+Format+Strings].
  * If +string+ does not specify a valid date,
  * the result is unpredictable;
  * consider using Date._strptime instead.
