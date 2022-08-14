@@ -9439,7 +9439,7 @@ Init_date_core(void)
      *     Date.strptime('fri31dec99', '%a%d%b%y')  # => #<Date: 1999-12-31>
      *
      * See also the specialized methods in
-     * {Standard Format Strings}[rdoc-ref:Date@Standard+Format+Strings].
+     * {"Specialized Format Strings" in Formats for Dates and Times}[https://docs.ruby-lang.org/en/master/strftime_formatting_rdoc.html#label-Specialized+Format+Strings]
      *
      * == Argument +limit+
      *
