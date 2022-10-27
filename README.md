@@ -1,6 +1,6 @@
-# Date
+# `Date`
 
-A subclass of Object that includes the Comparable module and easily handles date.
+A subclass of `Object` that includes the `Comparable` module and easily handles date.
 
 ## Installation
 
@@ -24,7 +24,7 @@ Or install it yourself as:
 require 'date'
 ```
 
-A Date object is created with Date::new, Date::jd, Date::ordinal, Date::commercial, Date::parse, Date::strptime, Date::today, Time#to_date, etc.
+A `Date` object is created with `Date::new`, `Date::jd`, `Date::ordinal`, `Date::commercial`, `Date::parse`, `Date::strptime`, `Date::today`, `Time#to_date`, etc.
 
 ```ruby
 require 'date'
@@ -45,7 +45,7 @@ Time.new(2001,2,3).to_date
 	    #=> #<Date: 2001-02-03 ...>
 ```
 
-All date objects are immutable; hence cannot modify themselves.
+All `Date` objects are immutable; hence cannot modify themselves.
 
 The concept of a date object can be represented as a tuple of the day count, the offset and the day of calendar reform.
 
@@ -53,7 +53,7 @@ The day count denotes the absolute position of a temporal dimension. The offset 
 
 The day count is virtually the astronomical Julian day number. The offset in this class is usually zero, and cannot be specified directly.
 
-A Date object can be created with an optional argument, the day of calendar reform as a Julian day number, which should be 2298874 to 2426355 or negative/positive infinity. The default value is +Date::ITALY+ (2299161=1582-10-15). See also sample/cal.rb.
+A `Date` object can be created with an optional argument, the day of calendar reform as a Julian day number, which should be 2298874 to 2426355 or negative/positive infinity. The default value is `Date::ITALY` (2299161=1582-10-15). See also sample/cal.rb.
 
 ```
 $ ruby sample/cal.rb -c it 10 1582
@@ -74,7 +74,7 @@ S  M Tu  W Th  F  S
 24 25 26 27 28 29 30
 ```
 
-A Date object has various methods. See each reference.
+A `Date` object has various methods. See each reference.
 
 ```ruby
 d = Date.parse('3rd Feb 2001')
