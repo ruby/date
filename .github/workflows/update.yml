@@ -28,7 +28,7 @@ jobs:
       id: diff
       run: |
         git diff --no-ext-diff --ignore-submodules --exit-code ||
-        echo "::set-output name=diff::true"
+        echo "diff=true" >> $GITHUB_OUTPUT
     - name: Commit
       run: |
         git commit --message="Update zonetab.h at $(date +%F)" ext/date
