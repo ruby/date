@@ -30,5 +30,7 @@ jobs:
       with:
         ruby-version: ${{ matrix.ruby }}
         bundler-cache: true # 'bundle install' and cache
+    - run: choco install gperf
+      if: ${{ matrix.ruby == 'mswin' }}
     - name: Run test
       run: bundle exec rake compile test
