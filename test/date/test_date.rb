@@ -6,6 +6,10 @@ class DateSub < Date; end
 class DateTimeSub < DateTime; end
 
 class TestDate < Test::Unit::TestCase
+  def test_infinite
+    assert_equal false, Date.new.infinite?
+  end
+
   def test_range_infinite_float
     today = Date.today
     r = today...Float::INFINITY

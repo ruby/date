@@ -10,27 +10,25 @@ class Date
   #   infinite? -> false
   #
   # Returns +false+
-  def infinite?
-    false
-  end
+  def infinite? = false
 
   class Infinity < Numeric # :nodoc:
 
-    def initialize(d=1) @d = d <=> 0 end
+    def initialize(d=1) = @d = d <=> 0
 
-    def d() @d end
+    def d = @d
 
     protected :d
 
-    def zero?() false end
-    def finite?() false end
-    def infinite?() d.nonzero? end
-    def nan?() d.zero? end
+    def zero? = false
+    def finite? = false
+    def infinite? = d.nonzero?
+    def nan? = d.zero?
 
-    def abs() self.class.new end
+    def abs = self.class.new
 
-    def -@() self.class.new(-d) end
-    def +@() self.class.new(+d) end
+    def -@ = self.class.new(-d)
+    def +@ = self.class.new(+d)
 
     def <=>(other)
       case other
