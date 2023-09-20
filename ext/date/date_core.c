@@ -8726,8 +8726,8 @@ dt_lite_to_s(VALUE self)
  *
  *   DateTime.now.strftime # => "2022-07-01T11:03:19-05:00"
  *
- * For other formats, see
- * {Formats for Dates and Times}[doc/strftime_formatting.rdoc].
+ * For other formats,
+ * see {Formats for Dates and Times}[https://docs.ruby-lang.org/en/master/strftime_formatting_rdoc.html]:
  *
  */
 static VALUE
