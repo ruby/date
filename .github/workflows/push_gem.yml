@@ -21,6 +21,10 @@ jobs:
       contents: write
       id-token: write
 
+    strategy:
+      matrix:
+        ruby: [3.3, jruby]
+
     steps:
       - name: Harden Runner
         uses: step-security/harden-runner@91182cccc01eb5e619899d80e4e971d6181294a7 # v2.10.1
@@ -33,7 +37,7 @@ jobs:
         uses: ruby/setup-ruby@a6e6f86333f0a2523ece813039b8b4be04560854 # v1.190.0
         with:
           bundler-cache: true
-          ruby-version: ruby
+          ruby-version: ${{ matrix.ruby }}
 
       - name: Publish to RubyGems
         uses: rubygems/release-gem@612653d273a73bdae1df8453e090060bb4db5f31 # v1
@@ -44,3 +48,4 @@ jobs:
           gh release create "${tag_name}" --verify-tag --generate-notes
         env:
           GITHUB_TOKEN: ${{ secrets.MATZBOT_GITHUB_WORKFLOW_TOKEN }}
+        if: ${{ matrix.ruby != 'jruby' }}
