@@ -1,6 +1,6 @@
 # `Date`
 
-A subclass of `Object` that includes the `Comparable` module and easily handles date.
+The official date library for Ruby.
 
 ## Installation
 
