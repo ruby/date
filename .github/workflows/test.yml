@@ -57,7 +57,7 @@ jobs:
     - name: Compile extension
       run: bundle exec rake compile
     - name: Diagnose DLLs (mingw on windows-latest)
-      if: matrix.os == 'windows-latest' && matrix.ruby == 'mingw'
+      if: matrix.os == 'windows-latest'
       shell: msys2 {0} # Use MSYS2 shell for objdump and consistent PATH
       run: |
         echo "--- Ruby Version --- "
@@ -86,7 +86,7 @@ jobs:
         # Prepare for artifact upload by copying to a predictable name
         cp "$SO_PATH" ./date_core.so.diagnostic
     - name: Upload diagnostic .so (mingw on windows-latest)
-      if: matrix.os == 'windows-latest' && matrix.ruby == 'mingw'
+      if: matrix.os == 'windows-latest'
       uses: actions/upload-artifact@v4
       with:
         name: date_core_mingw_ucrt_${{ matrix.ruby }}.so
