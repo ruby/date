@@ -52,6 +52,6 @@ jobs:
       with:
         ruby-version: ${{ matrix.ruby }}
         bundler-cache: true
-        mingw: gperf
+        mingw: gperf _upgrade_
     - name: Run test
       run: bundle exec rake compile test
