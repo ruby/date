@@ -53,5 +53,43 @@ jobs:
         ruby-version: ${{ matrix.ruby }}
         bundler-cache: true
         mingw: gperf _upgrade_
-    - name: Run test
-      run: bundle exec rake compile test
+    - name: Compile extension
+      run: bundle exec rake compile
+    - name: Diagnose DLLs (mingw on windows-latest)
+      if: matrix.os == 'windows-latest' && matrix.ruby == 'mingw'
+      shell: msys2 {0} # Use MSYS2 shell for objdump and consistent PATH
+      run: |
+        echo "--- Ruby Version --- "
+        ruby -v
+        echo "--- Finding date_core.so --- "
+        # Construct the path based on Rakefile logic: lib/RUBY_VERSION/platform/date_core.so
+        # RUBY_VERSION e.g., 3.3.8; platform e.g., x64-mingw-ucrt
+        RUBY_VERSION_OUTPUT=$(ruby -e 'print RUBY_VERSION')
+        # For mingw builds, ext.platform from Rake::ExtensionTask usually becomes something like x64-mingw-ucrt
+        # We'll use the platform string directly from the error message if it matches RUBY_VERSION_OUTPUT
+        SO_DIR_PLATFORM="x64-mingw-ucrt"
+        SO_PATH="${GITHUB_WORKSPACE}/lib/${RUBY_VERSION_OUTPUT}/${SO_DIR_PLATFORM}/date_core.so"
+
+        echo "Checking for .so file at: $SO_PATH"
+        if [ ! -f "$SO_PATH" ]; then
+          echo "ERROR: date_core.so not found at $SO_PATH"
+          echo "Listing content of ${{ github.workspace }}/lib/${RUBY_VERSION_OUTPUT}/ to debug:"
+          ls -R "${{ github.workspace }}/lib/${RUBY_VERSION_OUTPUT}/"
+          exit 1
+        fi
+        echo "Found .so file: $SO_PATH"
+        echo "--- objdump -p output (DLL dependencies) --- "
+        objdump -p "$SO_PATH" | grep "DLL Name"
+        echo "--- PATH variable --- "
+        echo "$PATH"
+        # Prepare for artifact upload by copying to a predictable name
+        cp "$SO_PATH" ./date_core.so.diagnostic
+    - name: Upload diagnostic .so (mingw on windows-latest)
+      if: matrix.os == 'windows-latest' && matrix.ruby == 'mingw'
+      uses: actions/upload-artifact@v4
+      with:
+        name: date_core_mingw_ucrt_${{ matrix.ruby }}.so
+        path: ./date_core.so.diagnostic
+        if-no-files-found: error
+    - name: Run test (execute tests)
+      run: bundle exec rake test
