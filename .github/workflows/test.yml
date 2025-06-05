@@ -58,7 +58,7 @@ jobs:
       run: bundle exec rake compile
     - name: Diagnose DLLs (mingw on windows-latest)
       if: matrix.os == 'windows-latest'
-      shell: msys2 {0} # Use MSYS2 shell for objdump and consistent PATH
+      shell: bash
       run: |
         echo "--- Ruby Version --- "
         ruby -v
