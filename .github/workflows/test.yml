@@ -68,8 +68,8 @@ jobs:
         RUBY_VERSION_OUTPUT=$(ruby -e 'print RUBY_VERSION')
         # For mingw builds, ext.platform from Rake::ExtensionTask usually becomes something like x64-mingw-ucrt
         # We'll use the platform string directly from the error message if it matches RUBY_VERSION_OUTPUT
-        SO_DIR_PLATFORM="x64-mingw-ucrt"
-        SO_PATH="${GITHUB_WORKSPACE}/lib/${RUBY_VERSION_OUTPUT}/${SO_DIR_PLATFORM}/date_core.so"
+        SO_PATH=("${GITHUB_WORKSPACE}/lib/${RUBY_VERSION_OUTPUT}"/*/date_core.so)
+        SO_PATH="${SO_PATH[0]}"
 
         echo "Checking for .so file at: $SO_PATH"
         if [ ! -f "$SO_PATH" ]; then
