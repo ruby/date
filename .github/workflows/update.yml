@@ -10,7 +10,7 @@ jobs:
     name: update zonetab
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - name: Set up Ruby
       run: sudo apt-get --no-install-recommends -q -y install ruby-dev gperf
     - name: Install dependencies
