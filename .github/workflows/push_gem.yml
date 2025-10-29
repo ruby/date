@@ -39,8 +39,8 @@ jobs:
           bundler-cache: true
           ruby-version: ${{ matrix.ruby }}
 
-      - name: Install dependencies and build for JRuby
-        run: rake compile
+      - name: Build gem for JRuby
+        run: rake build
         if: matrix.ruby == 'jruby'
 
       - name: Publish to RubyGems
