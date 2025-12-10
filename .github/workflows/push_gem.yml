@@ -36,8 +36,10 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@d5126b9b3579e429dd52e51e68624dda2e05be25 # v1.267.0
         with:
-          bundler-cache: true
           ruby-version: ${{ matrix.ruby }}
+
+      - name: Install dependencies
+        run: bundle install --jobs 4 --retry 3
 
       - name: Build gem for JRuby
         run: rake build
