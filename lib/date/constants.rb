@@ -72,14 +72,14 @@ class Date
 
   # Days in each month (non-leap and leap year)
   MONTH_DAYS = [
-    [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31],  # non-leap
-    [0, 31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]   # leap
+    [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31].freeze,  # non-leap
+    [0, 31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31].freeze   # leap
   ].freeze
   private_constant :MONTH_DAYS
 
   YEARTAB = [
-    [0, 0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334],  # non-leap
-    [0, 0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335]   # leap
+    [0, 0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334].freeze,  # non-leap
+    [0, 0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335].freeze   # leap
   ].freeze
   private_constant :YEARTAB
 

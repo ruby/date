@@ -29,6 +29,50 @@ class Date
   #
   # Related: Date.jd.
   def initialize(year = -4712, month = 1, day = 1, start = DEFAULT_SG)
+    # Fast path: Integer arguments, Gregorian calendar
+    # Avoids self.class.send, Hash allocation, redundant decode_year
+    if year.is_a?(Integer) && year.abs < 579000 && month.is_a?(Integer) && day.is_a?(Integer)
+      gregorian_fast = if start.is_a?(Float) && start.infinite?
+                         start < 0  # GREGORIAN (-Infinity) only
+                       elsif start.is_a?(Integer) && start >= REFORM_BEGIN_JD && start <= REFORM_END_JD
+                         year > REFORM_END_YEAR
+                       end
+
+      if gregorian_fast
+        m = month
+        m += 13 if m < 0
+        raise Error unless m >= 1 && m <= 12
+
+        leap = (year % 4 == 0) && (year % 100 != 0 || year % 400 == 0)
+        last = MONTH_DAYS[leap ? 1 : 0][m]
+        d = day
+        d = last + d + 1 if d < 0
+        raise Error unless d >= 1 && d <= last
+
+        j = (m < 3) ? 1 : 0
+        y0 = year - j
+        m0 = j.nonzero? ? m + 12 : m
+        d0 = d - 1
+        q1 = y0 / 100
+        yc = (NS_DAYS_IN_4_YEARS * y0) / 4 - q1 + q1 / 4
+        mc = (NS_DAYS_BEFORE_NEW_YEAR * m0 - 914) / 10
+
+        @nth = 0
+        @jd = yc + mc + d0 + NS_EPOCH
+        @sg = start
+        @year = year
+        @month = m
+        @day = d
+        @has_jd = true
+        @has_civil = true
+        @df = nil
+        @sf = nil
+        @of = nil
+        return self
+      end
+    end
+
+    # Original path: handles non-Integer args, Julian/reform dates, fractional days
     y = year
     m = month
     d = day
@@ -135,6 +179,21 @@ class Date
     #
     # Related: Date.jd, Date.new.
     def valid_civil?(year, month, day, start = DEFAULT_SG)
+      # Fast path: Integer args, non-Julian start
+      if year.is_a?(Integer) && month.is_a?(Integer) && day.is_a?(Integer)
+        gregorian_fast = if start.is_a?(Float) && start.infinite?
+                           start < 0
+                         elsif start.is_a?(Integer) && start >= REFORM_BEGIN_JD && start <= REFORM_END_JD
+                           true
+                         end
+
+        if gregorian_fast
+          return false if month < 1 || month > 12
+          leap = (year % 4 == 0) && (year % 100 != 0 || year % 400 == 0)
+          return day >= 1 && day <= MONTH_DAYS[leap ? 1 : 0][month]
+        end
+      end
+
       return false unless numeric?(year)
       return false unless numeric?(month)
       return false unless numeric?(day)
@@ -170,6 +229,32 @@ class Date
     #
     # Related: Date.new.
     def jd(jd = 0, start = DEFAULT_SG)
+      # Fast path: Integer jd in common range, valid start
+      if jd.is_a?(Integer) && jd >= 0 && jd < CM_PERIOD
+        valid_start = if start.is_a?(Float) && start.infinite?
+                        true
+                      elsif start.is_a?(Integer) && start >= REFORM_BEGIN_JD && start <= REFORM_END_JD
+                        true
+                      end
+
+        if valid_start
+          obj = allocate
+          obj.instance_variable_set(:@nth, 0)
+          obj.instance_variable_set(:@jd, jd)
+          obj.instance_variable_set(:@sg, start)
+          obj.instance_variable_set(:@year, 0)
+          obj.instance_variable_set(:@month, 0)
+          obj.instance_variable_set(:@day, 0)
+          obj.instance_variable_set(:@has_jd, true)
+          obj.instance_variable_set(:@has_civil, false)
+          obj.instance_variable_set(:@df, nil)
+          obj.instance_variable_set(:@sf, nil)
+          obj.instance_variable_set(:@of, nil)
+          return obj
+        end
+      end
+
+      # Original path
       j = 0
       fr = 0
       sg = start
@@ -203,11 +288,11 @@ class Date
     #
     # Related: Date.jd.
     def valid_jd?(jd, start = DEFAULT_SG)
-      return false unless numeric?(jd)
+      # All Numeric jd values are valid; skip valid_jd_sub/valid_sg chain
+      return true if jd.is_a?(Numeric)
+      return true if jd.respond_to?(:to_int)
 
-      result = valid_jd_sub(jd, start, 0)
-
-      !result.nil?
+      false
     end
 
     # call-seq:
@@ -221,6 +306,9 @@ class Date
     #
     # Related: Date.julian_leap?.
     def gregorian_leap?(year)
+      if year.is_a?(Integer)
+        return (year % 4 == 0) && (year % 100 != 0 || year % 400 == 0)
+      end
       raise TypeError, "invalid year (not numeric)" unless numeric?(year)
 
       _, ry = decode_year(year, -1)
@@ -240,6 +328,9 @@ class Date
     #
     # Related: Date.gregorian_leap?.
     def julian_leap?(year)
+      if year.is_a?(Integer)
+        return (year % 4).zero?
+      end
       raise TypeError, "invalid year (not numeric)" unless numeric?(year)
 
       _, ry = decode_year(year, +1)
@@ -276,6 +367,40 @@ class Date
     #
     # Related: Date.jd, Date.new.
     def ordinal(year = -4712, yday = 1, start = DEFAULT_SG)
+      # Fast path: Integer args, Gregorian calendar
+      if year.is_a?(Integer) && year.abs < 579000 && yday.is_a?(Integer)
+        gregorian_fast = if start.is_a?(Float) && start.infinite?
+                           start < 0
+                         elsif start.is_a?(Integer) && start >= REFORM_BEGIN_JD && start <= REFORM_END_JD
+                           year > REFORM_END_YEAR
+                         end
+
+        if gregorian_fast
+          leap = (year % 4 == 0) && (year % 100 != 0 || year % 400 == 0)
+          days_in_year = leap ? 366 : 365
+          d = yday
+          d = days_in_year + d + 1 if d < 0
+          raise Error unless d >= 1 && d <= days_in_year
+
+          rjd = c_gregorian_civil_to_jd(year, 1, 1) + d - 1
+
+          obj = allocate
+          obj.instance_variable_set(:@nth, 0)
+          obj.instance_variable_set(:@jd, rjd)
+          obj.instance_variable_set(:@sg, start)
+          obj.instance_variable_set(:@year, 0)
+          obj.instance_variable_set(:@month, 0)
+          obj.instance_variable_set(:@day, 0)
+          obj.instance_variable_set(:@has_jd, true)
+          obj.instance_variable_set(:@has_civil, false)
+          obj.instance_variable_set(:@df, nil)
+          obj.instance_variable_set(:@sf, nil)
+          obj.instance_variable_set(:@of, nil)
+          return obj
+        end
+      end
+
+      # Original path
       y = year
       d = yday
       fr2 = 0
@@ -317,6 +442,23 @@ class Date
     #
     # Related: Date.jd, Date.ordinal.
     def valid_ordinal?(year, day, start = DEFAULT_SG)
+      # Fast path: Integer args, non-Julian start
+      if year.is_a?(Integer) && day.is_a?(Integer)
+        gregorian_fast = if start.is_a?(Float) && start.infinite?
+                           start < 0
+                         elsif start.is_a?(Integer) && start >= REFORM_BEGIN_JD && start <= REFORM_END_JD
+                           true
+                         end
+
+        if gregorian_fast
+          leap = (year % 4 == 0) && (year % 100 != 0 || year % 400 == 0)
+          days_in_year = leap ? 366 : 365
+          d = day
+          d = days_in_year + d + 1 if d < 0
+          return d >= 1 && d <= days_in_year
+        end
+      end
+
       return false unless numeric?(year)
       return false unless numeric?(day)
 
@@ -368,6 +510,55 @@ class Date
     #
     # Related: Date.jd, Date.new, Date.ordinal.
     def commercial(cwyear = -4712, cweek = 1, cwday = 1, start = DEFAULT_SG)
+      # Fast path: Integer args, Gregorian calendar
+      if cwyear.is_a?(Integer) && cwyear.abs < 579000 && cweek.is_a?(Integer) && cwday.is_a?(Integer)
+        gregorian_fast = if start.is_a?(Float) && start.infinite?
+                           start < 0
+                         elsif start.is_a?(Integer) && start >= REFORM_BEGIN_JD && start <= REFORM_END_JD
+                           cwyear > REFORM_END_YEAR
+                         end
+
+        if gregorian_fast
+          # Validate cwday (handle negative)
+          d = cwday
+          d += 8 if d < 0
+          raise Error unless d >= 1 && d <= 7
+
+          # JD of Jan 1 and ISO week metadata
+          jd_jan1 = c_gregorian_civil_to_jd(cwyear, 1, 1)
+
+          # Max ISO weeks: 53 if Jan 1 is Thursday, or leap year and Jan 1 is Wednesday
+          p_val = (jd_jan1 + 1) % 7  # 0=Sun..6=Sat
+          p_val = 7 if p_val == 0     # Convert to ISO (1=Mon..7=Sun)
+          leap = (cwyear % 4 == 0) && (cwyear % 100 != 0 || cwyear % 400 == 0)
+          max_weeks = (p_val == 4 || (leap && p_val == 3)) ? 53 : 52
+
+          # Handle negative week
+          w = cweek
+          w = max_weeks + w + 1 if w < 0
+          raise Error unless w >= 1 && w <= max_weeks
+
+          # Compute JD: Monday of week 1 + offset
+          rjd2 = jd_jan1 + 3
+          rjd = (rjd2 - (rjd2 % 7)) + 7 * (w - 1) + (d - 1)
+
+          obj = allocate
+          obj.instance_variable_set(:@nth, 0)
+          obj.instance_variable_set(:@jd, rjd)
+          obj.instance_variable_set(:@sg, start)
+          obj.instance_variable_set(:@year, 0)
+          obj.instance_variable_set(:@month, 0)
+          obj.instance_variable_set(:@day, 0)
+          obj.instance_variable_set(:@has_jd, true)
+          obj.instance_variable_set(:@has_civil, false)
+          obj.instance_variable_set(:@df, nil)
+          obj.instance_variable_set(:@sf, nil)
+          obj.instance_variable_set(:@of, nil)
+          return obj
+        end
+      end
+
+      # Original path
       y = cwyear
       w = cweek
       d = cwday
@@ -418,6 +609,34 @@ class Date
     #
     # Related: Date.jd, Date.commercial.
     def valid_commercial?(year, week, day, start = DEFAULT_SG)
+      # Fast path: Integer args, non-Julian start
+      if year.is_a?(Integer) && week.is_a?(Integer) && day.is_a?(Integer)
+        gregorian_fast = if start.is_a?(Float) && start.infinite?
+                           start < 0
+                         elsif start.is_a?(Integer) && start >= REFORM_BEGIN_JD && start <= REFORM_END_JD
+                           true
+                         end
+
+        if gregorian_fast
+          # Validate cwday (handle negative)
+          d = day
+          d += 8 if d < 0
+          return false unless d >= 1 && d <= 7
+
+          # Max ISO weeks: 53 if Jan 1 is Thursday, or leap year and Jan 1 is Wednesday
+          jd_jan1 = c_gregorian_civil_to_jd(year, 1, 1)
+          p_val = (jd_jan1 + 1) % 7  # 0=Sun..6=Sat
+          p_val = 7 if p_val == 0     # Convert to ISO (1=Mon..7=Sun)
+          leap = (year % 4 == 0) && (year % 100 != 0 || year % 400 == 0)
+          max_weeks = (p_val == 4 || (leap && p_val == 3)) ? 53 : 52
+
+          # Handle negative week
+          w = week
+          w = max_weeks + w + 1 if w < 0
+          return w >= 1 && w <= max_weeks
+        end
+      end
+
       return false unless numeric?(year)
       return false unless numeric?(week)
       return false unless numeric?(day)
@@ -436,39 +655,17 @@ class Date
     #
     # See argument {start}[rdoc-ref:language/calendars.rdoc@Argument+start].
     def today(start = DEFAULT_SG)
-      begin
-        time = Time.now
-      rescue
-        raise SystemCallError, "time"
-      end
-
-      begin
-        y = time.year
-        m = time.month
-        d = time.day
-      rescue
-        raise SystemCallError, "localtime"
-      end
-
-      nth, ry, _, _ = decode_year(y, -1)
+      time = Time.now
 
       obj = allocate
-      obj.instance_variable_set(:@nth, nth)
-      obj.instance_variable_set(:@year, ry)
-      obj.instance_variable_set(:@month, m)
-      obj.instance_variable_set(:@day, d)
+      obj.instance_variable_set(:@nth, 0)
+      obj.instance_variable_set(:@year, time.year)
+      obj.instance_variable_set(:@month, time.mon)
+      obj.instance_variable_set(:@day, time.mday)
       obj.instance_variable_set(:@jd, nil)
-      obj.instance_variable_set(:@sg, GREGORIAN)
+      obj.instance_variable_set(:@sg, start)
       obj.instance_variable_set(:@has_jd, false)
       obj.instance_variable_set(:@has_civil, true)
-
-      if start != GREGORIAN
-        obj.instance_variable_set(:@sg, start)
-        if obj.instance_variable_get(:@has_jd)
-          obj.instance_variable_set(:@jd, nil)
-          obj.instance_variable_set(:@has_jd, false)
-        end
-      end
 
       obj
     end
@@ -808,9 +1005,7 @@ class Date
       return nil if month < 1 || month > 12
 
       leap_year = start == JULIAN ? julian_leap?(year) : gregorian_leap?(year)
-
-      days_in_month = [nil, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
-      max_day = (month == 2 && leap_year) ? 29 : days_in_month[month]
+      max_day = MONTH_DAYS[leap_year ? 1 : 0][month]
 
       return nil if day < 1 || day > max_day
 
@@ -1137,13 +1332,7 @@ class Date
     end
 
     def c_gregorian_last_day_of_month(year, month)
-      days_in_month = [nil, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
-
-      if month == 2 && gregorian_leap?(year)
-        29
-      else
-        days_in_month[month]
-      end
+      MONTH_DAYS[gregorian_leap?(year) ? 1 : 0][month]
     end
 
     def c_civil_to_jd(year, month, day, sg)
@@ -1341,18 +1530,7 @@ class Date
 
     def new_with_jd_and_time(nth, jd, df, sf, of, start)
       obj = allocate
-      obj.instance_variable_set(:@nth, nth)
-      obj.instance_variable_set(:@jd, jd)
-      obj.instance_variable_set(:@sg, start)
-      obj.instance_variable_set(:@df, df)
-      obj.instance_variable_set(:@sf, sf)
-      obj.instance_variable_set(:@of, of)
-      obj.instance_variable_set(:@year, nil)
-      obj.instance_variable_set(:@month, nil)
-      obj.instance_variable_set(:@day, nil)
-      obj.instance_variable_set(:@has_jd, true)
-      obj.instance_variable_set(:@has_civil, false)
-
+      obj.send(:_init_with_jd, nth, jd, df, sf, of, start)
       obj
     end
 
@@ -1586,6 +1764,16 @@ class Date
   #
   #     d <=> Object.new # => nil
   def <=>(other)
+    if other.is_a?(Date) &&
+       @df.nil? && @sf.nil? && @of.nil? && @nth == 0 && @has_jd &&
+       other.instance_variable_get(:@nth) == 0 &&
+       other.instance_variable_get(:@has_jd) &&
+       other.instance_variable_get(:@df).nil? &&
+       other.instance_variable_get(:@sf).nil? &&
+       other.instance_variable_get(:@of).nil?
+      return @jd <=> other.instance_variable_get(:@jd)
+    end
+
     case other
     when Date
       m_canonicalize_jd
@@ -1625,6 +1813,32 @@ class Date
     end
   end
 
+  def <(other) # :nodoc:
+    if other.is_a?(Date) &&
+       @df.nil? && @sf.nil? && @of.nil? && @nth == 0 && @has_jd &&
+       other.instance_variable_get(:@nth) == 0 &&
+       other.instance_variable_get(:@has_jd) &&
+       other.instance_variable_get(:@df).nil? &&
+       other.instance_variable_get(:@sf).nil? &&
+       other.instance_variable_get(:@of).nil?
+      return @jd < other.instance_variable_get(:@jd)
+    end
+    super
+  end
+
+  def >(other) # :nodoc:
+    if other.is_a?(Date) &&
+       @df.nil? && @sf.nil? && @of.nil? && @nth == 0 && @has_jd &&
+       other.instance_variable_get(:@nth) == 0 &&
+       other.instance_variable_get(:@has_jd) &&
+       other.instance_variable_get(:@df).nil? &&
+       other.instance_variable_get(:@sf).nil? &&
+       other.instance_variable_get(:@of).nil?
+      return @jd > other.instance_variable_get(:@jd)
+    end
+    super
+  end
+
   # call-seq:
   #   self === other -> true, false, or nil.
   #
@@ -1659,6 +1873,17 @@ class Date
   #
   #     d === Object.new # => nil
   def ===(other)
+    if other.is_a?(Date) &&
+       @df.nil? && @sf.nil? && @of.nil? && @nth == 0 && @has_jd &&
+       @jd >= 0 && @jd < CM_PERIOD &&
+       other.instance_variable_get(:@nth) == 0 &&
+       other.instance_variable_get(:@has_jd) &&
+       other.instance_variable_get(:@df).nil? &&
+       other.instance_variable_get(:@sf).nil? &&
+       other.instance_variable_get(:@of).nil?
+      return @jd == other.instance_variable_get(:@jd)
+    end
+
     return equal_gen(other) unless other.is_a?(Date)
 
     # Call equal_gen even if the Gregorian calendars do not match.
@@ -1700,6 +1925,29 @@ class Date
   #   d1 = d0 >> 1  # => #<Date: 2001-02-28>
   #   d2 = d1 >> -1 # => #<Date: 2001-01-28>
   def >>(n)
+    if n.is_a?(Integer) && @of.nil? && @nth == 0 && @has_civil
+      sg = @sg
+      gregorian_fast = if sg.is_a?(Float) && sg.infinite?
+                         sg < 0
+                       elsif sg.is_a?(Integer) && sg >= REFORM_BEGIN_JD && sg <= REFORM_END_JD
+                         @year > REFORM_END_YEAR
+                       end
+      if gregorian_fast
+        t = @year * 12 + (@month - 1) + n
+        y = t / 12
+        m = (t % 12) + 1
+        d = @day
+
+        leap = (y % 4 == 0) && (y % 100 != 0 || y % 400 == 0)
+        last = MONTH_DAYS[leap ? 1 : 0][m]
+        d = last if d > last
+
+        obj = self.class.allocate
+        obj._init_simple_with_civil(y, m, d, sg)
+        return obj
+      end
+    end
+
     # Calculate years and months
     t = m_real_year * 12 + (m_mon - 1) + n
 
@@ -1758,12 +2006,71 @@ class Date
   #   d1 = d0 << 1  # => #<Date: 2001-02-28>
   #   d2 = d1 << -1 # => #<Date: 2001-03-28>
   def <<(n)
+    if n.is_a?(Integer) && @of.nil? && @nth == 0 && @has_civil
+      sg = @sg
+      gregorian_fast = if sg.is_a?(Float) && sg.infinite?
+                         sg < 0
+                       elsif sg.is_a?(Integer) && sg >= REFORM_BEGIN_JD && sg <= REFORM_END_JD
+                         @year > REFORM_END_YEAR
+                       end
+      if gregorian_fast
+        t = @year * 12 + (@month - 1) - n
+        y = t / 12
+        m = (t % 12) + 1
+        d = @day
+
+        leap = (y % 4 == 0) && (y % 100 != 0 || y % 400 == 0)
+        last = MONTH_DAYS[leap ? 1 : 0][m]
+        d = last if d > last
+
+        obj = self.class.allocate
+        obj._init_simple_with_civil(y, m, d, sg)
+        return obj
+      end
+    end
+
     raise TypeError, "expected numeric" unless n.is_a?(Numeric)
 
-    self >> (-n)
+    t = m_real_year * 12 + (m_mon - 1) - n
+
+    if t.is_a?(Integer) && t.abs < (1 << 62)
+      y = t / 12
+      m = (t % 12) + 1
+    else
+      y = t.div(12)
+      m = (t % 12).to_i + 1
+    end
+
+    d = m_mday
+    sg = m_sg
+
+    result = nil
+    loop do
+      result = self.class.send(:valid_civil_p, y, m, d, sg)
+      break if result
+
+      d -= 1
+      raise Error if d < 1
+    end
+
+    nth = result[:nth]
+    rjd = result[:rjd]
+    rjd2 = self.class.send(:encode_jd, nth, rjd)
+
+    self + (rjd2 - m_real_local_jd)
   end
 
   def ==(other) # :nodoc:
+    if other.is_a?(Date) &&
+       @df.nil? && @sf.nil? && @of.nil? && @nth == 0 && @has_jd &&
+       other.instance_variable_get(:@nth) == 0 &&
+       other.instance_variable_get(:@has_jd) &&
+       other.instance_variable_get(:@df).nil? &&
+       other.instance_variable_get(:@sf).nil? &&
+       other.instance_variable_get(:@of).nil?
+      return @jd == other.instance_variable_get(:@jd)
+    end
+
     return false unless other.is_a?(Date)
 
     m_canonicalize_jd
@@ -1776,6 +2083,17 @@ class Date
   end
 
   def eql?(other) # :nodoc:
+    if other.is_a?(Date) &&
+       @df.nil? && @sf.nil? && @of.nil? && @nth == 0 && @has_jd &&
+       other.instance_variable_get(:@nth) == 0 &&
+       other.instance_variable_get(:@has_jd) &&
+       other.instance_variable_get(:@df).nil? &&
+       other.instance_variable_get(:@sf).nil? &&
+       other.instance_variable_get(:@of).nil?
+      return @jd == other.instance_variable_get(:@jd) &&
+             @sg == other.instance_variable_get(:@sg)
+    end
+
     return false unless other.is_a?(Date)
 
     m_canonicalize_jd
@@ -1787,6 +2105,10 @@ class Date
   end
 
   def hash # :nodoc:
+    if @df.nil? && @sf.nil? && @of.nil? && @nth == 0 && @has_jd &&
+       @jd >= 0 && @jd < CM_PERIOD
+      return [0, @jd, @sg].hash
+    end
     m_canonicalize_jd
     [m_nth, m_jd, @sg].hash
   end
@@ -1806,6 +2128,34 @@ class Date
   #    DateTime.jd(0,12) + DateTime.new(2001,2,3).ajd
   #                              #=> #<DateTime: 2001-02-03T00:00:00+00:00 ...>
   def +(other)
+    if other.is_a?(Integer) && @of.nil? && @nth == 0
+      if @has_jd
+        jd = @jd + other
+      elsif @has_civil
+        sg = @sg
+        gregorian_fast = if sg.is_a?(Float) && sg.infinite?
+                           sg < 0
+                         elsif sg.is_a?(Integer) && sg >= REFORM_BEGIN_JD && sg <= REFORM_END_JD
+                           @year > REFORM_END_YEAR
+                         end
+        if gregorian_fast
+          j = (@month < 3) ? 1 : 0
+          y0 = @year - j
+          m0 = j.nonzero? ? @month + 12 : @month
+          d0 = @day - 1
+          q1 = y0 / 100
+          yc = (NS_DAYS_IN_4_YEARS * y0) / 4 - q1 + q1 / 4
+          mc = (NS_DAYS_BEFORE_NEW_YEAR * m0 - 914) / 10
+          jd = yc + mc + d0 + NS_EPOCH + other
+        end
+      end
+      if jd && jd >= 0 && jd < CM_PERIOD
+        obj = self.class.allocate
+        obj._init_simple_with_jd(jd, @sg)
+        return obj
+      end
+    end
+
     case other
     when Integer
       nth = m_nth
@@ -1821,11 +2171,13 @@ class Date
         nth, jd = canonicalize_jd(nth, jd)
       end
 
+      obj = self.class.allocate
       if simple_dat_p?
-        self.class.send(:new_with_jd, nth, jd, @sg)
+        obj._init_with_jd(nth, jd, nil, nil, nil, @sg)
       else
-        self.class.send(:new_with_jd_and_time, nth, jd, @df || 0, @sf || 0, @of || 0, @sg)
+        obj._init_with_jd(nth, jd, @df || 0, @sf || 0, @of || 0, @sg)
       end
+      obj
     when Float
       s = other >= 0 ? 1 : -1
       o = other.abs
@@ -1884,11 +2236,13 @@ class Date
 
       nth = nth.nonzero? ? @nth + nth : @nth
 
+      obj = self.class.allocate
       if df.zero? && sf.zero? && (@of.nil? || @of.zero?)
-        self.class.send(:new_with_jd, nth, jd, @sg)
+        obj._init_with_jd(nth, jd, nil, nil, nil, @sg)
       else
-        self.class.send(:new_with_jd_and_time, nth, jd, df, sf, @of || 0, @sg)
+        obj._init_with_jd(nth, jd, df, sf, @of || 0, @sg)
       end
+      obj
     when Rational
       return self + other.numerator if other.denominator == 1
 
@@ -1949,11 +2303,13 @@ class Date
 
       nth = nth.nonzero? ? @nth + nth : @nth
 
+      obj = self.class.allocate
       if df.zero? && sf.zero?
-        self.class.send(:new_with_jd, nth, jd, @sg)
+        obj._init_with_jd(nth, jd, nil, nil, nil, @sg)
       else
-        self.class.send(:new_with_jd_and_time, nth, jd, df, sf, @of || 0, @sg)
+        obj._init_with_jd(nth, jd, df, sf, @of || 0, @sg)
       end
+      obj
     else
       raise TypeError, "expected numeric" unless other.is_a?(Numeric)
 
@@ -1979,6 +2335,15 @@ class Date
   #     Date.new(2001,2,3) - Date.new(2001)                 #=> (33/1)
   #     DateTime.new(2001,2,3) - DateTime.new(2001,2,2,12)  #=> (1/2)
   def -(other)
+    if other.is_a?(Integer) && @of.nil? && @nth == 0 && @has_jd
+      jd = @jd - other
+      if jd >= 0 && jd < CM_PERIOD
+        obj = self.class.allocate
+        obj._init_simple_with_jd(jd, @sg)
+        return obj
+      end
+    end
+
     return minus_dd(other) if other.is_a?(Date)
 
     raise TypeError, "expected numeric" unless other.is_a?(Numeric)
@@ -2833,6 +3198,40 @@ class Date
     self.class.send(:valid_civil_date?, year, month, day, sg)
   end
 
+  protected
+
+  def _init_with_jd(nth, jd, df, sf, of, start)
+    @nth = nth
+    @jd = jd
+    @sg = start
+    @df = df
+    @sf = sf
+    @of = of
+    @year = nil
+    @month = nil
+    @day = nil
+    @has_jd = true
+    @has_civil = false
+  end
+
+  def _init_simple_with_jd(jd, start)
+    @nth = 0
+    @jd = jd
+    @sg = start
+    @has_jd = true
+  end
+
+  def _init_simple_with_civil(year, month, day, start)
+    @nth = 0
+    @sg = start
+    @year = year
+    @month = month
+    @day = day
+    @has_civil = true
+  end
+
+  private
+
   def canonicalize_jd(nth, jd)
     if jd < 0
       nth = nth - 1
@@ -3114,6 +3513,8 @@ class Date
   end
 
   def m_real_year
+    return @year if @nth == 0 && @has_civil
+
     nth = @nth
     year = m_year
 
@@ -3123,14 +3524,16 @@ class Date
   end
 
   def m_mon
-    simple_dat_p? ? get_s_civil : get_c_civil
+    return @month if @has_civil
 
+    simple_dat_p? ? get_s_civil : get_c_civil
     @month
   end
 
   def m_mday
-    simple_dat_p? ? get_s_civil : get_c_civil
+    return @day if @has_civil
 
+    simple_dat_p? ? get_s_civil : get_c_civil
     @day
   end
 
@@ -3341,6 +3744,8 @@ class Date
   end
 
   def m_wday
+    return (@jd + 1) % 7 if @has_jd && @of.nil?
+
     c_jd_to_wday(m_local_jd)
   end
 
@@ -3349,6 +3754,15 @@ class Date
   end
 
   def m_yday
+    if @has_civil && @of.nil?
+      sg = @sg
+      if (sg.is_a?(Float) && sg.infinite? && sg < 0) ||
+         (sg.is_a?(Integer) && @has_jd && (@jd - sg) > 366)
+        leap = self.class.send(:c_gregorian_leap_p?, @year)
+        return YEARTAB[leap ? 1 : 0][@month] + @day
+      end
+    end
+
     jd = m_local_jd
     sg = m_virtual_sg
 
