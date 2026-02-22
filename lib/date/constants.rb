@@ -161,6 +161,31 @@ class Date
   NUM_PATTERN_SPECS = "CDdeFGgHIjkLlMmNQRrSsTUuVvWwXxYy"
   private_constant :NUM_PATTERN_SPECS
 
+  # Precomputed byte-indexed boolean table for num_pattern_p.
+  # Entry is true if the byte value corresponds to a digit-consuming %-specifier.
+  NUM_PATTERN_SPECS_TABLE = begin
+    t = Array.new(256, false)
+    NUM_PATTERN_SPECS.each_byte { |b| t[b] = true }
+    t.freeze
+  end
+  private_constant :NUM_PATTERN_SPECS_TABLE
+
+  # Precomputed zero-padded two-digit strings "00".."99".
+  TWO_DIGIT = (0..99).map { |i| (i < 10 ? "0#{i}" : i.to_s).freeze }.freeze
+  private_constant :TWO_DIGIT
+
+  # Precomputed zero-padded four-digit year strings "0000".."9999".
+  FOUR_DIGIT = (0..9999).map { |y| sprintf("%04d", y).freeze }.freeze
+  private_constant :FOUR_DIGIT
+
+  # Integer bitmask flags for strftime format modifier parsing.
+  FLAG_MINUS  = 0x01  # '-' suppress padding
+  FLAG_SPACE  = 0x02  # '_' space padding
+  FLAG_UPPER  = 0x04  # '^' upcase result
+  FLAG_CHCASE = 0x08  # '#' change case (CHCASE)
+  FLAG_ZERO   = 0x10  # '0' zero padding (explicit)
+  private_constant :FLAG_MINUS, :FLAG_SPACE, :FLAG_UPPER, :FLAG_CHCASE, :FLAG_ZERO
+
   # Fragment completion table for DateTime parsing
   COMPLETE_FRAGS_TABLE = [
     [:time,       [:hour, :min, :sec].freeze],
@@ -176,4 +201,35 @@ class Date
     [nil,         [:year, :wnum1, :cwday, :hour, :min, :sec].freeze],
   ].each { |a| a.freeze }.freeze
   private_constant :COMPLETE_FRAGS_TABLE
+
+  # Lookup tables for O(1) day/month name matching in strptime %a/%b.
+  # Key: 24-bit integer (b0|0x20)<<16|(b1|0x20)<<8|(b2|0x20) of lowercase 3-char abbreviation.
+  # Value: [index, full_lower, full_len, abbr_len].
+  # This avoids string allocation for the 3-char prefix key entirely.
+  STRPTIME_DAYNAME_BY_INT_KEY = begin
+    h = {}
+    DAYNAMES.each_with_index do |name, idx|
+      abbr = ABBR_DAYNAMES[idx]
+      k = ((abbr.getbyte(0) | 0x20) << 16) |
+          ((abbr.getbyte(1) | 0x20) << 8)  |
+           (abbr.getbyte(2) | 0x20)
+      h[k] = [idx, name.downcase, name.length, abbr.length].freeze
+    end
+    h.freeze
+  end
+  private_constant :STRPTIME_DAYNAME_BY_INT_KEY
+
+  STRPTIME_MONNAME_BY_INT_KEY = begin
+    h = {}
+    MONTHNAMES.each_with_index do |name, idx|
+      next unless name
+      abbr = ABBR_MONTHNAMES[idx]
+      k = ((abbr.getbyte(0) | 0x20) << 16) |
+          ((abbr.getbyte(1) | 0x20) << 8)  |
+           (abbr.getbyte(2) | 0x20)
+      h[k] = [idx, name.downcase, name.length, abbr.length].freeze
+    end
+    h.freeze
+  end
+  private_constant :STRPTIME_MONNAME_BY_INT_KEY
 end

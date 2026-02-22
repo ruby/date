@@ -20,6 +20,53 @@ class Date
     # Empty format returns empty string
     return '' if format.empty?
 
+    # Fast path: simple Date (no time/offset, @nth == 0) with civil fields cached.
+    # Covers the most common case for Date objects created via Date.new or Date.civil.
+    if @df.nil? && @sf.nil? && @of.nil? && @nth == 0 && @has_civil && !format.include?("\0")
+      y = @year
+      case format
+      when '%Y-%m-%d', '%F'
+        str = if y >= 0 && y <= 9999
+                "#{FOUR_DIGIT[y]}-#{TWO_DIGIT[@month]}-#{TWO_DIGIT[@day]}"
+              elsif y >= 0
+                sprintf("%04d-%02d-%02d", y, @month, @day)
+              else
+                sprintf("%05d-%02d-%02d", y, @month, @day)
+              end
+        return str.force_encoding(format.encoding)
+      when '%Y-%m-%dT%H:%M:%S%z'
+        str = if y >= 0 && y <= 9999
+                "#{FOUR_DIGIT[y]}-#{TWO_DIGIT[@month]}-#{TWO_DIGIT[@day]}T00:00:00+0000"
+              elsif y >= 0
+                sprintf("%04d-%02d-%02dT00:00:00+0000", y, @month, @day)
+              else
+                sprintf("%05d-%02d-%02dT00:00:00+0000", y, @month, @day)
+              end
+        return str.force_encoding(format.encoding)
+      when '%x'
+        # %x = %m/%d/%y
+        str = "#{TWO_DIGIT[@month]}/#{TWO_DIGIT[@day]}/#{TWO_DIGIT[y % 100]}"
+        return str.force_encoding(format.encoding)
+      end
+
+      # Formats that also require wday (needs @jd).
+      if @has_jd
+        wday = (@jd + 1) % 7
+        case format
+        when '%c'
+          # %c = %a %b %e %H:%M:%S %Y  (always 24 chars for 4-digit year)
+          ed = @day < 10 ? " #{@day}" : @day.to_s
+          y_str = (y >= 0 && y <= 9999) ? FOUR_DIGIT[y] : (y >= 0 ? sprintf("%04d", y) : sprintf("%05d", y))
+          str = "#{ABBR_DAYNAMES[wday]} #{ABBR_MONTHNAMES[@month]} #{ed} 00:00:00 #{y_str}"
+          return str.force_encoding(format.encoding)
+        when '%A, %B %d, %Y'
+          y_str = (y >= 0 && y <= 9999) ? FOUR_DIGIT[y] : (y >= 0 ? sprintf("%04d", y) : sprintf("%05d", y))
+          str = "#{DAYNAMES[wday]}, #{MONTHNAMES[@month]} #{TWO_DIGIT[@day]}, #{y_str}"
+          return str.force_encoding(format.encoding)
+        end
+      end
+    end
+
     # What to do if format string contains a "\0".
     if format.include?("\0")
       result = String.new
@@ -172,113 +219,204 @@ class Date
   end
 
   # Processing format strings.
+  # Uses format.index('%') to scan literal sections in bulk, avoiding
+  # per-character String allocation from format[i] indexing.
   def strftime_format(format)
     result = String.new
-    i = 0
+    pos = 0
+    fmt_len = format.length
 
-    while i < format.length
-      if format[i] == '%' && i + 1 < format.length
-        # Skip '%'
-        i += 1
+    # Detect simple Date (no time/offset) with both civil and JD fields cached.
+    # Precompute frequently accessed values to bypass the tmx_* method chain.
+    if @df.nil? && @sf.nil? && @of.nil? && @nth == 0 && @has_civil && @has_jd
+      f_year  = @year
+      f_month = @month
+      f_day   = @day
+      f_wday  = (@jd + 1) % 7
+      is_simple = true
+    else
+      is_simple = false
+    end
 
-        # C: Parse all modifiers in a flat loop (flags, width, colons, E/O)
-        flags = String.new
-        width = String.new
-        modifier = nil
-        colons = 0
+    while pos < fmt_len
+      # Find next '%' starting from current position.
+      pct = format.index('%', pos)
 
-        while i < format.length
-          c = format[i]
-          case c
-          when 'E', 'O'
-            modifier = c
-            i += 1
-          when ':'
-            colons += 1
-            i += 1
-          when '-', '_', '^', '#'
-            flags << c
-            i += 1
-          when '0'
-            # '0' is a flag only when width is still empty
-            if width.empty?
-              flags << c
-              i += 1
-            else
-              width << c
-              i += 1
-            end
-          when /[1-9]/
-            width << c
-            i += 1
-            # Continue reading remaining digits
-            while i < format.length && format[i] =~ /[0-9]/
-              width << format[i]
-              i += 1
-            end
+      if pct.nil?
+        # No more format specs — append remaining literal text as a block.
+        result << format[pos..] if pos < fmt_len
+        break
+      end
+
+      # Append literal text before this '%' as a single block copy.
+      result << format[pos, pct - pos] if pct > pos
+
+      i = pct + 1
+      if i >= fmt_len
+        # Trailing '%' with nothing after — append as literal (matches C behavior).
+        result << '%'
+        break
+      end
+
+      # Parse all modifiers in a flat loop (flags, width, colons, E/O).
+      # flags: integer bitmask (FLAG_MINUS | FLAG_SPACE | FLAG_UPPER | FLAG_CHCASE | FLAG_ZERO)
+      # width: integer (-1 = not specified)
+      flags = 0
+      width = -1
+      modifier = nil
+      colons = 0
+
+      while i < fmt_len
+        c = format[i]
+        case c
+        when 'E', 'O'
+          modifier = c
+          i += 1
+        when ':'
+          colons += 1
+          i += 1
+        when '-'
+          flags |= FLAG_MINUS
+          i += 1
+        when '_'
+          flags |= FLAG_SPACE
+          i += 1
+        when '^'
+          flags |= FLAG_UPPER
+          i += 1
+        when '#'
+          flags |= FLAG_CHCASE
+          i += 1
+        when '0'
+          # '0' is a flag only when width is not yet started
+          if width == -1
+            flags |= FLAG_ZERO
           else
-            break
+            width = width * 10
           end
-        end
-
-        # Invalid if both E/O and colon modifiers are present.
-        if modifier && colons > 0
-          if i < format.length
-            spec = format[i]
-            result << "%#{modifier}#{':' * colons}#{spec}"
+          i += 1
+        when '1'..'9'
+          width = format[i].ord - 48
+          i += 1
+          # Continue reading remaining digits
+          while i < fmt_len
+            d = format[i]
+            break if d < '0' || d > '9'
+            width = width * 10 + (d.ord - 48)
             i += 1
           end
-          next
+        else
+          break
         end
+      end
 
-        # Width specifier overflow check
-        unless width.empty?
-          if width.length > 10 || (width.length == 10 && width > '2147483647')
-            raise Errno::ERANGE, "Result too large"
-          end
-          if width.to_i >= 1024
-            raise Errno::ERANGE, "Result too large"
-          end
-        end
-
-        if i < format.length
+      # Invalid if both E/O and colon modifiers are present.
+      if modifier && colons > 0
+        if i < fmt_len
           spec = format[i]
-
-          if modifier
-            # E/O modifier check must come first
-            valid = case modifier
-            when 'E'
-              %w[c C x X y Y].include?(spec)
-            when 'O'
-              %w[d e H k I l m M S u U V w W y].include?(spec)
-            else
-              false
-            end
-
-            if valid
-              formatted = format_spec(spec, flags, width)
-              result << formatted
-            else
-              result << "%#{modifier}#{flags}#{width}#{spec}"
-            end
-          elsif spec == 'z'
-            # %z with any combination of colons/width/flags
-            formatted = format_z(tmx_offset, width, flags, colons)
-            result << formatted
-          elsif colons > 0
-            # Colon modifier is only valid for 'z'.
-            result << "%#{':' * colons}#{flags}#{width}#{spec}"
-          else
-            formatted = format_spec(spec, flags, width)
-            result << formatted
-          end
-
+          result << "%#{modifier}#{':' * colons}#{spec}"
           i += 1
         end
-      else
-        result << format[i]
+        pos = i
+        next
+      end
+
+      # Width specifier overflow check
+      if width != -1 && width >= 1024
+        raise Errno::ERANGE, "Result too large"
+      end
+
+      if i < fmt_len
+        spec = format[i]
+
+        if modifier
+          # E/O modifier check must come first
+          valid = case modifier
+                  when 'E'
+                    %w[c C x X y Y].include?(spec)
+                  when 'O'
+                    %w[d e H k I l m M S u U V w W y].include?(spec)
+                  else
+                    false
+                  end
+
+          if valid
+            result << format_spec(spec, flags, width)
+          else
+            result << "%#{modifier}#{flags_to_s(flags)}#{width == -1 ? '' : width}#{spec}"
+          end
+        elsif spec == 'z'
+          if is_simple && flags == 0 && width == -1 && colons == 0
+            # Simple Date: offset is always 0, result is always '+0000'.
+            result << '+0000'
+          else
+            result << format_z(tmx_offset, width, flags, colons)
+          end
+        elsif colons > 0
+          # Colon modifier is only valid for 'z'.
+          result << "%#{':' * colons}#{flags_to_s(flags)}#{width == -1 ? '' : width}#{spec}"
+        elsif is_simple && flags == 0 && width == -1
+          # Fast path: simple Date with no flags or width — bypass tmx_* method chain.
+          case spec
+          when 'Y'
+            raise Errno::ERANGE, "Result too large" if f_year.bit_length > 128
+            if f_year >= 0 && f_year <= 9999
+              result << FOUR_DIGIT[f_year]
+            else
+              result << sprintf("%0#{f_year < 0 ? 5 : 4}d", f_year)
+            end
+          when 'C'
+            c = f_year / 100
+            result << (c >= 0 && c < 100 ? TWO_DIGIT[c] : sprintf('%02d', c))
+          when 'y'
+            result << TWO_DIGIT[f_year % 100]
+          when 'm'
+            result << TWO_DIGIT[f_month]
+          when 'd'
+            result << TWO_DIGIT[f_day]
+          when 'e'
+            result << sprintf('%2d', f_day)
+          when 'A'
+            result << (DAYNAMES[f_wday] || '?')
+          when 'a'
+            result << (ABBR_DAYNAMES[f_wday] || '?')[0, 3]
+          when 'B'
+            result << (MONTHNAMES[f_month] || '?')
+          when 'b', 'h'
+            result << (ABBR_MONTHNAMES[f_month] || '?')[0, 3]
+          when 'H', 'M', 'S'
+            result << '00'
+          when 'I', 'l'
+            # hour=0 → h = 0%12 = 0 → h = 12
+            result << '12'
+          when 'k'
+            # sprintf('%2d', 0) = ' 0'
+            result << ' 0'
+          when 'P'
+            result << 'am'  # hour=0 < 12
+          when 'p'
+            result << 'AM'
+          when 'w'
+            result << f_wday.to_s
+          when 'Z'
+            result << '+00:00'
+          when '%'
+            result << '%'
+          when 'n'
+            result << "\n"
+          when 't'
+            result << "\t"
+          else
+            result << format_spec(spec, flags, width)
+          end
+        else
+          result << format_spec(spec, flags, width)
+        end
+
         i += 1
       end
+
+      pos = i
     end
 
     result.force_encoding('US-ASCII') if result.ascii_only?
@@ -286,11 +424,22 @@ class Date
     result
   end
 
-  def format_spec(spec, flags = '', width = '')
+  def flags_to_s(flags)
+    return '' if flags == 0
+    s = ''.dup
+    s << '-' if flags & FLAG_MINUS  != 0
+    s << '_' if flags & FLAG_SPACE  != 0
+    s << '^' if flags & FLAG_UPPER  != 0
+    s << '#' if flags & FLAG_CHCASE != 0
+    s << '0' if flags & FLAG_ZERO   != 0
+    s
+  end
+
+  def format_spec(spec, flags = 0, width = -1)
     # N/L: width controls precision (number of fractional digits)
     if spec == 'N' || spec == 'L'
-      precision = if !width.empty?
-                    width.to_i
+      precision = if width != -1
+                    width
                   elsif spec == 'L'
                     3
                   else
@@ -308,8 +457,7 @@ class Date
     base_result = apply_case_flags(base_result, spec, flags)
 
     # Apply width specifier.
-    if !width.empty?
-      width_num = width.to_i
+    if width != -1
       default_pad = if NUMERIC_SPECS.include?(spec)
                       '0'
                     elsif SPACE_PAD_SPECS.include?(spec)
@@ -317,7 +465,7 @@ class Date
                     else
                       ' '
                     end
-      apply_width(base_result, width_num, flags, default_pad)
+      apply_width(base_result, width, flags, default_pad)
     else
       base_result
     end
@@ -325,9 +473,9 @@ class Date
 
   # C: Apply ^ (UPPER) and # (CHCASE) flags
   def apply_case_flags(str, spec, flags)
-    if flags.include?('^')
+    if flags & FLAG_UPPER != 0
       str.upcase
-    elsif flags.include?('#')
+    elsif flags & FLAG_CHCASE != 0
       if CHCASE_UPPER_SPECS.include?(spec)
         str.upcase
       elsif CHCASE_LOWER_SPECS.include?(spec)
@@ -341,94 +489,99 @@ class Date
   end
 
   # format specifiers
-  def get_base_format(spec, flags = '')
+  def get_base_format(spec, flags = 0)
     case spec
     when 'Y' # 4-digit year
       y = tmx_year
       raise Errno::ERANGE, "Result too large" if y.is_a?(Integer) && y.bit_length > 128
       # C: FMT('0', y >= 0 ? 4 : 5, "ld", y)
-      prec = y < 0 ? 5 : 4
-      if flags.include?('-')
+      if flags & FLAG_MINUS != 0
         y.to_s
-      elsif flags.include?('_')
-        sprintf("%#{prec}d", y)
+      elsif flags & FLAG_SPACE != 0
+        sprintf("%#{y < 0 ? 5 : 4}d", y)
+      elsif y >= 0 && y <= 9999
+        FOUR_DIGIT[y]
       else
-        sprintf("%0#{prec}d", y)
+        sprintf("%0#{y < 0 ? 5 : 4}d", y)
       end
     when 'C' # Century
-      sprintf('%02d', tmx_year / 100)
+      c = tmx_year / 100
+      c >= 0 && c < 100 ? TWO_DIGIT[c] : sprintf('%02d', c)
     when 'y' # Two-digit year
-      sprintf('%02d', tmx_year % 100)
+      TWO_DIGIT[tmx_year % 100]
     when 'm' # Month (01-12)
-      sprintf('%02d', tmx_mon)
+      if flags & FLAG_MINUS != 0
+        tmx_mon.to_s
+      elsif flags & FLAG_SPACE != 0
+        sprintf('%2d', tmx_mon)
+      else
+        TWO_DIGIT[tmx_mon]
+      end
     when 'B' # Full month name
       MONTHNAMES[tmx_mon] || '?'
     when 'b', 'h' # Abbreviated month name
       (ABBR_MONTHNAMES[tmx_mon] || '?')[0, 3]
     when 'd' # Day (01-31)
-      if flags.include?('-')
-        # Left-justified (no padding)
+      if flags & FLAG_MINUS != 0
         tmx_mday.to_s
-      elsif flags.include?('_')
-        # Space-padded
+      elsif flags & FLAG_SPACE != 0
         sprintf('%2d', tmx_mday)
       else
-        # Zero-padded (default)
-        sprintf('%02d', tmx_mday)
+        TWO_DIGIT[tmx_mday]
       end
     when 'e' # Day (1-31) blank filled
-      if flags.include?('-')
+      if flags & FLAG_MINUS != 0
         tmx_mday.to_s
-      elsif flags.include?('0')
-        sprintf('%02d', tmx_mday)
+      elsif flags & FLAG_ZERO != 0
+        TWO_DIGIT[tmx_mday]
       else
         sprintf('%2d', tmx_mday)
       end
     when 'j' # Day of the year (001-366)
-      if flags.include?('-')
+      if flags & FLAG_MINUS != 0
         tmx_yday.to_s
       else
         sprintf('%03d', tmx_yday)
       end
     when 'H' # Hour (00-23)
-      if flags.include?('-')
+      if flags & FLAG_MINUS != 0
         tmx_hour.to_s
-      elsif flags.include?('_')
+      elsif flags & FLAG_SPACE != 0
         sprintf('%2d', tmx_hour)
       else
-        sprintf('%02d', tmx_hour)
+        TWO_DIGIT[tmx_hour]
       end
     when 'k' # Hour (0-23) blank-padded
       sprintf('%2d', tmx_hour)
     when 'I' # Hour (01-12)
       h = tmx_hour % 12
       h = 12 if h.zero?
-      if flags.include?('-')
+      if flags & FLAG_MINUS != 0
         h.to_s
-      elsif flags.include?('_')
+      elsif flags & FLAG_SPACE != 0
         sprintf('%2d', h)
       else
-        sprintf('%02d', h)
+        TWO_DIGIT[h]
       end
     when 'l' # Hour (1-12) blank filled
       h = tmx_hour % 12
       h = 12 if h.zero?
       sprintf('%2d', h)
     when 'M' # Minutes (00-59)
-      if flags.include?('-')
+      if flags & FLAG_MINUS != 0
         tmx_min.to_s
-      elsif flags.include?('_')
+      elsif flags & FLAG_SPACE != 0
         sprintf('%2d', tmx_min)
       else
-        sprintf('%02d', tmx_min)
+        TWO_DIGIT[tmx_min]
       end
     when 'S' # Seconds (00-59)
-      if flags.include?('-')
+      if flags & FLAG_MINUS != 0
         tmx_sec.to_s
-      elsif flags.include?('_')
+      elsif flags & FLAG_SPACE != 0
         sprintf('%2d', tmx_sec)
       else
-        sprintf('%02d', tmx_sec)
+        TWO_DIGIT[tmx_sec]
       end
     when 'L' # Milliseconds (000-999)
       sprintf('%09d', (tmx_sec_fraction * 1_000_000_000).floor)
@@ -451,25 +604,26 @@ class Date
     when 'u' # Day of the week (1-7, Monday is 1)
       tmx_cwday.to_s
     when 'U' # Week number (00-53, Sunday start)
-      sprintf('%02d', tmx_wnum0)
+      TWO_DIGIT[tmx_wnum0]
     when 'W' # Week number (00-53, Monday start)
-      sprintf('%02d', tmx_wnum1)
+      TWO_DIGIT[tmx_wnum1]
     when 'V' # ISO week number (01-53)
-      sprintf('%02d', tmx_cweek)
+      TWO_DIGIT[tmx_cweek]
     when 'G' # ISO week year
       y = tmx_cwyear
-      prec = y < 0 ? 5 : 4
-      if flags.include?('-')
+      if flags & FLAG_MINUS != 0
         y.to_s
-      elsif flags.include?('_')
-        sprintf("%#{prec}d", y)
+      elsif flags & FLAG_SPACE != 0
+        sprintf("%#{y < 0 ? 5 : 4}d", y)
+      elsif y >= 0 && y <= 9999
+        FOUR_DIGIT[y]
       else
-        sprintf("%0#{prec}d", y)
+        sprintf("%0#{y < 0 ? 5 : 4}d", y)
       end
     when 'g' # ISO week year (2 digits)
-      sprintf('%02d', tmx_cwyear % 100)
+      TWO_DIGIT[tmx_cwyear % 100]
     when 'z' # Time Zone Offset (+0900) — handled by format_z in format_spec
-      format_z(tmx_offset, '', '', 0)
+      format_z(tmx_offset, -1, 0, 0)
     when 'Z' # Time Zone Name
       tmx_zone || ''
     when 's' # Number of seconds since the Unix epoch
@@ -511,14 +665,14 @@ class Date
 
   def apply_width(str, width, flags, default_pad = ' ')
     # '-' flag means no padding at all
-    return str if flags.include?('-')
+    return str if flags & FLAG_MINUS != 0
     return str if str.length >= width
 
     # Determine a padding character.
     padding =
-      if flags.include?('0')
+      if flags & FLAG_ZERO != 0
         '0'
-      elsif flags.include?('_')
+      elsif flags & FLAG_SPACE != 0
         ' '
       else
         default_pad
@@ -529,7 +683,8 @@ class Date
 
   # C: format %z with width/flags/colons support
   # Matches date_strftime.c case 'z' logic exactly.
-  def format_z(offset, width_str, flags, colons)
+  # width: integer (-1 = not specified), flags: integer bitmask
+  def format_z(offset, width, flags, colons)
     sign = offset < 0 ? '-' : '+'
     aoff = offset.abs
     hours = aoff / 3600
@@ -538,9 +693,9 @@ class Date
 
     hl = hours < 10 ? 1 : 2  # actual digits needed for hours
     hw = 2                     # default hour width
-    hw = 1 if flags.include?('-') && hl == 1
+    hw = 1 if flags & FLAG_MINUS != 0 && hl == 1
 
-    precision = width_str.empty? ? -1 : width_str.to_i
+    precision = width  # -1 means not specified
 
     # Calculate fixed chars (everything except hour digits) per colons variant
     fixed = case colons
@@ -565,7 +720,7 @@ class Date
     result = String.new
 
     # C: space padding — print spaces before sign, reduce hour precision
-    if flags.include?('_') && hp > hl
+    if flags & FLAG_SPACE != 0 && hp > hl
       result << ' ' * (hp - hl)
       hp = hl
     end

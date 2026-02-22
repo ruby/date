@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+require 'strscan'
 
 # Implementation of ruby/date/ext/date/date_strptime.c
 class Date
@@ -19,37 +20,85 @@ class Date
     #
     # Related: Date.strptime (returns a \Date object).
     def _strptime(string, format = '%F')
-      str = string.dup
-      pos = 0
+      # Fast paths for the most common format strings.
+      case format
+      when '%F', '%Y-%m-%d'
+        m = /\A([+-]?\d+)-(\d{1,2})-(\d{1,2})/.match(string)
+        return nil unless m
+        mon  = m[2].to_i
+        mday = m[3].to_i
+        return nil if mon < 1 || mon > 12 || mday < 1 || mday > 31
+        h = { year: m[1].to_i, mon: mon, mday: mday }
+        rest = m.post_match
+        h[:leftover] = rest unless rest.empty?
+        return h
+
+      when '%Y-%m-%d %H:%M:%S'
+        m = /\A([+-]?\d+)-(\d{1,2})-(\d{1,2}) (\d{1,2}):(\d{1,2}):(\d{1,2})/.match(string)
+        return nil unless m
+        mon  = m[2].to_i
+        mday = m[3].to_i
+        hour = m[4].to_i
+        min  = m[5].to_i
+        sec  = m[6].to_i
+        return nil if mon < 1 || mon > 12 || mday < 1 || mday > 31
+        return nil if hour > 24 || min > 59 || sec > 60
+        h = { year: m[1].to_i, mon: mon, mday: mday, hour: hour, min: min, sec: sec }
+        rest = m.post_match
+        h[:leftover] = rest unless rest.empty?
+        return h
+
+      when '%Y-%m-%dT%H:%M:%S'
+        m = /\A([+-]?\d+)-(\d{1,2})-(\d{1,2})T(\d{1,2}):(\d{1,2}):(\d{1,2})/.match(string)
+        return nil unless m
+        mon  = m[2].to_i
+        mday = m[3].to_i
+        hour = m[4].to_i
+        min  = m[5].to_i
+        sec  = m[6].to_i
+        return nil if mon < 1 || mon > 12 || mday < 1 || mday > 31
+        return nil if hour > 24 || min > 59 || sec > 60
+        h = { year: m[1].to_i, mon: mon, mday: mday, hour: hour, min: min, sec: sec }
+        rest = m.post_match
+        h[:leftover] = rest unless rest.empty?
+        return h
+      end
+
+      ss = StringScanner.new(string)
       hash = {}
 
       i = 0
-      while i < format.length
-        if format[i] == '%' && i + 1 < format.length
+      fmt_len = format.length
+      while i < fmt_len
+        fb = format.getbyte(i)
+        if fb == 37 && i + 1 < fmt_len  # '%'
           i += 1
 
           # Parse modifier (E, O)
           modifier = nil
-          if i < format.length && (format[i] == 'E' || format[i] == 'O')
-            modifier = format[i]
+          fb2 = format.getbyte(i)
+          if i < fmt_len && (fb2 == 69 || fb2 == 79)  # 'E' == 69, 'O' == 79
+            modifier = fb2 == 69 ? 'E' : 'O'
             i += 1
           end
 
           # Parse colons for %:z, %::z, %:::z
           colons = 0
-          while i < format.length && format[i] == ':'
+          while i < fmt_len && format.getbyte(i) == 58  # ':'
             colons += 1
             i += 1
           end
 
-          # Parse width
-          width_str = String.new
-          while i < format.length && format[i] =~ /[0-9]/
-            width_str << format[i]
+          # Parse width as integer (avoids String allocation and regex digit check)
+          field_width = nil
+          while i < fmt_len
+            db = format.getbyte(i)
+            break if db < 48 || db > 57  # '0'..'9'
+            field_width = (field_width || 0) * 10 + db - 48
             i += 1
           end
 
-          break if i >= format.length
+          break if i >= fmt_len
 
           spec = format[i]
           i += 1
@@ -65,10 +114,9 @@ class Date
                       false
                     end
             unless valid
-              # Invalid modifier - try to match literal
-              literal = "%#{modifier}#{':' * colons}#{width_str}#{spec}"
-              if str[pos, literal.length] == literal
-                pos += literal.length
+              literal = "%#{modifier}#{':' * colons}#{field_width}#{spec}"
+              if ss.string[ss.pos, literal.length] == literal
+                ss.pos += literal.length
               else
                 return nil
               end
@@ -78,9 +126,9 @@ class Date
 
           # Handle colon+z
           if colons > 0 && spec == 'z'
-            result = _strptime_zone_colon(str, pos, colons)
+            result = _strptime_zone_colon(ss.string, ss.pos, colons)
             return nil unless result
-            pos = result[:pos]
+            ss.pos = result[:pos]
             hash[:zone] = result[:zone]
             hash[:offset] = result[:offset]
             next
@@ -89,33 +137,25 @@ class Date
             return nil
           end
 
-          # Determine field width
-          field_width = width_str.empty? ? nil : width_str.to_i
-
           # C: NUM_PATTERN_P() - check if next format element is a digit-consuming pattern.
-          # Used by %C, %G, %L, %N, %Y to limit digit consumption when adjacent.
           next_is_num = num_pattern_p(format, i)
 
-          result = _strptime_spec(str, pos, spec, field_width, hash, next_is_num)
-          return nil unless result
-          pos = result[:pos]
-          hash.merge!(result[:hash]) if result[:hash]
-        elsif format[i] == '%' && i + 1 == format.length
-          # Trailing % - match literal
-          if pos < str.length && str[pos] == '%'
-            pos += 1
+          return nil unless _strptime_spec(ss, spec, field_width, hash, next_is_num)
+        elsif fb == 37 && i + 1 == fmt_len  # Trailing % - match literal
+          if ss.string.getbyte(ss.pos) == 37  # '%'
+            ss.pos += 1
           else
             return nil
           end
           i += 1
-        elsif format[i] =~ /\s/
+        elsif fb == 32 || fb == 9 || fb == 10 || fb == 13 || fb == 11 || fb == 12  # whitespace
           # Whitespace in format matches zero or more whitespace in input
           i += 1
-          pos += 1 while pos < str.length && str[pos] =~ /\s/
+          skip_ws(ss)
         else
           # Literal match
-          if pos < str.length && str[pos] == format[i]
-            pos += 1
+          if ss.string.getbyte(ss.pos) == fb
+            ss.pos += 1
           else
             return nil
           end
@@ -124,29 +164,15 @@ class Date
       end
 
       # Store leftover if any
-      if pos < str.length
-        hash[:leftover] = str[pos..]
-      end
+      hash[:leftover] = ss.rest unless ss.eos?
 
       # --- Post-processing (C: date__strptime, date_strptime.c:524-546) ---
 
       # C: cent = del_hash("_cent");
-      # Apply _cent to both cwyear and year.
-      # Note: The inline _century approach in %C/%y/%g handlers covers most
-      # cases, but this post-processing ensures correctness for all orderings
-      # and applies century to both year and cwyear simultaneously.
-      # We delete _century and _century_set here to keep the hash clean,
-      # matching C's del_hash("_cent") behavior.
       hash.delete(:_century)
       hash.delete(:_century_set)
 
       # C: merid = del_hash("_merid");
-      # Apply _merid to hour: hour = (hour % 12) + merid
-      # This handles both %I (12-hour) and %H (24-hour) correctly:
-      #   %I=12 + AM(0)  → (12 % 12) + 0  = 0
-      #   %I=12 + PM(12) → (12 % 12) + 12 = 12
-      #   %I=4  + PM(12) → (4 % 12)  + 12 = 16
-      #   %I=4  + AM(0)  → (4 % 12)  + 0  = 4
       merid = hash.delete(:_merid)
       if merid
         hour = hash[:hour]
@@ -195,431 +221,464 @@ class Date
 
     private
 
+    # Advances StringScanner past zero or more ASCII whitespace bytes
+    # (space=32, tab=9, LF=10, CR=13, VT=11, FF=12).
+    # Avoids regex overhead compared to ss.skip(/[ \t\n\r\v\f]*/).
+    def skip_ws(ss)
+      str = ss.string
+      p   = ss.pos
+      len = str.length
+      while p < len
+        b = str.getbyte(p)
+        break unless b == 32 || b == 9 || b == 10 || b == 13 || b == 11 || b == 12
+        p += 1
+      end
+      ss.pos = p
+    end
+
+    # Scans unsigned decimal integer from +str+ at +pos+, up to +max+ digits.
+    # Returns [value, new_pos] or nil if no digit found.
+    def scan_uint(str, pos, max)
+      val   = 0
+      count = 0
+      len   = str.length
+      while count < max && pos + count < len
+        b = str.getbyte(pos + count)
+        break unless b >= 48 && b <= 57  # '0'..'9'
+        val = val * 10 + b - 48
+        count += 1
+      end
+      count > 0 ? [val, pos + count] : nil
+    end
+
+    # Scans signed decimal integer (optional leading +/-) from +str+ at +pos+.
+    # Returns [value, new_pos] or nil if no digit found.
+    def scan_sint(str, pos, max)
+      b = str.getbyte(pos)
+      if b == 43       # '+'
+        result = scan_uint(str, pos + 1, max)
+        result
+      elsif b == 45    # '-'
+        result = scan_uint(str, pos + 1, max)
+        result ? [-result[0], result[1]] : nil
+      else
+        scan_uint(str, pos, max)
+      end
+    end
+
     # C: num_pattern_p (date_strptime.c:48)
     # Returns true if the format string at position `i` starts with a
     # digit-consuming pattern (a literal digit or a %-specifier that reads digits).
+    # Uses byte-level operations to avoid String allocations.
     def num_pattern_p(format, i)
       return false if i >= format.length
-      c = format[i]
-      return true if c =~ /\d/
-      if c == '%'
+      b = format.getbyte(i)
+      return true if b >= 48 && b <= 57  # '0'..'9'
+      if b == 37  # '%'
         i += 1
         return false if i >= format.length
-        # Skip E/O modifier
-        if format[i] == 'E' || format[i] == 'O'
+        b2 = format.getbyte(i)
+        # Skip E/O modifier (E=69, O=79)
+        if b2 == 69 || b2 == 79
           i += 1
           return false if i >= format.length
+          b2 = format.getbyte(i)
         end
-        s = format[i]
-        return true if s =~ /\d/ || NUM_PATTERN_SPECS.include?(s)
+        return true if (b2 >= 48 && b2 <= 57) || NUM_PATTERN_SPECS_TABLE[b2]
       end
       false
     end
 
-    def _strptime_spec(str, pos, spec, width, context_hash, next_is_num = false)
-      h = {}
+    # Modifies +hash+ in-place with parsed values for +spec+.
+    # Advances +ss+ position on success. Returns true on success, nil on failure.
+    def _strptime_spec(ss, spec, width, hash, next_is_num = false)
+      str = ss.string
+      pos = ss.pos
 
       case spec
       when 'Y' # Full year (possibly negative)
-        # C: if (NUM_PATTERN_P()) READ_DIGITS(n, 4); else READ_DIGITS_MAX(n);
-        if width
-          w = width
-        elsif next_is_num
-          w = 4
-        else
-          w = 40  # effectively unlimited
-        end
-        m = str[pos..].match(/\A([+-]?\d{1,#{w}})/)
-        return nil unless m
-        h[:year] = m[1].to_i
-        { pos: pos + m[0].length, hash: h }
+        year, new_pos = scan_sint(str, pos, width || (next_is_num ? 4 : 40))
+        return nil unless year
+        hash[:year] = year
+        ss.pos = new_pos
+        true
 
       when 'C' # Century
-        # C: if (NUM_PATTERN_P()) READ_DIGITS(n, 2); else READ_DIGITS_MAX(n);
-        if width
-          w = width
-        elsif next_is_num
-          w = 2
-        else
-          w = 40
+        century, new_pos = scan_sint(str, pos, width || (next_is_num ? 2 : 40))
+        return nil unless century
+        hash[:_century] = century
+        if hash[:year] && !hash[:_century_set]
+          hash[:year] = century * 100 + (hash[:year] % 100)
+          hash[:_century_set] = true
         end
-        m = str[pos..].match(/\A([+-]?\d{1,#{w}})/)
-        return nil unless m
-        century = m[1].to_i
-        h[:_century] = century
-        if context_hash[:year] && !context_hash[:_century_set]
-          h[:year] = century * 100 + (context_hash[:year] % 100)
-          h[:_century_set] = true
-        end
-        { pos: pos + m[0].length, hash: h }
+        ss.pos = new_pos
+        true
 
       when 'y' # 2-digit year
-        w = width || 2
-        m = str[pos..].match(/\A(\d{1,#{w}})/)
-        return nil unless m
-        y = m[1].to_i
-        if context_hash[:_century]
-          h[:year] = context_hash[:_century] * 100 + y
-          h[:_century_set] = true
+        y, new_pos = scan_uint(str, pos, width || 2)
+        return nil unless y
+        if hash[:_century]
+          hash[:year] = hash[:_century] * 100 + y
+          hash[:_century_set] = true
         else
-          h[:year] = y >= 69 ? y + 1900 : y + 2000
+          hash[:year] = y >= 69 ? y + 1900 : y + 2000
         end
-        { pos: pos + m[0].length, hash: h }
+        ss.pos = new_pos
+        true
 
       when 'm' # Month (01-12)
-        w = width || 2
-        m = str[pos..].match(/\A(\d{1,#{w}})/)
-        return nil unless m
-        mon = m[1].to_i
+        mon, new_pos = scan_uint(str, pos, width || 2)
+        return nil unless mon
         return nil if mon < 1 || mon > 12
-        h[:mon] = mon
-        { pos: pos + m[0].length, hash: h }
+        hash[:mon] = mon
+        ss.pos = new_pos
+        true
 
       when 'd', 'e' # Day of month
-        # C: if (str[si] == ' ') { si++; READ_DIGITS(n, 1); } else { READ_DIGITS(n, 2); }
-        if str[pos] == ' '
-          m = str[pos + 1..].match(/\A(\d)/)
-          return nil unless m
-          day = m[1].to_i
+        if str.getbyte(pos) == 32  # ' '
+          day, new_pos = scan_uint(str, pos + 1, 1)
+          return nil unless day
           return nil if day < 1 || day > 31
-          h[:mday] = day
-          { pos: pos + 1 + m[0].length, hash: h }
+          hash[:mday] = day
+          ss.pos = new_pos
         else
-          w = width || 2
-          m = str[pos..].match(/\A(\d{1,#{w}})/)
-          return nil unless m
-          day = m[1].to_i
+          day, new_pos = scan_uint(str, pos, width || 2)
+          return nil unless day
           return nil if day < 1 || day > 31
-          h[:mday] = day
-          { pos: pos + m[0].length, hash: h }
+          hash[:mday] = day
+          ss.pos = new_pos
         end
+        true
 
       when 'j' # Day of year (001-366)
-        w = width || 3
-        m = str[pos..].match(/\A(\d{1,#{w}})/)
-        return nil unless m
-        yday = m[1].to_i
+        yday, new_pos = scan_uint(str, pos, width || 3)
+        return nil unless yday
         return nil if yday < 1 || yday > 366
-        h[:yday] = yday
-        { pos: pos + m[0].length, hash: h }
+        hash[:yday] = yday
+        ss.pos = new_pos
+        true
 
       when 'H', 'k' # Hour (00-24)
-        # C: if (str[si] == ' ') { si++; READ_DIGITS(n, 1); } else { READ_DIGITS(n, 2); }
-        if str[pos] == ' '
-          m = str[pos + 1..].match(/\A(\d)/)
-          return nil unless m
-          hour = m[1].to_i
+        if str.getbyte(pos) == 32  # ' '
+          hour, new_pos = scan_uint(str, pos + 1, 1)
+          return nil unless hour
           return nil if hour > 24
-          h[:hour] = hour
-          { pos: pos + 1 + m[0].length, hash: h }
+          hash[:hour] = hour
+          ss.pos = new_pos
         else
-          w = width || 2
-          m = str[pos..].match(/\A(\d{1,#{w}})/)
-          return nil unless m
-          hour = m[1].to_i
+          hour, new_pos = scan_uint(str, pos, width || 2)
+          return nil unless hour
           return nil if hour > 24
-          h[:hour] = hour
-          { pos: pos + m[0].length, hash: h }
+          hash[:hour] = hour
+          ss.pos = new_pos
         end
+        true
 
       when 'I', 'l' # Hour (01-12)
-        # C: if (str[si] == ' ') { si++; READ_DIGITS(n, 1); } else { READ_DIGITS(n, 2); }
-        if str[pos] == ' '
-          m = str[pos + 1..].match(/\A(\d)/)
-          return nil unless m
-          hour = m[1].to_i
+        if str.getbyte(pos) == 32  # ' '
+          hour, new_pos = scan_uint(str, pos + 1, 1)
+          return nil unless hour
           return nil if hour < 1 || hour > 12
-          h[:hour] = hour
-          { pos: pos + 1 + m[0].length, hash: h }
+          hash[:hour] = hour
+          ss.pos = new_pos
         else
-          w = width || 2
-          m = str[pos..].match(/\A(\d{1,#{w}})/)
-          return nil unless m
-          hour = m[1].to_i
+          hour, new_pos = scan_uint(str, pos, width || 2)
+          return nil unless hour
           return nil if hour < 1 || hour > 12
-          h[:hour] = hour  # C stores raw value; _merid post-processing applies % 12
-          { pos: pos + m[0].length, hash: h }
+          hash[:hour] = hour
+          ss.pos = new_pos
         end
+        true
 
       when 'M' # Minute (00-59)
-        w = width || 2
-        m = str[pos..].match(/\A(\d{1,#{w}})/)
-        return nil unless m
-        min = m[1].to_i
+        min, new_pos = scan_uint(str, pos, width || 2)
+        return nil unless min
         return nil if min > 59
-        h[:min] = min
-        { pos: pos + m[0].length, hash: h }
+        hash[:min] = min
+        ss.pos = new_pos
+        true
 
       when 'S' # Second (00-60)
-        w = width || 2
-        m = str[pos..].match(/\A(\d{1,#{w}})/)
-        return nil unless m
-        sec = m[1].to_i
+        sec, new_pos = scan_uint(str, pos, width || 2)
+        return nil unless sec
         return nil if sec > 60
-        h[:sec] = sec
-        { pos: pos + m[0].length, hash: h }
+        hash[:sec] = sec
+        ss.pos = new_pos
+        true
 
-      when 'L' # Milliseconds
-        # C: if (NUM_PATTERN_P()) READ_DIGITS(n, 3); else READ_DIGITS_MAX(n);
-        if width
-          w = width
-        elsif next_is_num
-          w = 3
-        else
-          w = 40
+      when 'L' # Milliseconds — normalize digit string to 3-digit precision
+        w = width || (next_is_num ? 3 : 40)
+        val, count = 0, 0
+        str_len = str.length
+        while count < w && pos + count < str_len
+          b = str.getbyte(pos + count)
+          break unless b >= 48 && b <= 57
+          val = val * 10 + b - 48
+          count += 1
         end
-        m = str[pos..].match(/\A(\d{1,#{w}})/)
-        return nil unless m
-        frac_str = m[1].ljust(3, '0')[0, 3]
-        h[:sec_fraction] = Rational(frac_str.to_i, 1000)
-        { pos: pos + m[0].length, hash: h }
+        return nil if count == 0
+        val *= 10 ** (3 - count) if count < 3
+        val /= 10 ** (count - 3) if count > 3
+        hash[:sec_fraction] = Rational(val, 1000)
+        ss.pos = pos + count
+        true
 
-      when 'N' # Nanoseconds
-        # C: if (NUM_PATTERN_P()) READ_DIGITS(n, 9); else READ_DIGITS_MAX(n);
-        if width
-          w = width
-        elsif next_is_num
-          w = 9
-        else
-          w = 40
+      when 'N' # Nanoseconds — normalize digit string to 9-digit precision
+        w = width || (next_is_num ? 9 : 40)
+        val, count = 0, 0
+        str_len = str.length
+        while count < w && pos + count < str_len
+          b = str.getbyte(pos + count)
+          break unless b >= 48 && b <= 57
+          val = val * 10 + b - 48
+          count += 1
         end
-        m = str[pos..].match(/\A(\d{1,#{w}})/)
-        return nil unless m
-        frac_str = m[1].ljust(9, '0')[0, 9]
-        h[:sec_fraction] = Rational(frac_str.to_i, 1_000_000_000)
-        { pos: pos + m[0].length, hash: h }
+        return nil if count == 0
+        val *= 10 ** (9 - count) if count < 9
+        val /= 10 ** (count - 9) if count > 9
+        hash[:sec_fraction] = Rational(val, 1_000_000_000)
+        ss.pos = pos + count
+        true
 
       when 'p', 'P' # AM/PM
-        # C: set_hash("_merid", INT2FIX(hour));
-        # Store _merid value (0 for AM, 12 for PM) for post-processing.
-        # This avoids order-dependency: %p can appear before or after %I/%H.
-        m = str[pos..].match(/\A(a\.?m\.?|p\.?m\.?)/i)
+        m = ss.scan(/a\.?m\.?|p\.?m\.?/i)
         return nil unless m
-        ampm = m[1].delete('.').upcase
-        h[:_merid] = (ampm == 'PM') ? 12 : 0
-        { pos: pos + m[0].length, hash: h }
+        ampm = m.delete('.').upcase
+        hash[:_merid] = (ampm == 'PM') ? 12 : 0
+        true
 
       when 'A', 'a' # Day name (full or abbreviated)
-        DAYNAMES.each_with_index do |name, idx|
-          next unless name
-          # Try full name first, then abbreviated
-          [name, ABBR_DAYNAMES[idx]].each do |n|
-            next unless n
-            if str[pos, n.length]&.downcase == n.downcase
-              h[:wday] = idx
-              return { pos: pos + n.length, hash: h }
+        # Zero-alloc integer key from 3 bytes (lowercase via | 0x20).
+        # Check byte 4 to skip full-name string comparison in the common case.
+        b0 = str.getbyte(pos)
+        b1 = str.getbyte(pos + 1)
+        b2 = str.getbyte(pos + 2)
+        if b0 && b1 && b2
+          k0 = b0 | 0x20; k1 = b1 | 0x20; k2 = b2 | 0x20
+          if k0 >= 97 && k0 <= 122 && k1 >= 97 && k1 <= 122 && k2 >= 97 && k2 <= 122
+            ikey = (k0 << 16) | (k1 << 8) | k2
+            if (info = STRPTIME_DAYNAME_BY_INT_KEY[ikey])
+              idx, full, full_len, abbr_len = info
+              b3 = str.getbyte(pos + abbr_len)
+              # If next byte is non-alpha, it's an abbreviated name.
+              if b3.nil? || (t = b3 | 0x20) < 97 || t > 122
+                hash[:wday] = idx
+                ss.pos = pos + abbr_len
+              elsif str[pos, full_len]&.downcase == full
+                hash[:wday] = idx
+                ss.pos = pos + full_len
+              else
+                hash[:wday] = idx
+                ss.pos = pos + abbr_len
+              end
+              true
             end
           end
         end
-        return nil
 
       when 'B', 'b', 'h' # Month name (full or abbreviated)
-        MONTHNAMES.each_with_index do |name, idx|
-          next unless name
-          # Try full name first, then abbreviated
-          [name, ABBR_MONTHNAMES[idx]].each do |n|
-            next unless n
-            if str[pos, n.length]&.downcase == n.downcase
-              h[:mon] = idx
-              return { pos: pos + n.length, hash: h }
+        # Zero-alloc integer key from 3 bytes (lowercase via | 0x20).
+        b0 = str.getbyte(pos)
+        b1 = str.getbyte(pos + 1)
+        b2 = str.getbyte(pos + 2)
+        if b0 && b1 && b2
+          k0 = b0 | 0x20; k1 = b1 | 0x20; k2 = b2 | 0x20
+          if k0 >= 97 && k0 <= 122 && k1 >= 97 && k1 <= 122 && k2 >= 97 && k2 <= 122
+            ikey = (k0 << 16) | (k1 << 8) | k2
+            if (info = STRPTIME_MONNAME_BY_INT_KEY[ikey])
+              idx, full, full_len, abbr_len = info
+              b3 = str.getbyte(pos + abbr_len)
+              if b3.nil? || (t = b3 | 0x20) < 97 || t > 122
+                hash[:mon] = idx
+                ss.pos = pos + abbr_len
+              elsif str[pos, full_len]&.downcase == full
+                hash[:mon] = idx
+                ss.pos = pos + full_len
+              else
+                hash[:mon] = idx
+                ss.pos = pos + abbr_len
+              end
+              true
             end
           end
         end
-        return nil
 
       when 'w' # Weekday number (0-6, Sunday=0)
-        m = str[pos..].match(/\A(\d)/)
-        return nil unless m
-        wday = m[1].to_i
-        return nil if wday > 6
-        h[:wday] = wday
-        { pos: pos + m[0].length, hash: h }
+        b = str.getbyte(pos)
+        return nil unless b && b >= 48 && b <= 54  # '0'..'6'
+        hash[:wday] = b - 48
+        ss.pos = pos + 1
+        true
 
       when 'u' # Weekday number (1-7, Monday=1)
-        m = str[pos..].match(/\A(\d)/)
-        return nil unless m
-        cwday = m[1].to_i
-        return nil if cwday < 1 || cwday > 7
-        h[:cwday] = cwday
-        { pos: pos + m[0].length, hash: h }
+        b = str.getbyte(pos)
+        return nil unless b && b >= 49 && b <= 55  # '1'..'7'
+        hash[:cwday] = b - 48
+        ss.pos = pos + 1
+        true
 
       when 'U' # Week number (Sunday start, 00-53)
-        w = width || 2
-        m = str[pos..].match(/\A(\d{1,#{w}})/)
-        return nil unless m
-        wnum = m[1].to_i
+        wnum, new_pos = scan_uint(str, pos, width || 2)
+        return nil unless wnum
         return nil if wnum > 53
-        h[:wnum0] = wnum
-        { pos: pos + m[0].length, hash: h }
+        hash[:wnum0] = wnum
+        ss.pos = new_pos
+        true
 
       when 'W' # Week number (Monday start, 00-53)
-        w = width || 2
-        m = str[pos..].match(/\A(\d{1,#{w}})/)
-        return nil unless m
-        wnum = m[1].to_i
+        wnum, new_pos = scan_uint(str, pos, width || 2)
+        return nil unless wnum
         return nil if wnum > 53
-        h[:wnum1] = wnum
-        { pos: pos + m[0].length, hash: h }
+        hash[:wnum1] = wnum
+        ss.pos = new_pos
+        true
 
       when 'V' # ISO week number (01-53)
-        w = width || 2
-        m = str[pos..].match(/\A(\d{1,#{w}})/)
-        return nil unless m
-        cweek = m[1].to_i
+        cweek, new_pos = scan_uint(str, pos, width || 2)
+        return nil unless cweek
         return nil if cweek < 1 || cweek > 53
-        h[:cweek] = cweek
-        { pos: pos + m[0].length, hash: h }
+        hash[:cweek] = cweek
+        ss.pos = new_pos
+        true
 
       when 'G' # ISO week year
-        # C: if (NUM_PATTERN_P()) READ_DIGITS(n, 4); else READ_DIGITS_MAX(n);
-        if width
-          w = width
-        elsif next_is_num
-          w = 4
-        else
-          w = 40
-        end
-        m = str[pos..].match(/\A([+-]?\d{1,#{w}})/)
-        return nil unless m
-        h[:cwyear] = m[1].to_i
-        { pos: pos + m[0].length, hash: h }
+        cwyear, new_pos = scan_sint(str, pos, width || (next_is_num ? 4 : 40))
+        return nil unless cwyear
+        hash[:cwyear] = cwyear
+        ss.pos = new_pos
+        true
 
       when 'g' # ISO week year (2-digit)
-        w = width || 2
-        m = str[pos..].match(/\A(\d{1,#{w}})/)
-        return nil unless m
-        y = m[1].to_i
-        if context_hash[:_century]
-          h[:cwyear] = context_hash[:_century] * 100 + y
-          h[:_century_set] = true
+        y, new_pos = scan_uint(str, pos, width || 2)
+        return nil unless y
+        if hash[:_century]
+          hash[:cwyear] = hash[:_century] * 100 + y
+          hash[:_century_set] = true
         else
-          h[:cwyear] = y >= 69 ? y + 1900 : y + 2000
+          hash[:cwyear] = y >= 69 ? y + 1900 : y + 2000
         end
-        { pos: pos + m[0].length, hash: h }
+        ss.pos = new_pos
+        true
 
       when 'Z', 'z' # Timezone
         result = _strptime_zone(str, pos)
         return nil unless result
-        h[:zone] = result[:zone]
-        h[:offset] = result[:offset] unless result[:offset].nil?
-        { pos: result[:pos], hash: h }
+        hash[:zone] = result[:zone]
+        hash[:offset] = result[:offset] unless result[:offset].nil?
+        ss.pos = result[:pos]
+        true
 
       when 's' # Seconds since epoch
-        m = str[pos..].match(/\A([+-]?\d+)/)
-        return nil unless m
-        h[:seconds] = m[1].to_i
-        { pos: pos + m[0].length, hash: h }
+        secs, new_pos = scan_sint(str, pos, 40)
+        return nil unless secs
+        hash[:seconds] = secs
+        ss.pos = new_pos
+        true
 
       when 'Q' # Milliseconds since epoch
-        m = str[pos..].match(/\A([+-]?\d+)/)
-        return nil unless m
-        h[:seconds] = Rational(m[1].to_i, 1000)
-        { pos: pos + m[0].length, hash: h }
+        msecs, new_pos = scan_sint(str, pos, 40)
+        return nil unless msecs
+        hash[:seconds] = Rational(msecs, 1000)
+        ss.pos = new_pos
+        true
 
-      when 'n' # Newline
-        m = str[pos..].match(/\A\s+/)
-        if m
-          { pos: pos + m[0].length, hash: h }
-        else
-          { pos: pos, hash: h }
-        end
-
-      when 't' # Tab
-        m = str[pos..].match(/\A\s+/)
-        if m
-          { pos: pos + m[0].length, hash: h }
-        else
-          { pos: pos, hash: h }
-        end
+      when 'n', 't' # Newline / Tab — match any whitespace
+        skip_ws(ss)
+        true
 
       when '%' # Literal %
-        if pos < str.length && str[pos] == '%'
-          { pos: pos + 1, hash: h }
-        else
-          return nil
-        end
+        return nil unless str.getbyte(pos) == 37  # '%'
+        ss.pos = pos + 1
+        true
 
       when 'F' # %Y-%m-%d
-        result = _strptime_composite(str, pos, '%Y-%m-%d', context_hash)
+        result = _strptime_composite(ss, '%Y-%m-%d', hash)
         return nil unless result
-        { pos: result[:pos], hash: result[:hash] }
+        hash.merge!(result)
+        true
 
       when 'D', 'x' # %m/%d/%y
-        result = _strptime_composite(str, pos, '%m/%d/%y', context_hash)
+        result = _strptime_composite(ss, '%m/%d/%y', hash)
         return nil unless result
-        { pos: result[:pos], hash: result[:hash] }
+        hash.merge!(result)
+        true
 
       when 'T', 'X' # %H:%M:%S
-        result = _strptime_composite(str, pos, '%H:%M:%S', context_hash)
+        result = _strptime_composite(ss, '%H:%M:%S', hash)
         return nil unless result
-        { pos: result[:pos], hash: result[:hash] }
+        hash.merge!(result)
+        true
 
       when 'R' # %H:%M
-        result = _strptime_composite(str, pos, '%H:%M', context_hash)
+        result = _strptime_composite(ss, '%H:%M', hash)
         return nil unless result
-        { pos: result[:pos], hash: result[:hash] }
+        hash.merge!(result)
+        true
 
       when 'r' # %I:%M:%S %p
-        result = _strptime_composite(str, pos, '%I:%M:%S %p', context_hash)
+        result = _strptime_composite(ss, '%I:%M:%S %p', hash)
         return nil unless result
-        { pos: result[:pos], hash: result[:hash] }
+        hash.merge!(result)
+        true
 
       when 'c' # %a %b %e %H:%M:%S %Y
-        result = _strptime_composite(str, pos, '%a %b %e %H:%M:%S %Y', context_hash)
+        result = _strptime_composite(ss, '%a %b %e %H:%M:%S %Y', hash)
         return nil unless result
-        { pos: result[:pos], hash: result[:hash] }
+        hash.merge!(result)
+        true
 
       when 'v' # %e-%b-%Y
-        result = _strptime_composite(str, pos, '%e-%b-%Y', context_hash)
+        result = _strptime_composite(ss, '%e-%b-%Y', hash)
         return nil unless result
-        { pos: result[:pos], hash: result[:hash] }
+        hash.merge!(result)
+        true
 
       when '+' # %a %b %e %H:%M:%S %Z %Y
-        result = _strptime_composite(str, pos, '%a %b %e %H:%M:%S %Z %Y', context_hash)
+        result = _strptime_composite(ss, '%a %b %e %H:%M:%S %Z %Y', hash)
         return nil unless result
-        { pos: result[:pos], hash: result[:hash] }
+        hash.merge!(result)
+        true
 
       else
         # Unknown specifier - try to match literal
         literal = "%#{spec}"
         if str[pos, literal.length] == literal
-          { pos: pos + literal.length, hash: h }
+          ss.pos = pos + literal.length
+          true
         else
-          return nil
+          nil
         end
       end
     end
 
-    def _strptime_composite(str, pos, format, context_hash)
+    def _strptime_composite(ss, format, context_hash)
       merged_hash = context_hash.dup
       i = 0
-      while i < format.length
-        if format[i] == '%' && i + 1 < format.length
+      fmt_len = format.length
+      while i < fmt_len
+        fb = format.getbyte(i)
+        if fb == 37 && i + 1 < fmt_len  # '%'
           i += 1
           spec = format[i]
           i += 1
-          result = _strptime_spec(str, pos, spec, nil, merged_hash)
-          return nil unless result
-          pos = result[:pos]
-          merged_hash.merge!(result[:hash]) if result[:hash]
-        elsif format[i] =~ /\s/
+          return nil unless _strptime_spec(ss, spec, nil, merged_hash)
+        elsif fb == 32 || fb == 9 || fb == 10 || fb == 13 || fb == 11 || fb == 12  # whitespace
           i += 1
-          pos += 1 while pos < str.length && str[pos] =~ /\s/
+          skip_ws(ss)
         else
-          if pos < str.length && str[pos] == format[i]
-            pos += 1
+          if ss.string.getbyte(ss.pos) == fb
+            ss.pos += 1
           else
             return nil
           end
           i += 1
         end
       end
-      # Return only newly parsed keys
+      # Return only newly parsed or updated keys
       new_hash = {}
       merged_hash.each { |k, v| new_hash[k] = v unless context_hash.key?(k) && context_hash[k] == v }
-      # Ensure updated values are included
       merged_hash.each { |k, v| new_hash[k] = v if context_hash[k] != v }
-      { pos: pos, hash: new_hash }
+      new_hash
     end
 
     def _strptime_zone(str, pos)

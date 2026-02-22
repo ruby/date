@@ -70,6 +70,50 @@ class Date
         @of = nil
         return self
       end
+
+      # Julian fast path: JULIAN start, or year < REFORM_BEGIN_YEAR with reform-range start.
+      # Covers Date.civil(-4712, 1, 1) and Date.civil(2024, 6, 15, Date::JULIAN).
+      julian_fast = if start.is_a?(Float) && start.infinite?
+                      start > 0  # JULIAN (+Infinity)
+                    elsif start.is_a?(Integer) && start >= REFORM_BEGIN_JD && start <= REFORM_END_JD
+                      year < REFORM_BEGIN_YEAR
+                    end
+
+      if julian_fast
+        m = month
+        m += 13 if m < 0
+        raise Error unless m >= 1 && m <= 12
+
+        # Julian leap year: divisible by 4 (no century exception)
+        leap = (year % 4 == 0)
+        last = MONTH_DAYS[leap ? 1 : 0][m]
+        d = day
+        d = last + d + 1 if d < 0
+        raise Error unless d >= 1 && d <= last
+
+        # Julian JD via integer arithmetic:
+        # jd = floor(365.25*(y+4716)) + floor(30.6001*(m+1)) + d - 1524
+        #    = (1461*(y+4716))/4      + (153*(m+1))/5         + d - 1524
+        y2 = year; m2 = m
+        if m2 <= 2
+          y2 -= 1
+          m2 += 12
+        end
+        jd = (1461 * (y2 + 4716)) / 4 + (153 * (m2 + 1)) / 5 + d - 1524
+
+        @nth = 0
+        @jd = jd
+        @sg = start
+        @year = year
+        @month = m
+        @day = d
+        @has_jd = true
+        @has_civil = true
+        @df = nil
+        @sf = nil
+        @of = nil
+        return self
+      end
     end
 
     # Original path: handles non-Integer args, Julian/reform dates, fractional days
@@ -242,14 +286,7 @@ class Date
           obj.instance_variable_set(:@nth, 0)
           obj.instance_variable_set(:@jd, jd)
           obj.instance_variable_set(:@sg, start)
-          obj.instance_variable_set(:@year, 0)
-          obj.instance_variable_set(:@month, 0)
-          obj.instance_variable_set(:@day, 0)
           obj.instance_variable_set(:@has_jd, true)
-          obj.instance_variable_set(:@has_civil, false)
-          obj.instance_variable_set(:@df, nil)
-          obj.instance_variable_set(:@sf, nil)
-          obj.instance_variable_set(:@of, nil)
           return obj
         end
       end
@@ -388,14 +425,7 @@ class Date
           obj.instance_variable_set(:@nth, 0)
           obj.instance_variable_set(:@jd, rjd)
           obj.instance_variable_set(:@sg, start)
-          obj.instance_variable_set(:@year, 0)
-          obj.instance_variable_set(:@month, 0)
-          obj.instance_variable_set(:@day, 0)
           obj.instance_variable_set(:@has_jd, true)
-          obj.instance_variable_set(:@has_civil, false)
-          obj.instance_variable_set(:@df, nil)
-          obj.instance_variable_set(:@sf, nil)
-          obj.instance_variable_set(:@of, nil)
           return obj
         end
       end
@@ -546,14 +576,7 @@ class Date
           obj.instance_variable_set(:@nth, 0)
           obj.instance_variable_set(:@jd, rjd)
           obj.instance_variable_set(:@sg, start)
-          obj.instance_variable_set(:@year, 0)
-          obj.instance_variable_set(:@month, 0)
-          obj.instance_variable_set(:@day, 0)
           obj.instance_variable_set(:@has_jd, true)
-          obj.instance_variable_set(:@has_civil, false)
-          obj.instance_variable_set(:@df, nil)
-          obj.instance_variable_set(:@sf, nil)
-          obj.instance_variable_set(:@of, nil)
           return obj
         end
       end
@@ -1672,6 +1695,8 @@ class Date
   #   Date.new(2001, 2, 3).year    # => 2001
   #   (Date.new(1, 1, 1) - 1).year # => 0
   def year
+    # Hot path: inline m_real_year for the common case (@nth=0, civil cached)
+    return @year if @nth == 0 && @has_civil
     m_real_year
   end
 
@@ -1682,11 +1707,15 @@ class Date
   #
   #   Date.new(2001, 2, 3).mon # => 2
   def month
+    # Hot path: inline m_mon for the common case (civil cached)
+    return @month if @has_civil
     m_mon
   end
   alias mon month
 
   def day
+    # Hot path: inline m_mday for the common case (civil cached)
+    return @day if @has_civil
     m_mday
   end
   alias mday day
@@ -1700,6 +1729,7 @@ class Date
   #    DateTime.new(2001,2,3,4,5,6,'+7').jd    #=> 2451944
   #    DateTime.new(2001,2,3,4,5,6,'-7').jd    #=> 2451944
   def jd
+    return @jd if @nth == 0 && @has_jd
     m_real_jd
   end
 
@@ -2344,7 +2374,17 @@ class Date
       end
     end
 
-    return minus_dd(other) if other.is_a?(Date)
+    if other.is_a?(Date)
+      # Hot path: both simple dates with @nth=0 and JD set.
+      # Result is always Rational(jd_self - jd_other, 1).
+      if @df.nil? && @sf.nil? && @of.nil? && @has_jd && @nth == 0 &&
+         other.send(:simple_dat_p?) &&
+         other.instance_variable_get(:@has_jd) &&
+         other.instance_variable_get(:@nth) == 0
+        return Rational(@jd - other.instance_variable_get(:@jd), 1)
+      end
+      return minus_dd(other)
+    end
 
     raise TypeError, "expected numeric" unless other.is_a?(Numeric)
 
@@ -2419,6 +2459,10 @@ class Date
   #
   #   Date.new(2001, 2, 3).ld # => 152784
   def ld
+    # Hot path: simple Date with @nth=0 and JD already set.
+    if @df.nil? && @sf.nil? && @of.nil? && @has_jd && @nth == 0
+      return @jd - 2299160
+    end
     m_real_local_jd - 2299160
   end
 
@@ -2430,23 +2474,23 @@ class Date
   #   Date.new(2000).leap? # => true
   #   Date.new(2001).leap? # => false
   def leap?
-    if gregorian?
-      # For the Gregorian calendar, get m_year to determine if it is a leap year.
+    return @leap unless @leap.nil?
+    result = if gregorian?
+      self.class.send(:c_gregorian_leap_p?, m_year)
+    else
+      # For the Julian calendar, calculate JD for March 1st.
       y = m_year
+      sg = m_virtual_sg
+      rjd, _ = self.class.send(:c_civil_to_jd, y, 3, 1, sg)
 
-      return self.class.send(:c_gregorian_leap_p?, y)
+      # Get the date of the day before March 1st (the last day of February).
+      _, _, rd = self.class.send(:c_jd_to_civil, rjd - 1, sg)
+
+      # If February 29th exists, it is a leap year.
+      rd == 29
     end
-
-    # For the Julian calendar, calculate JD for March 1st.
-    y = m_year
-    sg = m_virtual_sg
-    rjd, _ = self.class.send(:c_civil_to_jd, y, 3, 1, sg)
-
-    # Get the date of the day before March 1st (the last day of February).
-    _, _, rd = self.class.send(:c_jd_to_civil, rjd - 1, sg)
-
-    # If February 29th exists, it is a leap year.
-    rd == 29
+    @leap = result unless frozen?
+    result
   end
 
   # call-seq:
@@ -2590,6 +2634,8 @@ class Date
   #
   #   Date.new(2001, 2, 3).wday # => 6
   def wday
+    # Hot path: inline m_wday for simple Date (C: (jd + 1) % 7)
+    return (@jd + 1) % 7 if @has_jd && @of.nil?
     m_wday
   end
 
@@ -2600,7 +2646,10 @@ class Date
   #
   #   Date.new(2001, 2, 3).yday # => 34
   def yday
-    m_yday
+    return @yday if @yday
+    val = m_yday
+    @yday = val unless frozen?
+    val
   end
 
   #  call-seq:
@@ -2775,6 +2824,10 @@ class Date
   #    DateTime.new(2001,2,3,4,5,6,'+7').mjd  #=> 51943
   #    DateTime.new(2001,2,3,4,5,6,'-7').mjd  #=> 51943
   def mjd
+    # Hot path: simple Date with @nth=0 and JD already set.
+    if @df.nil? && @sf.nil? && @of.nil? && @has_jd && @nth == 0
+      return @jd - 2_400_001
+    end
     m_real_local_jd - 2_400_001
   end
 
@@ -2847,7 +2900,13 @@ class Date
   #
   # Returns a DateTime whose value is the same as +self+.
   def to_datetime
-    # Use internal constructor to bypass validation (reform-gap safety)
+    # Hot path: simple Date with JD already set.
+    # C: d_lite_to_datetime passes @nth, @jd, @sg directly (no civil->JD conversion).
+    if @df.nil? && @sf.nil? && @of.nil? && @has_jd
+      return DateTime.send(:new_with_jd_and_time, @nth, @jd, 0, 0, 0, @sg)
+    end
+
+    # Original path for complex dates or JD-less simple dates.
     nth, ry = self.class.send(:decode_year, year, -1)
     rjd, _ = self.class.send(:c_civil_to_jd, ry, month, day, Date::GREGORIAN)
     obj = DateTime.send(:new_with_jd_and_time, nth, rjd, 0, 0, 0, Date::GREGORIAN)
@@ -2864,6 +2923,11 @@ class Date
   #    DateTime.new(2001,2,3,4,5,6,'+7').ajd    #=> (11769328217/4800)
   #    DateTime.new(2001,2,2,14,5,6,'-7').ajd   #=> (11769328217/4800)
   def ajd
+    # Hot path: simple Date with @nth=0 and JD already set.
+    # ajd = jd - 1/2 = Rational(jd * 2 - 1, 2)
+    if @df.nil? && @sf.nil? && @of.nil? && @has_jd && @nth == 0
+      return Rational(@jd * 2 - 1, 2)
+    end
     m_ajd
   end
 
@@ -2876,6 +2940,11 @@ class Date
   #    DateTime.new(2001,2,3,4,5,6,'+7').amjd   #=> (249325817/4800)
   #    DateTime.new(2001,2,2,14,5,6,'-7').amjd  #=> (249325817/4800)
   def amjd
+    # Hot path: simple Date with @nth=0 and JD already set.
+    # amjd = jd - 2400001 as Rational
+    if @df.nil? && @sf.nil? && @of.nil? && @has_jd && @nth == 0
+      return Rational(@jd - 2400001, 1)
+    end
     m_amjd
   end
 
@@ -2970,7 +3039,22 @@ class Date
   # See {asctime}[https://linux.die.net/man/3/asctime].
   #
   def asctime
-    strftime('%a %b %e %H:%M:%S %Y')
+    if @df.nil? && @sf.nil? && @of.nil? && @nth == 0 && @has_civil && @has_jd
+      y = @year
+      wday = (@jd + 1) % 7
+      ed = @day < 10 ? " #{@day}" : @day.to_s
+      y_str = if y >= 0 && y <= 9999
+                  FOUR_DIGIT[y]
+                elsif y >= 0
+                  sprintf("%04d", y)
+                else
+                  sprintf("%05d", y)
+                end
+      str = "#{ABBR_DAYNAMES[wday]} #{ABBR_MONTHNAMES[@month]} #{ed} 00:00:00 #{y_str}"
+      str.force_encoding(Encoding::US_ASCII)
+    else
+      strftime('%a %b %e %H:%M:%S %Y')
+    end
   end
   alias_method :ctime, :asctime
 
@@ -2983,7 +3067,19 @@ class Date
   #
   #   Date.new(2001, 2, 3).iso8601 # => "2001-02-03"
   def iso8601
-    strftime('%Y-%m-%d')
+    if @df.nil? && @sf.nil? && @of.nil? && @nth == 0 && @has_civil
+      y = @year
+      str = if y >= 0 && y <= 9999
+                "#{FOUR_DIGIT[y]}-#{TWO_DIGIT[@month]}-#{TWO_DIGIT[@day]}"
+              elsif y >= 0
+                sprintf("%04d-%02d-%02d", y, @month, @day)
+              else
+                sprintf("%05d-%02d-%02d", y, @month, @day)
+              end
+      str.force_encoding(Encoding::US_ASCII)
+    else
+      strftime('%Y-%m-%d')
+    end
   end
   alias_method :xmlschema, :iso8601
 
@@ -2995,7 +3091,19 @@ class Date
   #
   #   Date.new(2001, 2, 3).rfc3339 # => "2001-02-03T00:00:00+00:00"
   def rfc3339
-    strftime('%Y-%m-%dT%H:%M:%S%:z')
+    if @df.nil? && @sf.nil? && @of.nil? && @nth == 0 && @has_civil
+      y = @year
+      str = if y >= 0 && y <= 9999
+                "#{FOUR_DIGIT[y]}-#{TWO_DIGIT[@month]}-#{TWO_DIGIT[@day]}T00:00:00+00:00"
+              elsif y >= 0
+                sprintf("%04d-%02d-%02dT00:00:00+00:00", y, @month, @day)
+              else
+                sprintf("%05d-%02d-%02dT00:00:00+00:00", y, @month, @day)
+              end
+      str.force_encoding(Encoding::US_ASCII)
+    else
+      strftime('%Y-%m-%dT%H:%M:%S%:z')
+    end
   end
 
   # call-seq:
@@ -3006,7 +3114,21 @@ class Date
   #
   #   Date.new(2001, 2, 3).rfc2822 # => "Sat, 3 Feb 2001 00:00:00 +0000"
   def rfc2822
-    strftime('%a, %-d %b %Y %T %z')
+    if @df.nil? && @sf.nil? && @of.nil? && @nth == 0 && @has_civil && @has_jd
+      y = @year
+      wday = (@jd + 1) % 7
+      y_str = if y >= 0 && y <= 9999
+                  FOUR_DIGIT[y]
+                elsif y >= 0
+                  sprintf("%04d", y)
+                else
+                  sprintf("%05d", y)
+                end
+      str = "#{ABBR_DAYNAMES[wday]}, #{@day} #{ABBR_MONTHNAMES[@month]} #{y_str} 00:00:00 +0000"
+      str.force_encoding(Encoding::US_ASCII)
+    else
+      strftime('%a, %-d %b %Y %T %z')
+    end
   end
   alias_method :rfc822, :rfc2822
 
@@ -3019,8 +3141,22 @@ class Date
   #   Date.new(2001, 2, 3).httpdate # => "Sat, 03 Feb 2001 00:00:00 GMT"
   #
   def httpdate
-    # For Date objects, offset is always 0, so we can directly call strftime
-    strftime('%a, %d %b %Y %T GMT')
+    if @df.nil? && @sf.nil? && @of.nil? && @nth == 0 && @has_civil
+      get_s_jd
+      y    = @year
+      wday = (@jd + 1) % 7
+      y_str = if y >= 0 && y <= 9999
+                  FOUR_DIGIT[y]
+                elsif y >= 0
+                  sprintf("%04d", y)
+                else
+                  sprintf("%05d", y)
+                end
+      str = "#{ABBR_DAYNAMES[wday]}, #{TWO_DIGIT[@day]} #{ABBR_MONTHNAMES[@month]} #{y_str} 00:00:00 GMT"
+      str.force_encoding(Encoding::US_ASCII)
+    else
+      strftime('%a, %d %b %Y %T GMT')
+    end
   end
 
   # call-seq:
@@ -3032,11 +3168,44 @@ class Date
   #   Date.new(2001, 2, 3).jisx0301 # => "H13.02.03"
   #
   def jisx0301
-    jd = m_real_local_jd
-    y = m_real_year
-
-    fmt = jisx0301_date_format(jd, y)
-    strftime(fmt)
+    if @df.nil? && @sf.nil? && @of.nil? && @nth == 0 && @has_civil
+      get_s_jd
+      jd = @jd
+      y  = @year
+      mm = TWO_DIGIT[@month]
+      dd = TWO_DIGIT[@day]
+      str = if !jd.is_a?(Integer) || jd < 2405160
+                # Pre-Meiji or non-integer JD: ISO format
+                if y >= 0 && y <= 9999
+                  "#{FOUR_DIGIT[y]}-#{mm}-#{dd}"
+                elsif y >= 0
+                  sprintf("%04d-%02d-%02d", y, @month, @day)
+                else
+                  sprintf("%05d-%02d-%02d", y, @month, @day)
+                end
+              elsif jd < 2419614
+                ey = y - 1867
+                "M#{ey < 100 ? TWO_DIGIT[ey] : sprintf('%02d', ey)}.#{mm}.#{dd}"
+              elsif jd < 2424875
+                ey = y - 1911
+                "T#{ey < 100 ? TWO_DIGIT[ey] : sprintf('%02d', ey)}.#{mm}.#{dd}"
+              elsif jd < 2447535
+                ey = y - 1925
+                "S#{ey < 100 ? TWO_DIGIT[ey] : sprintf('%02d', ey)}.#{mm}.#{dd}"
+              elsif jd < 2458605
+                ey = y - 1988
+                "H#{ey < 100 ? TWO_DIGIT[ey] : sprintf('%02d', ey)}.#{mm}.#{dd}"
+              else
+                ey = y - 2018
+                "R#{ey < 100 ? TWO_DIGIT[ey] : sprintf('%02d', ey)}.#{mm}.#{dd}"
+              end
+      str.force_encoding(Encoding::US_ASCII)
+    else
+      jd  = m_real_local_jd
+      y   = m_real_year
+      fmt = jisx0301_date_format(jd, y)
+      strftime(fmt)
+    end
   end
 
   def to_s
@@ -3644,28 +3813,70 @@ class Date
   end
 
   def dup_obj_with_new_start(sg)
-    dup = dup_obj
-    dup.send(:set_sg, sg)
-
-    dup
+    if @df.nil? && @sf.nil? && @of.nil?
+      # Fast path for simple Date (no time/offset components).
+      # Absolute hot path: nth==0 (common Gregorian date) with JD already cached.
+      if @nth == 0 && @has_jd
+        new_obj = self.class.send(:allocate)
+        new_obj.instance_variable_set(:@nth, 0)
+        new_obj.instance_variable_set(:@jd, @jd)
+        new_obj.instance_variable_set(:@sg, sg)
+        new_obj.instance_variable_set(:@df, nil)
+        new_obj.instance_variable_set(:@sf, nil)
+        new_obj.instance_variable_set(:@of, nil)
+        new_obj.instance_variable_set(:@year, nil)
+        new_obj.instance_variable_set(:@month, nil)
+        new_obj.instance_variable_set(:@day, nil)
+        new_obj.instance_variable_set(:@has_jd, true)
+        new_obj.instance_variable_set(:@has_civil, false)
+        return new_obj
+      end
+      # General simple path: inline get_s_jd and canon(@nth).
+      unless @has_jd
+        if @has_civil
+          jd, _ = self.class.send(:c_civil_to_jd, @year, @month, @day, s_virtual_sg)
+          @jd = jd
+          @has_jd = true
+        end
+      end
+      nth = @nth
+      nth = nth.numerator if nth.is_a?(Rational) && nth.denominator == 1
+      new_obj = self.class.send(:allocate)
+      new_obj.instance_variable_set(:@nth, nth)
+      new_obj.instance_variable_set(:@jd, @jd)
+      new_obj.instance_variable_set(:@sg, sg)
+      new_obj.instance_variable_set(:@df, nil)
+      new_obj.instance_variable_set(:@sf, nil)
+      new_obj.instance_variable_set(:@of, nil)
+      new_obj.instance_variable_set(:@year, nil)
+      new_obj.instance_variable_set(:@month, nil)
+      new_obj.instance_variable_set(:@day, nil)
+      new_obj.instance_variable_set(:@has_jd, @has_jd)
+      new_obj.instance_variable_set(:@has_civil, false)
+      new_obj
+    else
+      dup = dup_obj
+      dup.send(:set_sg, sg)
+      dup
+    end
   end
 
   def dup_obj
     if simple_dat_p?
-      # Simple data replication
-      new_obj = self.class.send(:d_lite_s_alloc_simple)
+      # Simple data replication: allocate directly, avoid d_lite_s_alloc_simple overhead
+      new_obj = self.class.send(:allocate)
 
       new_obj.instance_variable_set(:@nth, canon(@nth))
       new_obj.instance_variable_set(:@jd, @jd)
       new_obj.instance_variable_set(:@sg, @sg)
+      new_obj.instance_variable_set(:@df, nil)
+      new_obj.instance_variable_set(:@sf, nil)
+      new_obj.instance_variable_set(:@of, nil)
       new_obj.instance_variable_set(:@year, @year)
       new_obj.instance_variable_set(:@month, @month)
       new_obj.instance_variable_set(:@day, @day)
       new_obj.instance_variable_set(:@has_jd, @has_jd)
       new_obj.instance_variable_set(:@has_civil, @has_civil)
-      new_obj.instance_variable_set(:@df, nil)
-      new_obj.instance_variable_set(:@sf, nil)
-      new_obj.instance_variable_set(:@of, nil)
 
       new_obj
     else
@@ -3882,20 +4093,24 @@ class Date
   end
 
   def m_cwyear
-    jd = m_local_jd
-    sg = m_virtual_sg
-
-    ry, _, _ = self.class.send(:c_jd_to_commercial, jd, sg)
-
+    return @cwyear if @has_commercial
+    ry, rw, _ = self.class.send(:c_jd_to_commercial, m_local_jd, m_virtual_sg)
+    unless frozen?
+      @cwyear = ry
+      @cweek  = rw
+      @has_commercial = true
+    end
     ry
   end
 
   def m_cweek
-    jd = m_local_jd
-    sg = m_virtual_sg
-
-    _, rw, _ = self.class.send(:c_jd_to_commercial, jd, sg)
-
+    return @cweek if @has_commercial
+    ry, rw, _ = self.class.send(:c_jd_to_commercial, m_local_jd, m_virtual_sg)
+    unless frozen?
+      @cwyear = ry
+      @cweek  = rw
+      @has_commercial = true
+    end
     rw
   end
 

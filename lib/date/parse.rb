@@ -1914,14 +1914,11 @@ class Date
 
     def check_class(str)
       flags = 0
-      str.each_char do |c|
-        flags |= HAVE_ALPHA if c =~ /[a-zA-Z]/
-        flags |= HAVE_DIGIT if c =~ /\d/
-        flags |= HAVE_DASH  if c == '-'
-        flags |= HAVE_DOT   if c == '.'
-        flags |= HAVE_SLASH if c == '/'
-      end
-
+      flags |= HAVE_ALPHA if str.match?(/[a-zA-Z]/)
+      flags |= HAVE_DIGIT if str.match?(/\d/)
+      flags |= HAVE_DASH  if str.include?('-')
+      flags |= HAVE_DOT   if str.include?('.')
+      flags |= HAVE_SLASH if str.include?('/')
       flags
     end
 
