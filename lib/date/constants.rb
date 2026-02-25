@@ -3,25 +3,12 @@
 
 # Constants
 class Date
-  HAVE_JD     = 0b00000001  # 1
-  HAVE_DF     = 0b00000010  # 2
-  HAVE_CIVIL  = 0b00000100  # 4
-  HAVE_TIME   = 0b00001000  # 8
-  COMPLEX_DAT = 0b10000000  # 128
-  private_constant :HAVE_JD, :HAVE_DF, :HAVE_CIVIL, :HAVE_TIME, :COMPLEX_DAT
-
-  MONTHNAMES = [nil, "January", "February", "March", "April", "May", "June",
-                "July", "August", "September", "October", "November", "December"].freeze
-  ABBR_MONTHNAMES = [nil, "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-                     "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].freeze
+  MONTHNAMES = [nil, 'January', 'February', 'March', 'April', 'May', 'June',
+                'July', 'August', 'September', 'October', 'November', 'December'].freeze
+  ABBR_MONTHNAMES = [nil, 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].freeze
   DAYNAMES = %w[Sunday Monday Tuesday Wednesday Thursday Friday Saturday].freeze
   ABBR_DAYNAMES = %w[Sun Mon Tue Wed Thu Fri Sat].freeze
-
-  # Pattern constants for regex
-  ABBR_DAYS_PATTERN = 'sun|mon|tue|wed|thu|fri|sat'
-  DAYS_PATTERN = 'sunday|monday|tuesday|wednesday|thursday|friday|saturday'
-  ABBR_MONTHS_PATTERN = 'jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec'
-  private_constant :ABBR_DAYS_PATTERN, :DAYS_PATTERN, :ABBR_MONTHS_PATTERN
 
   ITALY     = 2299161 # 1582-10-15
   ENGLAND   = 2361222 # 1752-09-14
@@ -31,205 +18,377 @@ class Date
   DEFAULT_SG = ITALY
   private_constant :DEFAULT_SG
 
-  MINUTE_IN_SECONDS      = 60
-  HOUR_IN_SECONDS        = 3600
-  DAY_IN_SECONDS         = 86400
-  HALF_DAYS_IN_SECONDS   = DAY_IN_SECONDS / 2
-  SECOND_IN_MILLISECONDS = 1000
-  SECOND_IN_NANOSECONDS  = 1_000_000_000
-  private_constant :MINUTE_IN_SECONDS, :HOUR_IN_SECONDS, :DAY_IN_SECONDS, :SECOND_IN_MILLISECONDS, :SECOND_IN_NANOSECONDS, :HALF_DAYS_IN_SECONDS
+  # Pre-computed lowercase byte arrays for fast case-insensitive name matching in strptime
+  ABBR_DAY_LOWER_BYTES = ABBR_DAYNAMES.map { |n| n.downcase.bytes.freeze }.freeze
+  DAY_LOWER_BYTES = DAYNAMES.map { |n| n.downcase.bytes.freeze }.freeze
+  ABBR_MONTH_LOWER_BYTES = ABBR_MONTHNAMES.each_with_object([]) { |n, a|
+    a << (n ? n.downcase.bytes.freeze : nil)
+  }.freeze
+  MONTH_LOWER_BYTES = MONTHNAMES.each_with_object([]) { |n, a|
+    a << (n ? n.downcase.bytes.freeze : nil)
+  }.freeze
+  private_constant :ABBR_DAY_LOWER_BYTES, :DAY_LOWER_BYTES,
+                   :ABBR_MONTH_LOWER_BYTES, :MONTH_LOWER_BYTES
 
-  JC_PERIOD0 = 1461     # 365.25 * 4
-  GC_PERIOD0 = 146097   # 365.2425 * 400
-  CM_PERIOD0 = 71149239 # (lcm 7 1461 146097)
-  CM_PERIOD = (0xfffffff / CM_PERIOD0) * CM_PERIOD0
-  CM_PERIOD_JCY = (CM_PERIOD / JC_PERIOD0) * 4
-  CM_PERIOD_GCY = (CM_PERIOD / GC_PERIOD0) * 400
-  private_constant :JC_PERIOD0, :GC_PERIOD0, :CM_PERIOD0, :CM_PERIOD, :CM_PERIOD_JCY, :CM_PERIOD_GCY
+  # 3-byte integer key lookup tables for O(1) abbreviated name matching.
+  # Key = (byte0_lower << 16) | (byte1_lower << 8) | byte2_lower
+  # Value = [index, full_name_length]
+  ABBR_DAY_3KEY = ABBR_DAYNAMES.each_with_index.to_h { |n, i|
+    b = n.downcase.bytes
+    [(b[0] << 16) | (b[1] << 8) | b[2], [i, DAYNAMES[i].length].freeze]
+  }.freeze
+  ABBR_MONTH_3KEY = ABBR_MONTHNAMES.each_with_index.each_with_object({}) { |(n, i), h|
+    next if n.nil?
+    b = n.downcase.bytes
+    h[(b[0] << 16) | (b[1] << 8) | b[2]] = [i, MONTHNAMES[i].length].freeze
+  }.freeze
+  private_constant :ABBR_DAY_3KEY, :ABBR_MONTH_3KEY
 
-  REFORM_BEGIN_YEAR = 1582
-  REFORM_END_YEAR   = 1930
-  REFORM_BEGIN_JD = 2298874  # ns 1582-01-01
-  REFORM_END_JD = 2426355    # os 1930-12-31
-  private_constant :REFORM_BEGIN_YEAR, :REFORM_END_YEAR, :REFORM_BEGIN_JD, :REFORM_END_JD
+  # Case-insensitive abbreviated month name -> month number (1-12)
+  ABBR_MONTH_NUM = ABBR_MONTHNAMES.each_with_index.each_with_object({}) { |(n, i), h|
+    next if n.nil?
+    h[n.downcase] = i
+  }.freeze
 
-  SEC_WIDTH  = 6
-  MIN_WIDTH  = 6
-  HOUR_WIDTH = 5
-  MDAY_WIDTH = 5
-  MON_WIDTH  = 4
-  private_constant :SEC_WIDTH, :MIN_WIDTH, :HOUR_WIDTH, :MDAY_WIDTH, :MON_WIDTH
+  # Case-insensitive abbreviated day name -> wday number (0-6)
+  ABBR_DAY_NUM = ABBR_DAYNAMES.each_with_index.to_h { |n, i| [n.downcase, i] }.freeze
+  private_constant :ABBR_MONTH_NUM, :ABBR_DAY_NUM
 
-  SEC_SHIFT  = 0
-  MIN_SHIFT  = SEC_WIDTH
-  HOUR_SHIFT = MIN_WIDTH + SEC_WIDTH
-  MDAY_SHIFT = HOUR_WIDTH + MIN_WIDTH + SEC_WIDTH
-  MON_SHIFT  = MDAY_WIDTH + HOUR_WIDTH + MIN_WIDTH + SEC_WIDTH
-  private_constant :SEC_SHIFT, :MIN_SHIFT, :HOUR_SHIFT, :MDAY_SHIFT, :MON_SHIFT
+  JULIAN_EPOCH_DATE             = '-4712-01-01'.freeze
+  JULIAN_EPOCH_DATETIME         = '-4712-01-01T00:00:00+00:00'.freeze
+  JULIAN_EPOCH_DATETIME_RFC2822 = 'Mon, 1 Jan -4712 00:00:00 +0000'.freeze
+  JULIAN_EPOCH_DATETIME_HTTPDATE = 'Mon, 01 Jan -4712 00:00:00 GMT'.freeze
+  private_constant :JULIAN_EPOCH_DATE, :JULIAN_EPOCH_DATETIME,
+                   :JULIAN_EPOCH_DATETIME_RFC2822, :JULIAN_EPOCH_DATETIME_HTTPDATE
 
-  PK_MASK = ->(x) { (1 << x) - 1 }
-  private_constant :PK_MASK
+  # === Calendar computation (from core.rb) ===
 
-  # Days in each month (non-leap and leap year)
-  MONTH_DAYS = [
-    [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31].freeze,  # non-leap
-    [0, 31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31].freeze   # leap
+  # Days in month for Gregorian calendar.
+  DAYS_IN_MONTH_GREGORIAN = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31].freeze
+  private_constant :DAYS_IN_MONTH_GREGORIAN
+
+  # Precomputed month offset for Julian Day computation:
+  #   GJD_MONTH_OFFSET[m] == (306001 * (gm + 1)) / 10000
+  # where gm = m + 12 for m <= 2, else gm = m.
+  # Used to avoid an integer multiply in the hot path of civil_to_jd.
+  GJD_MONTH_OFFSET = [nil, 428, 459, 122, 153, 183, 214, 244, 275, 306, 336, 367, 397].freeze
+  private_constant :GJD_MONTH_OFFSET
+
+  STRFTIME_DATE_DEFAULT_FMT = '%F'.encode(Encoding::US_ASCII)
+  private_constant :STRFTIME_DATE_DEFAULT_FMT
+
+  ASCTIME_DAYS  = %w[Sun Mon Tue Wed Thu Fri Sat].freeze
+  ASCTIME_MONS  = [nil, 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].freeze
+  RFC2822_DAYS  = ASCTIME_DAYS
+  private_constant :ASCTIME_DAYS, :ASCTIME_MONS, :RFC2822_DAYS
+
+  # Pre-computed " Mon " strings for rfc2822/httpdate: " Jan ", " Feb ", ...
+  RFC_MON_SPACE = ASCTIME_MONS.map { |m| m ? " #{m} ".freeze : nil }.freeze
+  private_constant :RFC_MON_SPACE
+
+  ERA_TABLE = [
+    [2458605, 'R', 2018],  # Reiwa:   2019-05-01
+    [2447535, 'H', 1988],  # Heisei:  1989-01-08
+    [2424875, 'S', 1925],  # Showa:   1926-12-25
+    [2419614, 'T', 1911],  # Taisho:  1912-07-30
+    [2405160, 'M', 1867],  # Meiji:   1873-01-01
   ].freeze
-  private_constant :MONTH_DAYS
+  private_constant :ERA_TABLE
 
-  YEARTAB = [
-    [0, 0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334].freeze,  # non-leap
-    [0, 0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335].freeze   # leap
+  # Pre-built "-MM-DD" suffixes for all valid month/day combinations.
+  # Indexed by [month][day]. Avoids per-call format() for the month/day portion.
+  MONTH_DAY_SUFFIX = Array.new(13) { |m|
+    Array.new(32) { |d|
+      next nil if m == 0 || d == 0
+      format('-%02d-%02d', m, d).encode(Encoding::US_ASCII).freeze
+    }.freeze
+  }.freeze
+  private_constant :MONTH_DAY_SUFFIX
+
+  # === String formatting (from strftime.rb) ===
+
+  DEFAULT_STRFTIME_FMT = '%F'.encode(Encoding::US_ASCII).freeze
+  private_constant :DEFAULT_STRFTIME_FMT
+
+  YMD_FMT = '%Y-%m-%d'.encode(Encoding::US_ASCII).freeze
+  private_constant :YMD_FMT
+
+  # Locale-independent month/day name tables (same as C ext)
+  STRFTIME_MONTHS_FULL  = MONTHNAMES.freeze
+  STRFTIME_MONTHS_ABBR  = ABBR_MONTHNAMES.freeze
+  STRFTIME_DAYS_FULL    = DAYNAMES.freeze
+  STRFTIME_DAYS_ABBR    = ABBR_DAYNAMES.freeze
+  private_constant :STRFTIME_MONTHS_FULL, :STRFTIME_MONTHS_ABBR,
+                   :STRFTIME_DAYS_FULL,   :STRFTIME_DAYS_ABBR
+
+  # Pre-computed "Sun Jan " prefix table for %c / asctime [wday][month]
+  ASCTIME_PREFIX = Array.new(7) { |w|
+    Array.new(13) { |m|
+      m == 0 ? nil : "#{STRFTIME_DAYS_ABBR[w]} #{STRFTIME_MONTHS_ABBR[m]} ".freeze
+    }.freeze
+  }.freeze
+  private_constant :ASCTIME_PREFIX
+
+  # Pre-computed "Saturday, " prefix table for %A format [wday]
+  DAY_FULL_COMMA = STRFTIME_DAYS_FULL.map { |d| "#{d}, ".freeze }.freeze
+  # Pre-computed "March " prefix table for %B format [month]
+  MONTH_FULL_SPACE = STRFTIME_MONTHS_FULL.map { |m| m ? "#{m} ".freeze : nil }.freeze
+  private_constant :DAY_FULL_COMMA, :MONTH_FULL_SPACE
+
+  # Bitmask flag constants for strftime parsing
+  FL_LEFT   = 0x01  # '-' flag
+  FL_SPACE  = 0x02  # '_' flag
+  FL_ZERO   = 0x04  # '0' flag
+  FL_UPPER  = 0x08  # '^' flag
+  FL_CHCASE = 0x10  # '#' flag
+  private_constant :FL_LEFT, :FL_SPACE, :FL_ZERO, :FL_UPPER, :FL_CHCASE
+
+  # Pre-computed 2-digit zero-padded strings for 0..99
+  PAD2 = (0..99).map { |n| format('%02d', n).freeze }.freeze
+  private_constant :PAD2
+
+  # Map composite spec bytes to their expansion strings
+  STRFTIME_COMPOSITE_BYTE = {
+    99  => '%a %b %e %H:%M:%S %Y',  # 'c'
+    68  => '%m/%d/%y',               # 'D'
+    70  => '%Y-%m-%d',               # 'F'
+    110 => "\n",                     # 'n'
+    114 => '%I:%M:%S %p',            # 'r'
+    82  => '%H:%M',                  # 'R'
+    116 => "\t",                     # 't'
+    84  => '%H:%M:%S',              # 'T'
+    118 => '%e-%^b-%4Y',            # 'v'
+    88  => '%H:%M:%S',              # 'X'
+    120 => '%m/%d/%y',              # 'x'
+  }.freeze
+  private_constant :STRFTIME_COMPOSITE_BYTE
+
+  # Valid specs for %E locale modifier (as byte values)
+  # c=99, C=67, x=120, X=88, y=121, Y=89
+  STRFTIME_E_VALID_BYTES = [99, 67, 120, 88, 121, 89].freeze
+  # Valid specs for %O locale modifier (as byte values)
+  # d=100, e=101, H=72, k=107, I=73, l=108, m=109, M=77, S=83, u=117, U=85, V=86, w=119, W=87, y=121
+  STRFTIME_O_VALID_BYTES = [100, 101, 72, 107, 73, 108, 109, 77, 83, 117, 85, 86, 119, 87, 121].freeze
+  private_constant :STRFTIME_E_VALID_BYTES, :STRFTIME_O_VALID_BYTES
+
+  # Maximum allowed format width to prevent unreasonable memory allocation
+  STRFTIME_MAX_WIDTH = 65535
+  # Maximum length for a single formatted field (matches C's STRFTIME_MAX_COPY_LEN)
+  STRFTIME_MAX_COPY_LEN = 1024
+  private_constant :STRFTIME_MAX_WIDTH, :STRFTIME_MAX_COPY_LEN
+
+  # === Parse regex patterns (from parse.rb) ===
+
+  RFC3339_RE = /\A\s*(-?\d{4})-(\d{2})-(\d{2})[Tt ](\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?(Z|[-+]\d{2}:\d{2})\s*\z/i
+  private_constant :RFC3339_RE
+
+  HTTPDATE_TYPE1_RE = /\A\s*(sun|mon|tue|wed|thu|fri|sat)\s*,\s+(\d{2})\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s+(-?\d{4})\s+(\d{2}):(\d{2}):(\d{2})\s+(gmt)\s*\z/i
+  HTTPDATE_TYPE2_RE = /\A\s*(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\s*,\s+(\d{2})\s*-\s*(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s*-\s*(\d{2})\s+(\d{2}):(\d{2}):(\d{2})\s+(gmt)\s*\z/i
+  HTTPDATE_TYPE3_RE = /\A\s*(sun|mon|tue|wed|thu|fri|sat)\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s+(\d{1,2})\s+(\d{2}):(\d{2}):(\d{2})\s+(\d{4})\s*\z/i
+  # Fast path: simplified Type 1 with generic [a-zA-Z] instead of alternation
+  FAST_HTTPDATE_TYPE1_RE = /\A\s*([a-zA-Z]{3}),\s+(\d{2})\s+([a-zA-Z]{3})\s+(\d{4})\s+(\d{2}):(\d{2}):(\d{2})\s+(GMT)\s*\z/i
+  private_constant :HTTPDATE_TYPE1_RE, :HTTPDATE_TYPE2_RE, :HTTPDATE_TYPE3_RE,
+                   :FAST_HTTPDATE_TYPE1_RE
+
+  # Wday lookup from abbreviated day name (3-char lowercase key)
+  HTTPDATE_WDAY = {'sun'=>0,'mon'=>1,'tue'=>2,'wed'=>3,'thu'=>4,'fri'=>5,'sat'=>6}.freeze
+  HTTPDATE_FULL_WDAY = {'sunday'=>0,'monday'=>1,'tuesday'=>2,'wednesday'=>3,'thursday'=>4,'friday'=>5,'saturday'=>6}.freeze
+  private_constant :HTTPDATE_WDAY, :HTTPDATE_FULL_WDAY
+
+  RFC2822_RE = /\A\s*(?:(sun|mon|tue|wed|thu|fri|sat)\s*,\s+)?(\d{1,2})\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s+(-?\d{2,})\s+(\d{2}):(\d{2})(?::(\d{2}))?\s*([-+]\d{4}|ut|gmt|e[sd]t|c[sd]t|m[sd]t|p[sd]t|[a-ik-z])\s*\z/i
+  private_constant :RFC2822_RE
+
+  XMLSCHEMA_DATETIME_RE = /\A\s*(-?\d{4,})(?:-(\d{2})(?:-(\d{2}))?)?(?:t(\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?)?(z|[-+]\d{2}:\d{2})?\s*\z/i
+  XMLSCHEMA_TIME_RE     = /\A\s*(\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?(z|[-+]\d{2}:\d{2})?\s*\z/i
+  XMLSCHEMA_TRUNC_RE    = /\A\s*(?:--(\d{2})(?:-(\d{2}))?|---(\d{2}))(z|[-+]\d{2}:\d{2})?\s*\z/i
+  private_constant :XMLSCHEMA_DATETIME_RE, :XMLSCHEMA_TIME_RE, :XMLSCHEMA_TRUNC_RE
+
+  ISO8601_EXT_DATETIME_RE = %r{\A\s*
+    (?:
+      ([-+]?\d{2,}|-)-(\d{2})?(?:-(\d{2}))?   |  # year-mon-mday or --mon-mday or ---mday
+      ([-+]?\d{2,})?-(\d{3})                    |  # year-yday
+      (\d{4}|\d{2})?-w(\d{2})(?:-(\d))?         |  # cwyear-wNN-D
+      -w-(\d)                                       # -w-D
+    )
+    (?:t
+      (\d{2}):(\d{2})(?::(\d{2})(?:[,.](\d+))?)?
+      (z|[-+]\d{2}(?::?\d{2})?)?
+    )?
+  \s*\z}xi
+
+  ISO8601_BAS_DATETIME_RE = %r{\A\s*
+    (?:
+      ([-+]?(?:\d{4}|\d{2})|--)(\d{2}|-)(\d{2})  |  # yyyymmdd / --mmdd / ----dd
+      ([-+]?(?:\d{4}|\d{2}))(\d{3})                 |  # yyyyddd
+      -(\d{3})                                        |  # -ddd
+      (\d{4}|\d{2})w(\d{2})(\d)                      |  # yyyywwwd
+      -w(\d{2})(\d)                                   |  # -wNN-D
+      -w-(\d)                                            # -w-D
+    )
+    (?:t?
+      (\d{2})(\d{2})(?:(\d{2})(?:[,.](\d+))?)?
+      (z|[-+]\d{2}(\d{2})?)?
+    )?
+  \s*\z}xi
+
+  ISO8601_EXT_TIME_RE = /\A\s*(\d{2}):(\d{2})(?::(\d{2})(?:[,.](\d+))?(z|[-+]\d{2}(?::?\d{2})?)?)?\s*\z/i
+  ISO8601_BAS_TIME_RE = /\A\s*(\d{2})(\d{2})(?:(\d{2})(?:[,.](\d+))?(z|[-+]\d{2}(\d{2})?)?)?\s*\z/i
+  private_constant :ISO8601_EXT_DATETIME_RE, :ISO8601_BAS_DATETIME_RE,
+                   :ISO8601_EXT_TIME_RE, :ISO8601_BAS_TIME_RE
+
+  JISX0301_ERA = { 'm' => 1867, 't' => 1911, 's' => 1925, 'h' => 1988, 'r' => 2018 }.freeze
+  JISX0301_RE = /\A\s*([mtshr])?(\d{2})\.(\d{2})\.(\d{2})(?:t(?:(\d{2}):(\d{2})(?::(\d{2})(?:[,.](\d*))?)?(z|[-+]\d{2}(?::?\d{2})?)?)?)?\s*\z/i
+  private_constant :JISX0301_ERA, :JISX0301_RE
+
+  # Character class flags
+  HAVE_ALPHA = 1
+  HAVE_DIGIT = 2
+  HAVE_DASH  = 4
+  HAVE_DOT   = 8
+  HAVE_SLASH = 16
+  HAVE_COLON = 32
+  private_constant :HAVE_ALPHA, :HAVE_DIGIT, :HAVE_DASH, :HAVE_DOT, :HAVE_SLASH, :HAVE_COLON
+
+  PARSE_DAYS_RE = /\b(sun|mon|tue|wed|thu|fri|sat)[^-\/\d\s]*/i
+  PARSE_MON_RE  = /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\S*/i
+  PARSE_MDAY_RE = /(?<!\d)(\d+)(st|nd|rd|th)\b/i
+  PARSE_BC_RE   = /\b(bc\b|bce\b|b\.c\.|b\.c\.e\.)/i
+  PARSE_YEAR_RE = /'(\d+)\b/
+  private_constant :PARSE_DAYS_RE, :PARSE_MON_RE, :PARSE_MDAY_RE,
+                   :PARSE_BC_RE, :PARSE_YEAR_RE
+
+  # time zone pattern: multi-word zones, gmt/utc offsets, single-letter military zones
+  PARSE_TIME_ZONE_RE = /(?:
+    (?:gmt|utc?)?[-+]\d+(?:[,.:]?\d+(?::\d+)?)?
+  |
+    (?-i:[[:alpha:].\s]+)(?:standard|daylight)\s+time\b
+  |
+    (?-i:[[:alpha:]]+)(?:\s+dst)?\b
+  )/xi
+
+  # The main time regex (captures the time + optional zone)
+  PARSE_TIME_RE = /(
+    (?<!\d)\d+\s*
+    (?:
+      (?:
+        :\s*\d+
+        (?:\s*:\s*\d+(?:[,.]\d*)?)?
+      |
+        h(?:\s*\d+m?(?:\s*\d+s?)?)?
+      )
+      (?:\s*[ap](?:m\b|\.m\.))?
+    |
+      [ap](?:m\b|\.m\.)
+    )
+  )
+  (?:
+    \s*
+    (#{PARSE_TIME_ZONE_RE.source})
+  )?/xi
+
+  PARSE_TIME_CB_RE = /\A(\d+)h?(?:\s*:?\s*(\d+)m?(?:\s*:?\s*(\d+)(?:[,.](\d+))?s?)?)?(?:\s*([ap])(?:m\b|\.m\.))?/i
+  private_constant :PARSE_TIME_ZONE_RE, :PARSE_TIME_RE, :PARSE_TIME_CB_RE
+
+  # EU date format
+  PARSE_EU_RE = /('?(?<!\d)\d+)[^\-\d\s]*\s*(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[^\-\d\s']*(?:\s*(?:\b(c(?:e|\.e\.)|b(?:ce|\.c\.e\.)|a(?:d|\.d\.)|b(?:c|\.c\.))\b)?\s*('?-?\d+(?:(?:st|nd|rd|th)\b)?))?/i
+
+  # US date format
+  PARSE_US_RE = /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[^\-\d\s']*\s*('?\d+)[^\-\d\s']*(?:\s*,?\s*(c(?:e|\.e\.)|b(?:ce|\.c\.e\.)|a(?:d|\.d\.)|b(?:c|\.c\.))?\s*('?-?\d+))?/i
+
+  # ISO date (YYYY-MM-DD)
+  PARSE_ISO_RE = /('?[-+]?(?<!\d)\d+)-(\d+)-('?-?\d+)/
+
+  # JIS X 0301
+  PARSE_JIS_RE = /\b([mtshr])(\d+)\.(\d+)\.(\d+)/i
+
+  # VMS format: DD-Mon-YYYY
+  PARSE_VMS11_RE = /('?-?(?<!\d)\d+)-(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[^\-\/.]*-('?-?\d+)/i
+  PARSE_VMS12_RE = /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[^\-\/.]*-('?-?\d+)(?:-('?-?\d+))?/i
+
+  # Slash format
+  PARSE_SLA_RE = /('?-?(?<!\d)\d+)\/\s*('?\d+)(?:\D\s*('?-?\d+))?/
+
+  # Dot format
+  PARSE_DOT_RE = /('?-?(?<!\d)\d+)\.\s*('?\d+)\.\s*('?-?\d+)/
+
+  # ISO week/ordinal formats
+  PARSE_ISO21_RE = /\b(\d{2}|\d{4})?-?w(\d{2})(?:-?(\d))?\b/i
+  PARSE_ISO22_RE = /-w-(\d)\b/i
+  PARSE_ISO23_RE = /--(\d{2})?-(\d{2})\b/
+  PARSE_ISO24_RE = /--(\d{2})(\d{2})?\b/
+  PARSE_ISO25_RE = /\b(\d{2}|\d{4})-(\d{3})\b/
+  PARSE_ISO26_RE = /\b-(\d{3})\b/
+
+  # DDD (continuous digit) pattern
+  PARSE_DDD_RE = /([-+]?)((?<!\d)\d{2,14})(?:\s*t?\s*(\d{2,6})?(?:[,.](\d*))?)?(?:\s*(z\b|[-+]\d{1,4}\b|\[[-+]?\d[^\]]*\]))?/i
+
+  # Fragment (1-2 digit remaining)
+  PARSE_FRAG_RE = /\A\s*(\d{1,2})\s*\z/
+
+  private_constant :PARSE_EU_RE, :PARSE_US_RE, :PARSE_ISO_RE, :PARSE_JIS_RE,
+                   :PARSE_VMS11_RE, :PARSE_VMS12_RE, :PARSE_SLA_RE, :PARSE_DOT_RE,
+                   :PARSE_ISO21_RE, :PARSE_ISO22_RE, :PARSE_ISO23_RE,
+                   :PARSE_ISO24_RE, :PARSE_ISO25_RE, :PARSE_ISO26_RE,
+                   :PARSE_DDD_RE, :PARSE_FRAG_RE
+
+  # Fast path patterns for common formats (bypass full _parse pipeline)
+  FAST_PARSE_US_RE  = /\A\s*([a-zA-Z]{3})[a-zA-Z]*\s+(\d{1,2})\s*,?\s*(\d{4})\s*\z/
+  FAST_PARSE_EU_RE  = /\A\s*(\d{1,2})\s+([a-zA-Z]{3})[a-zA-Z]*\s+(\d{4})\s*\z/
+  FAST_PARSE_RFC2822_RE = /\A\s*([a-zA-Z]{3}),\s+(\d{1,2})\s+([a-zA-Z]{3})\s+(\d{4})\s+(\d{2}):(\d{2}):(\d{2})\s+([-+]\d{4})\s*\z/
+  private_constant :FAST_PARSE_US_RE, :FAST_PARSE_EU_RE, :FAST_PARSE_RFC2822_RE
+
+  # === Strptime constants (from strptime.rb) ===
+
+  # Specs that produce numeric output (used by NUM_PATTERN_P lookahead)
+  STRPTIME_NUMERIC_SPECS = 'CDdeFGgHIjkLlMmNQRrSsTUuVvWwXxYy'.freeze
+  private_constant :STRPTIME_NUMERIC_SPECS
+
+  # Zone pattern matching: numeric offsets and named zones
+  # Matches (case-insensitive):
+  #   - Numeric: +/-HHMM, +/-HH:MM, +/-HH:MM:SS, +/-HH,frac, +/-HH.frac
+  #     optionally preceded by gmt/utc/ut
+  #   - Named: "Eastern Standard Time", "EST", "Japan DST", etc.
+  STRPTIME_ZONE_PAT = /\A(
+    (?:gmt|utc?)?[-+]\d+(?:[,.:]\d+(?::\d+)?)?
+    |(?-i:[[:alpha:].\s]+)(?:standard|daylight)\s+time\b
+    |(?-i:[[:alpha:]]+)(?:\s+dst)?\b
+  )/ix.freeze
+  private_constant :STRPTIME_ZONE_PAT
+
+  # Priority table for completing partial date fragments (same order as C)
+  COMPLETE_FRAGS_TAB = [
+    [:time,       [:hour, :min, :sec]],
+    [nil,         [:jd]],
+    [:ordinal,    [:year, :yday, :hour, :min, :sec]],
+    [:civil,      [:year, :mon, :mday, :hour, :min, :sec]],
+    [:commercial, [:cwyear, :cweek, :cwday, :hour, :min, :sec]],
+    [:wday,       [:wday, :hour, :min, :sec]],
+    [:wnum0,      [:year, :wnum0, :wday, :hour, :min, :sec]],
+    [:wnum1,      [:year, :wnum1, :wday, :hour, :min, :sec]],
+    [nil,         [:cwyear, :cweek, :wday, :hour, :min, :sec]],
+    [nil,         [:year, :wnum0, :cwday, :hour, :min, :sec]],
+    [nil,         [:year, :wnum1, :cwday, :hour, :min, :sec]],
   ].freeze
-  private_constant :YEARTAB
+  private_constant :COMPLETE_FRAGS_TAB
 
-  # Neri-Schneider algorithm constants
-  # JDN of March 1, Year 0 in proleptic Gregorian calendar
-  NS_EPOCH = 1721120
-  private_constant :NS_EPOCH
+  # O(1) boolean lookup table for numeric specs (used by _sp_num_p_b?)
+  # Includes both STRPTIME_NUMERIC_SPECS chars and digits '0'..'9'
+  STRPTIME_NUMERIC_SPEC_SET = Array.new(256, false).tap { |a|
+    STRPTIME_NUMERIC_SPECS.each_byte { |b| a[b] = true }
+    48.upto(57) { |b| a[b] = true } # '0'..'9'
+  }.freeze
+  private_constant :STRPTIME_NUMERIC_SPEC_SET
 
-  # Days in a 4-year cycle (3 normal years + 1 leap year)
-  NS_DAYS_IN_4_YEARS = 1461
-  private_constant :NS_DAYS_IN_4_YEARS
+  # O(1) boolean lookup table for E-modifier valid specs
+  STRPTIME_E_VALID_SET = Array.new(256, false).tap { |a|
+    'cCxXyY'.each_byte { |b| a[b] = true }
+  }.freeze
+  private_constant :STRPTIME_E_VALID_SET
 
-  # Days in a 400-year Gregorian cycle (97 leap years in 400 years)
-  NS_DAYS_IN_400_YEARS = 146097
-  private_constant :NS_DAYS_IN_400_YEARS
-
-  # Years per century
-  NS_YEARS_PER_CENTURY = 100
-  private_constant :NS_YEARS_PER_CENTURY
-
-  # Multiplier for extracting year within century using fixed-point arithmetic.
-  # This is ceil(2^32 / NS_DAYS_IN_4_YEARS) for the Euclidean affine function.
-  NS_YEAR_MULTIPLIER = 2939745
-  private_constant :NS_YEAR_MULTIPLIER
-
-  # Coefficients for month calculation from day-of-year.
-  # Maps day-of-year to month using: month = (NS_MONTH_COEFF * doy + NS_MONTH_OFFSET) >> 16
-  NS_MONTH_COEFF  = 2141
-  NS_MONTH_OFFSET = 197913
-  private_constant :NS_MONTH_COEFF, :NS_MONTH_OFFSET
-
-  # Coefficients for civil date to JDN month contribution.
-  # Maps month to accumulated days: days = (NS_CIVIL_MONTH_COEFF * m - NS_CIVIL_MONTH_OFFSET) / 32
-  NS_CIVIL_MONTH_COEFF   = 979
-  NS_CIVIL_MONTH_OFFSET  = 2919
-  NS_CIVIL_MONTH_DIVISOR = 32
-  private_constant :NS_CIVIL_MONTH_COEFF, :NS_CIVIL_MONTH_OFFSET, :NS_CIVIL_MONTH_DIVISOR
-
-  # Days from March 1 to December 31 (for Jan/Feb year adjustment)
-  NS_DAYS_BEFORE_NEW_YEAR = 306
-  private_constant :NS_DAYS_BEFORE_NEW_YEAR
-
-  # Safe bounds for Neri-Schneider algorithm to avoid integer overflow.
-  # These correspond to approximately years -1,000,000 to +1,000,000.
-  NS_JD_MIN = -364_000_000
-  NS_JD_MAX = 538_000_000
-  private_constant :NS_JD_MIN, :NS_JD_MAX
-
-  JULIAN_EPOCH_DATE              = "-4712-01-01"
-  JULIAN_EPOCH_DATETIME          = "-4712-01-01T00:00:00+00:00"
-  JULIAN_EPOCH_DATETIME_RFC2822  = "Mon, 1 Jan -4712 00:00:00 +0000"
-  JULIAN_EPOCH_DATETIME_HTTPDATE = "Mon, 01 Jan -4712 00:00:00 GMT"
-  private_constant :JULIAN_EPOCH_DATE, :JULIAN_EPOCH_DATETIME, :JULIAN_EPOCH_DATETIME_RFC2822, :JULIAN_EPOCH_DATETIME_HTTPDATE
-
-  JISX0301_ERA_INITIALS = 'mtshr'
-  JISX0301_DEFAULT_ERA = 'H'  # obsolete
-  private_constant :JISX0301_ERA_INITIALS, :JISX0301_DEFAULT_ERA
-
-  HAVE_ALPHA = 1 << 0
-  HAVE_DIGIT = 1 << 1
-  HAVE_DASH  = 1 << 2
-  HAVE_DOT   = 1 << 3
-  HAVE_SLASH = 1 << 4
-  private_constant :HAVE_ALPHA, :HAVE_DIGIT, :HAVE_DASH, :HAVE_DOT, :HAVE_SLASH
-
-  # C: default strftime format is US-ASCII
-  STRFTIME_DEFAULT_FMT = '%F'
-  private_constant :STRFTIME_DEFAULT_FMT
-
-  # strftime spec categories
-  NUMERIC_SPECS = %w[Y C y m d j H I M S L N G g U W V u w s Q].freeze
-  SPACE_PAD_SPECS = %w[e k l].freeze
-  CHCASE_UPPER_SPECS = %w[A a B b h].freeze
-  CHCASE_LOWER_SPECS = %w[Z p].freeze
-  private_constant :NUMERIC_SPECS, :SPACE_PAD_SPECS,
-                   :CHCASE_UPPER_SPECS, :CHCASE_LOWER_SPECS
-
-  # strptime digit-consuming specs
-  NUM_PATTERN_SPECS = "CDdeFGgHIjkLlMmNQRrSsTUuVvWwXxYy"
-  private_constant :NUM_PATTERN_SPECS
-
-  # Precomputed byte-indexed boolean table for num_pattern_p.
-  # Entry is true if the byte value corresponds to a digit-consuming %-specifier.
-  NUM_PATTERN_SPECS_TABLE = begin
-    t = Array.new(256, false)
-    NUM_PATTERN_SPECS.each_byte { |b| t[b] = true }
-    t.freeze
-  end
-  private_constant :NUM_PATTERN_SPECS_TABLE
-
-  # Precomputed zero-padded two-digit strings "00".."99".
-  TWO_DIGIT = (0..99).map { |i| (i < 10 ? "0#{i}" : i.to_s).freeze }.freeze
-  private_constant :TWO_DIGIT
-
-  # Precomputed zero-padded four-digit year strings "0000".."9999".
-  FOUR_DIGIT = (0..9999).map { |y| sprintf("%04d", y).freeze }.freeze
-  private_constant :FOUR_DIGIT
-
-  # Integer bitmask flags for strftime format modifier parsing.
-  FLAG_MINUS  = 0x01  # '-' suppress padding
-  FLAG_SPACE  = 0x02  # '_' space padding
-  FLAG_UPPER  = 0x04  # '^' upcase result
-  FLAG_CHCASE = 0x08  # '#' change case (CHCASE)
-  FLAG_ZERO   = 0x10  # '0' zero padding (explicit)
-  private_constant :FLAG_MINUS, :FLAG_SPACE, :FLAG_UPPER, :FLAG_CHCASE, :FLAG_ZERO
-
-  # Fragment completion table for DateTime parsing
-  COMPLETE_FRAGS_TABLE = [
-    [:time,       [:hour, :min, :sec].freeze],
-    [nil,         [:jd].freeze],
-    [:ordinal,    [:year, :yday, :hour, :min, :sec].freeze],
-    [:civil,      [:year, :mon, :mday, :hour, :min, :sec].freeze],
-    [:commercial, [:cwyear, :cweek, :cwday, :hour, :min, :sec].freeze],
-    [:wday,       [:wday, :hour, :min, :sec].freeze],
-    [:wnum0,      [:year, :wnum0, :wday, :hour, :min, :sec].freeze],
-    [:wnum1,      [:year, :wnum1, :wday, :hour, :min, :sec].freeze],
-    [nil,         [:cwyear, :cweek, :wday, :hour, :min, :sec].freeze],
-    [nil,         [:year, :wnum0, :cwday, :hour, :min, :sec].freeze],
-    [nil,         [:year, :wnum1, :cwday, :hour, :min, :sec].freeze],
-  ].each { |a| a.freeze }.freeze
-  private_constant :COMPLETE_FRAGS_TABLE
-
-  # Lookup tables for O(1) day/month name matching in strptime %a/%b.
-  # Key: 24-bit integer (b0|0x20)<<16|(b1|0x20)<<8|(b2|0x20) of lowercase 3-char abbreviation.
-  # Value: [index, full_lower, full_len, abbr_len].
-  # This avoids string allocation for the 3-char prefix key entirely.
-  STRPTIME_DAYNAME_BY_INT_KEY = begin
-    h = {}
-    DAYNAMES.each_with_index do |name, idx|
-      abbr = ABBR_DAYNAMES[idx]
-      k = ((abbr.getbyte(0) | 0x20) << 16) |
-          ((abbr.getbyte(1) | 0x20) << 8)  |
-           (abbr.getbyte(2) | 0x20)
-      h[k] = [idx, name.downcase, name.length, abbr.length].freeze
-    end
-    h.freeze
-  end
-  private_constant :STRPTIME_DAYNAME_BY_INT_KEY
-
-  STRPTIME_MONNAME_BY_INT_KEY = begin
-    h = {}
-    MONTHNAMES.each_with_index do |name, idx|
-      next unless name
-      abbr = ABBR_MONTHNAMES[idx]
-      k = ((abbr.getbyte(0) | 0x20) << 16) |
-          ((abbr.getbyte(1) | 0x20) << 8)  |
-           (abbr.getbyte(2) | 0x20)
-      h[k] = [idx, name.downcase, name.length, abbr.length].freeze
-    end
-    h.freeze
-  end
-  private_constant :STRPTIME_MONNAME_BY_INT_KEY
+  # O(1) boolean lookup table for O-modifier valid specs
+  STRPTIME_O_VALID_SET = Array.new(256, false).tap { |a|
+    'deHImMSuUVwWy'.each_byte { |b| a[b] = true }
+  }.freeze
+  private_constant :STRPTIME_O_VALID_SET
 end
