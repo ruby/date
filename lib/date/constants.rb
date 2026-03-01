@@ -101,17 +101,17 @@ class Date
   MONTH_DAY_SUFFIX = Array.new(13) { |m|
     Array.new(32) { |d|
       next nil if m == 0 || d == 0
-      format('-%02d-%02d', m, d).encode(Encoding::US_ASCII).freeze
+      format('-%02d-%02d', m, d).freeze
     }.freeze
   }.freeze
   private_constant :MONTH_DAY_SUFFIX
 
   # === String formatting (from strftime.rb) ===
 
-  DEFAULT_STRFTIME_FMT = '%F'.encode(Encoding::US_ASCII).freeze
+  DEFAULT_STRFTIME_FMT = '%F'
   private_constant :DEFAULT_STRFTIME_FMT
 
-  YMD_FMT = '%Y-%m-%d'.encode(Encoding::US_ASCII).freeze
+  YMD_FMT = '%Y-%m-%d'
   private_constant :YMD_FMT
 
   # Locale-independent month/day name tables (same as C ext)
