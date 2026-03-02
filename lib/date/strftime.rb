@@ -14,12 +14,12 @@ class Date
   # {Formats for Dates and Times}[rdoc-ref:language/strftime_formatting.rdoc].
   def strftime(format = DEFAULT_STRFTIME_FMT)
     if format.equal?(DEFAULT_STRFTIME_FMT)
-      _civil unless @year
+      internal_civil unless @year
       return _fast_ymd.force_encoding(Encoding::US_ASCII)
     end
     fmt = format.to_str
     if fmt == YMD_FMT
-      _civil unless @year
+      internal_civil unless @year
       return _fast_ymd.force_encoding(Encoding::US_ASCII)
     end
     internal_strftime(fmt).force_encoding(fmt.encoding)
@@ -31,15 +31,15 @@ class Date
     # Fast path for common format strings (whole-string match)
     case fmt
     when '%Y-%m-%d', '%F'
-      _civil unless @year
+      internal_civil unless @year
       return _fast_ymd
     when '%H:%M:%S', '%T', '%X'
       return instance_of?(Date) ? +'00:00:00' : "#{PAD2[internal_hour]}:#{PAD2[internal_min]}:#{PAD2[internal_sec]}"
     when '%m/%d/%y', '%D', '%x'
-      _civil unless @year
+      internal_civil unless @year
       return "#{PAD2[@month]}/#{PAD2[@day]}/#{PAD2[@year.abs % 100]}"
     when '%Y-%m-%dT%H:%M:%S%z'
-      _civil unless @year
+      internal_civil unless @year
       if instance_of?(Date)
         return _fast_ymd << 'T00:00:00+0000'
       else
@@ -49,10 +49,10 @@ class Date
         return "#{_fast_ymd}T#{PAD2[internal_hour]}:#{PAD2[internal_min]}:#{PAD2[internal_sec]}#{sign}#{PAD2[abs / 3600]}#{PAD2[(abs % 3600) / 60]}"
       end
     when '%a %b %e %H:%M:%S %Y', '%c'
-      _civil unless @year
+      internal_civil unless @year
       return _fmt_asctime_str
     when '%A, %B %d, %Y'
-      _civil unless @year
+      internal_civil unless @year
       w = (@jd + 1) % 7
       y = @year
       y_s = y >= 1000 ? y.to_s : (y >= 0 ? format('%04d', y) : format('-%04d', -y))
@@ -194,7 +194,7 @@ class Date
   def _fast_spec(spec) # rubocop:disable Metrics/MethodLength,Metrics/CyclomaticComplexity
     case spec
     when 89  # 'Y'
-      _civil unless @year
+      internal_civil unless @year
       y = @year
       if y >= 1000
         s = y.to_s
@@ -206,13 +206,13 @@ class Date
         format('-%04d', -y)
       end
     when 109 # 'm'
-      _civil unless @year
+      internal_civil unless @year
       PAD2[@month]
     when 100 # 'd'
-      _civil unless @year
+      internal_civil unless @year
       PAD2[@day]
     when 101 # 'e'
-      _civil unless @year
+      internal_civil unless @year
       d = @day
       d < 10 ? " #{d}" : d.to_s
     when 72  # 'H'
@@ -226,10 +226,10 @@ class Date
     when 65  # 'A'
       STRFTIME_DAYS_FULL[(@jd + 1) % 7]
     when 98, 104  # 'b', 'h'
-      _civil unless @year
+      internal_civil unless @year
       STRFTIME_MONTHS_ABBR[@month]
     when 66  # 'B'
-      _civil unless @year
+      internal_civil unless @year
       STRFTIME_MONTHS_FULL[@month]
     when 112 # 'p'
       internal_hour < 12 ? 'AM' : 'PM'
@@ -255,7 +255,7 @@ class Date
     when 117 # 'u'
       cwday.to_s
     when 121 # 'y'
-      _civil unless @year
+      internal_civil unless @year
       PAD2[@year.abs % 100]
     when 90  # 'Z'
       _zone_str
@@ -268,15 +268,15 @@ class Date
       ((@jd - 2440588) * 86400 - _of_seconds + internal_hour * 3600 + internal_min * 60 + internal_sec).to_s
     # Composite specs — inline expansion
     when 99  # 'c'
-      _civil unless @year
+      internal_civil unless @year
       _fmt_asctime_str
     when 70  # 'F'
-      _civil unless @year
+      internal_civil unless @year
       _fast_ymd
     when 84, 88  # 'T', 'X'
       instance_of?(Date) ? '00:00:00' : "#{PAD2[internal_hour]}:#{PAD2[internal_min]}:#{PAD2[internal_sec]}"
     when 68, 120  # 'D', 'x'
-      _civil unless @year
+      internal_civil unless @year
       "#{PAD2[@month]}/#{PAD2[@day]}/#{PAD2[@year.abs % 100]}"
     when 82  # 'R'
       instance_of?(Date) ? '00:00' : "#{PAD2[internal_hour]}:#{PAD2[internal_min]}"

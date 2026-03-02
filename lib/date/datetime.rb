@@ -356,13 +356,13 @@ class DateTime < Date
       if keys.size == 1
         case keys[0]
         when :year
-          _civil unless @year
+          internal_civil unless @year
           { year: @year }
         when :month
-          _civil unless @year
+          internal_civil unless @year
           { month: @month }
         when :day
-          _civil unless @year
+          internal_civil unless @year
           { day: @day }
         when :wday         then { wday: (@jd + 1) % 7 }
         when :yday         then { yday: yday }
@@ -374,7 +374,7 @@ class DateTime < Date
         else {}
         end
       else
-        _civil unless @year
+        internal_civil unless @year
         h = {}
         keys.each do |k|
           case k
@@ -393,7 +393,7 @@ class DateTime < Date
         h
       end
     else
-      _civil unless @year
+      internal_civil unless @year
       { year: @year, month: @month, day: @day, wday: (@jd + 1) % 7, yday: yday,
         hour: @hour, min: @min, sec: @sec_i, sec_fraction: @sec_frac, zone: _of2str(@of) }
     end
@@ -476,7 +476,7 @@ class DateTime < Date
   #
   # Returns a Date object which denotes self.
   def to_date
-    Date.__send__(:_new_from_jd, @jd, @sg)
+    Date.__send__(:new_from_jd, @jd, @sg)
   end
 
   # call-seq:
@@ -505,6 +505,11 @@ class DateTime < Date
   # ---------------------------------------------------------------------------
 
   class << self
+    def new(year = -4712, month = 1, day = 1, hour = 0, minute = 0, second = 0, offset = 0, start = Date::ITALY)
+      instance = allocate
+      instance.__send__(:initialize, year, month, day, hour, minute, second, offset, start)
+      instance
+    end
     alias_method :civil, :new
 
     undef_method :today
@@ -859,7 +864,7 @@ class DateTime < Date
     def _parse_of(offset)
       case offset
       when String
-        Date.__send__(:_offset_str_to_sec, offset)
+        Date.__send__(:offset_str_to_sec, offset)
       when Rational
         (offset * 86400).to_i
       when Numeric

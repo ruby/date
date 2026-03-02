@@ -15,7 +15,7 @@ class Time
   # Returns a Date object which denotes self.
   def to_date
     jd = Date.__send__(:gregorian_to_jd, year, mon, mday)
-    Date.__send__(:_new_from_jd, jd, Date::ITALY)
+    Date.__send__(:new_from_jd, jd, Date::ITALY)
   end unless method_defined?(:to_date)
 
   # call-seq:

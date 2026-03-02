@@ -12,42 +12,46 @@ class Date
   class << self
     # Same as Date.new.
     def civil(year = -4712, month = 1, day = 1, start = DEFAULT_SG)
-      unless (Integer === (year + month + day) rescue false) && month >= 1 && month <= 12
-        return new(year, month, day, start)
-      end
-      if day >= 1 && day <= 28
-        gy = month > 2 ? year : year - 1
-        gjd_base = (1461 * (gy + 4716)) / 4 + GJD_MONTH_OFFSET[month] + day
-        a = gy / 100
-        jd_julian = gjd_base - 1524
-        gjd = jd_julian + 2 - a + a / 4
-        obj = allocate
-        obj.__send__(:_init_from_jd, gjd >= start ? gjd : jd_julian, start)
-        return obj
-      elsif day >= -31
-        dim = if month == 2
-          if start == Float::INFINITY
-            year % 4 == 0 ? 29 : 28
-          else
-            (year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)) ? 29 : 28
-          end
-        else
-          DAYS_IN_MONTH_GREGORIAN[month]
-        end
-        d = day < 0 ? day + dim + 1 : day
-        if d >= 1 && d <= dim
+      if Integer === year && Integer === month && Integer === day && month >= 1 && month <= 12
+        if day >= 1 && day <= 28
           gy = month > 2 ? year : year - 1
-          gjd_base = (1461 * (gy + 4716)) / 4 + GJD_MONTH_OFFSET[month] + d
+          gjd_base = (1461 * (gy + 4716)) / 4 + GJD_MONTH_OFFSET[month] + day
           a = gy / 100
           jd_julian = gjd_base - 1524
           gjd = jd_julian + 2 - a + a / 4
           obj = allocate
-          obj.__send__(:_init_from_jd, gjd >= start ? gjd : jd_julian, start)
+          obj.__send__(:init_from_jd, gjd >= start ? gjd : jd_julian, start)
           return obj
+        elsif day >= -31
+          dim = if month == 2
+            if start == Float::INFINITY
+              year % 4 == 0 ? 29 : 28
+            else
+              (year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)) ? 29 : 28
+            end
+          else
+            DAYS_IN_MONTH_GREGORIAN[month]
+          end
+          d = day < 0 ? day + dim + 1 : day
+          if d >= 1 && d <= dim
+            gy = month > 2 ? year : year - 1
+            gjd_base = (1461 * (gy + 4716)) / 4 + GJD_MONTH_OFFSET[month] + d
+            a = gy / 100
+            jd_julian = gjd_base - 1524
+            gjd = jd_julian + 2 - a + a / 4
+            obj = allocate
+            obj.__send__(:init_from_jd, gjd >= start ? gjd : jd_julian, start)
+            return obj
+          end
         end
       end
-      new(year, month, day, start)
+      civil_fallback(year, month, day, start)
     end
+
+    def new(year = -4712, month = 1, day = 1, start = DEFAULT_SG)
+      civil(year, month, day, start)
+    end
+
     # call-seq:
     #   Date.valid_civil?(year, month, mday, start = Date::ITALY) -> true or false
     #
@@ -94,7 +98,7 @@ class Date
     def jd(jd = 0, start = DEFAULT_SG)
       jd = Integer(jd)
       obj = allocate
-      obj.__send__(:_init_from_jd, jd, start)
+      obj.__send__(:init_from_jd, jd, start)
       obj
     end
 
@@ -180,14 +184,14 @@ class Date
         gjd = gjd_base - 1524 + 2 - a + a / 4
         jd1 = gjd >= start ? gjd : gjd_base - 1524
         obj = allocate
-        obj.__send__(:_init_from_jd, jd1 + yday - 1, start)
+        obj.__send__(:init_from_jd, jd1 + yday - 1, start)
         return obj
       end
       year = Integer(year)
       yday = Integer(yday)
       jd = internal_valid_ordinal?(year, yday, start)
       raise Date::Error, "invalid date" unless jd
-      _new_from_jd(jd, start)
+      new_from_jd(jd, start)
     end
 
     # call-seq:
@@ -263,7 +267,7 @@ class Date
         mon_wk1 = jd_jan4 - (wday_jan4 == 0 ? 6 : wday_jan4 - 1)
         jd = mon_wk1 + (cweek - 1) * 7 + (cwday - 1)
         obj = allocate
-        obj.__send__(:_init_from_jd, jd, start)
+        obj.__send__(:init_from_jd, jd, start)
         return obj
       end
       cwyear = Integer(cwyear)
@@ -271,7 +275,7 @@ class Date
       cwday = Integer(cwday)
       jd = internal_valid_commercial?(cwyear, cweek, cwday, start)
       raise Date::Error, "invalid date" unless jd
-      _new_from_jd(jd, start)
+      new_from_jd(jd, start)
     end
 
     # call-seq:
@@ -307,7 +311,7 @@ class Date
       # Verify the resulting date is in the same year (week must be valid)
       y2, = jd_to_civil(jd, start)
       raise Date::Error, "invalid date" if y2 != year
-      _new_from_jd(jd, start)
+      new_from_jd(jd, start)
     end
 
     # call-seq:
@@ -324,7 +328,7 @@ class Date
       # Verify the result is in the same month
       y2, m2, = jd_to_civil(jd, start)
       raise Date::Error, "invalid date" if y2 != year || m2 != month
-      _new_from_jd(jd, start)
+      new_from_jd(jd, start)
     end
 
     # call-seq:
@@ -339,7 +343,7 @@ class Date
     def today(start = DEFAULT_SG)
       t = Time.now
       jd = civil_to_jd(t.year, t.mon, t.mday, start)
-      _new_from_jd(jd, start)
+      new_from_jd(jd, start)
     end
 
     # :nodoc:
@@ -358,11 +362,20 @@ class Date
       jd = raw_jd.floor
       df = raw_jd - jd
       obj = allocate
-      obj.__send__(:_init_from_jd, jd, sg, df == 0 ? nil : df)
+      obj.__send__(:init_from_jd, jd, sg, df == 0 ? nil : df)
       obj
     end
 
     private
+
+    def civil_fallback(year, month, day, start)
+      year  = Integer(year)
+      month = Integer(month)
+      day   = Integer(day)
+      jd = internal_valid_civil?(year, month, day, start)
+      raise Date::Error, "invalid date" unless jd
+      new_from_jd(jd, start)
+    end
 
     # ---------------------------------------------------------------------------
     # Internal calendar arithmetic (pure Ruby, no C dependency)
@@ -602,14 +615,14 @@ class Date
     # ---------------------------------------------------------------------------
 
     # Build a Date from a Julian Day Number (integer part), start, and optional day fraction.
-    def _new_from_jd(jd, sg, df = nil)
+    def new_from_jd(jd, sg, df = nil)
       obj = allocate
-      obj.__send__(:_init_from_jd, jd, sg, df)
+      obj.__send__(:init_from_jd, jd, sg, df)
       obj
     end
 
     # Parse offset string like "+09:00", "-07:30", "Z" to seconds.
-    def _offset_str_to_sec(str)
+    def offset_str_to_sec(str)
       case str
       when 'Z', 'z', 'UTC', 'GMT'
         0
@@ -696,7 +709,7 @@ class Date
     day   = Integer(day)
     jd = self.class.__send__(:internal_valid_civil?, year, month, day, start)
     raise Date::Error, "invalid date" unless jd
-    _init_from_jd(jd, start)
+    init_from_jd(jd, start)
   end
 
   # ---------------------------------------------------------------------------
@@ -712,7 +725,7 @@ class Date
   #   (Date.new(1, 1, 1) - 1).year # => 0
   #
   def year
-    _civil unless @year
+    internal_civil unless @year
     @year
   end
 
@@ -724,7 +737,7 @@ class Date
   #   Date.new(2001, 2, 3).mon # => 2
   #
   def month
-    _civil unless @year
+    internal_civil unless @year
     @month
   end
   alias mon month
@@ -737,7 +750,7 @@ class Date
   #   Date.new(2001, 2, 3).mday # => 3
   #
   def day
-    _civil unless @year
+    internal_civil unless @year
     @day
   end
   alias mday day
@@ -838,7 +851,7 @@ class Date
   #
   def yday
     return @yday if @yday
-    _civil unless @year
+    internal_civil unless @year
     # inline civil_to_jd(@year, 1, 1, @sg): month=1 (<= 2 so y-=1), day=1
     yy = @year - 1
     gjd_base = (1461 * (yy + 4716)) / 4 + 429  # GJD_MONTH_OFFSET[1](=428) + 1
@@ -884,7 +897,7 @@ class Date
   #   Date.new(2001, 2, 3).cweek # => 5
   #
   def cweek
-    @cweek || _compute_commercial[1]
+    @cweek || compute_commercial[1]
   end
 
   # call-seq:
@@ -897,7 +910,7 @@ class Date
   #   Date.new(2000, 1, 1).cwyear # => 1999
   #
   def cwyear
-    @cwyear || _compute_commercial[0]
+    @cwyear || compute_commercial[0]
   end
 
   # call-seq:
@@ -920,7 +933,7 @@ class Date
   #   Date.new(2001).leap? # => false
   #
   def leap?
-    _civil unless @year
+    internal_civil unless @year
     if @jd < @sg  # julian?
       @year % 4 == 0
     else
@@ -1236,7 +1249,7 @@ class Date
         obj.instance_variable_set(:@sg, @sg)
         obj
       else
-        self.class.__send__(:_new_from_jd, @jd + other, @sg, @df)
+        self.class.__send__(:new_from_jd, @jd + other, @sg, @df)
       end
     when Numeric
       r = other.to_r
@@ -1244,7 +1257,7 @@ class Date
       total = r + (@df || 0)
       days = total.floor
       frac = total - days
-      self.class.__send__(:_new_from_jd, @jd + days, @sg, frac == 0 ? nil : frac)
+      self.class.__send__(:new_from_jd, @jd + days, @sg, frac == 0 ? nil : frac)
     else
       raise TypeError, "expected numeric"
     end
@@ -1278,7 +1291,7 @@ class Date
         obj.instance_variable_set(:@sg, @sg)
         obj
       else
-        self.class.__send__(:_new_from_jd, @jd - other, @sg, @df)
+        self.class.__send__(:new_from_jd, @jd - other, @sg, @df)
       end
     when Numeric
       r = other.to_r
@@ -1286,7 +1299,7 @@ class Date
       total = (@df || 0) - r
       days = total.floor
       frac = total - days
-      self.class.__send__(:_new_from_jd, @jd + days, @sg, frac == 0 ? nil : frac)
+      self.class.__send__(:new_from_jd, @jd + days, @sg, frac == 0 ? nil : frac)
     else
       raise TypeError, "expected numeric"
     end
@@ -1318,7 +1331,7 @@ class Date
   #   d2 = d1 >> -1 # => #<Date: 2001-01-28>
   #
   def >>(n)
-    _civil unless @year
+    internal_civil unless @year
     m2 = @month + n.to_i
     y2 = @year + (m2 - 1).div(12)
     m2 = (m2 - 1) % 12 + 1
@@ -1340,7 +1353,7 @@ class Date
     a = yy / 100
     gjd = gjd_base - 1524 + 2 - a + a / 4
     jd2 = gjd >= @sg ? gjd : gjd_base - 1524
-    # inline _new_from_jd
+    # inline new_from_jd
     obj = self.class.allocate
     obj.instance_variable_set(:@jd, jd2)
     obj.instance_variable_set(:@sg, @sg)
@@ -1638,22 +1651,22 @@ class Date
       # Format 1.4/1.6: [jd_like, sg_or_bool]
       jd_like, sg_or_bool = array
       sg = sg_or_bool == true ? GREGORIAN : (sg_or_bool == false ? JULIAN : sg_or_bool.to_f)
-      _init_from_jd(jd_like.to_i, sg)
+      init_from_jd(jd_like.to_i, sg)
     when 3
       # Format 1.8: [ajd, of, sg]
       ajd, _of, sg = array
       raw_jd = ajd + Rational(1, 2)
       jd = raw_jd.floor
       df = raw_jd - jd
-      _init_from_jd(jd, sg, df == 0 ? nil : df)
+      init_from_jd(jd, sg, df == 0 ? nil : df)
     when 6
       # Current format: [nth, jd, df, sf, of, sg]
       _nth, jd, df, sf, _of, sg = array
       if df != 0 || sf != 0
         day_frac = (Rational(df) + sf) / 86400
-        _init_from_jd(jd, sg, day_frac)
+        init_from_jd(jd, sg, day_frac)
       else
-        _init_from_jd(jd, sg)
+        init_from_jd(jd, sg)
       end
     else
       raise TypeError, "invalid marshal data"
@@ -1697,20 +1710,20 @@ class Date
       if keys.size == 1
         case keys[0]
         when :year
-          _civil unless @year
+          internal_civil unless @year
           { year: @year }
         when :month
-          _civil unless @year
+          internal_civil unless @year
           { month: @month }
         when :day
-          _civil unless @year
+          internal_civil unless @year
           { day: @day }
         when :wday  then { wday: (@jd + 1) % 7 }
         when :yday  then { yday: yday }
         else {}
         end
       else
-        _civil unless @year
+        internal_civil unless @year
         h = {}
         keys.each do |k|
           case k
@@ -1724,7 +1737,7 @@ class Date
         h
       end
     else
-      _civil unless @year
+      internal_civil unless @year
       { year: @year, month: @month, day: @day, wday: (@jd + 1) % 7, yday: yday }
     end
   end
@@ -1745,7 +1758,7 @@ class Date
   # See {asctime}[https://linux.die.net/man/3/asctime].
   #
   def asctime
-    _civil unless @year
+    internal_civil unless @year
     d = @day
     d_s = d < 10 ? " #{d}" : d.to_s
     y = @year
@@ -1794,7 +1807,7 @@ class Date
   #   Date.new(2001, 2, 3).rfc2822 # => "Sat, 3 Feb 2001 00:00:00 +0000"
   #
   def rfc2822
-    _civil unless @year
+    internal_civil unless @year
     w = (@jd + 1) % 7
     y = @year
     y_s = y >= 1000 ? y.to_s : (y >= 0 ? format('%04d', y) : format('-%04d', -y))
@@ -1815,7 +1828,7 @@ class Date
   #   Date.new(2001, 2, 3).httpdate # => "Sat, 03 Feb 2001 00:00:00 GMT"
   #
   def httpdate
-    _civil unless @year
+    internal_civil unless @year
     w = (@jd + 1) % 7
     y = @year
     y_s = y >= 1000 ? y.to_s : (y >= 0 ? format('%04d', y) : format('-%04d', -y))
@@ -1835,7 +1848,7 @@ class Date
   #   Date.new(2001, 2, 3).jisx0301 # => "H13.02.03"
   #
   def jisx0301
-    _civil unless @year
+    internal_civil unless @year
     jd = @jd
     m = @month
     d = @day
@@ -1865,7 +1878,7 @@ class Date
   #   Date.new(2001, 2, 3).to_s # => "2001-02-03"
   #
   def to_s
-    _civil
+    internal_civil
     suffix = MONTH_DAY_SUFFIX[@month][@day]
     y = @year
     if y >= 1000
@@ -1893,7 +1906,7 @@ class Date
 
   # override
   def freeze
-    _civil  # compute and cache civil date before freezing
+    internal_civil  # compute and cache civil date before freezing
     super
   end
 
@@ -1903,13 +1916,13 @@ class Date
 
   private
 
-  def _init_from_jd(jd, sg, df = nil)
+  def init_from_jd(jd, sg, df = nil)
     @jd = jd
     @sg = sg
     @df = df
   end
 
-  def _civil
+  def internal_civil
     return if @year
     jd = @jd
     if @sg == Float::INFINITY       # always Julian
@@ -1932,7 +1945,7 @@ class Date
   end
 
   # Inline jd_to_commercial: compute and cache cwyear/cweek
-  def _compute_commercial
+  def compute_commercial
     jd = @jd
     wday_val = (jd + 1) % 7
     cwday_val = wday_val == 0 ? 7 : wday_val

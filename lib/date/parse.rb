@@ -1688,11 +1688,11 @@ class Date
         if y >= 1583 && m >= 1 && m <= 12 && d >= 1 && d <= 28 && sg <= 2299161
           gy = m <= 2 ? y - 1 : y
           a = gy / 100
-          _new_from_jd((1461 * (gy + 4716)) / 4 + GJD_MONTH_OFFSET[m] + d - 1524 + 2 - a + a / 4, sg)
+          new_from_jd((1461 * (gy + 4716)) / 4 + GJD_MONTH_OFFSET[m] + d - 1524 + 2 - a + a / 4, sg)
         else
           jd = internal_valid_civil?(y, m, d, sg)
           raise Error, 'invalid date' if jd.nil?
-          _new_from_jd(jd, sg)
+          new_from_jd(jd, sg)
         end
       else
         _new_by_frags(hash, sg)

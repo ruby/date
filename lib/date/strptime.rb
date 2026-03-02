@@ -82,7 +82,7 @@ class Date
          (year = hash[:year]) && (mon = hash[:mon]) && (mday = hash[:mday])
         jd = internal_valid_civil?(year, mon, mday, start)
         raise Error, 'invalid date' if jd.nil?
-        return _new_from_jd(jd, start)
+        return new_from_jd(jd, start)
       end
       _new_by_frags(hash, start)
     end
@@ -881,10 +881,10 @@ class Date
               a = gy / 100
               gjd = gjd_base - 1524 + 2 - a + a / 4
               jd = gjd >= sg ? gjd : gjd_base - 1524
-              return _new_from_jd(jd, sg)
+              return new_from_jd(jd, sg)
             else
               jd = internal_valid_civil?(year, mon, mday, sg)
-              return jd ? _new_from_jd(jd, sg) : nil
+              return jd ? new_from_jd(jd, sg) : nil
             end
           end
           return nil
@@ -958,7 +958,7 @@ class Date
         jd = internal_valid_civil?(year, mon, mday, sg)
         return nil unless jd
       end
-      _new_from_jd(jd, sg)
+      new_from_jd(jd, sg)
     end
 
     # Fast path for "%a %b %d %Y" format (complex benchmark).
@@ -1149,7 +1149,7 @@ class Date
         jd = internal_valid_civil?(year, mon, mday, sg)
         return nil unless jd
       end
-      _new_from_jd(jd, sg)
+      new_from_jd(jd, sg)
     end
 
     # Parse zone from string at position si; update hash[:zone] and hash[:offset].
@@ -1486,7 +1486,7 @@ class Date
       hash = _sp_complete_frags(Date, hash)
       jd   = _sp_valid_date_frags_p(hash, sg)
       raise Error, 'invalid date' if jd.nil?
-      _new_from_jd(jd, sg)
+      new_from_jd(jd, sg)
     end
   end
 end
