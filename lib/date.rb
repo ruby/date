@@ -1,11 +1,22 @@
 # frozen_string_literal: true
 # date.rb: Written by Tadayoshi Funaba 1998-2011
 
-require 'date_core'
+require 'timeout'
+
+if RUBY_VERSION >= "3.3"
+  require_relative "date/version"
+  require_relative "date/constants"
+  require_relative "date/core"
+  require_relative "date/strftime"
+  require_relative "date/parse"
+  require_relative "date/strptime"
+  require_relative "date/time"
+  require_relative "date/datetime"
+else
+  require 'date_core'
+end
 
 class Date
-  VERSION = "3.5.1" # :nodoc:
-
   # call-seq:
   #   infinite? -> false
   #
@@ -64,7 +75,5 @@ class Date
         -Float::INFINITY
       end
     end
-
   end
-
 end
