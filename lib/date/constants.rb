@@ -18,18 +18,6 @@ class Date
   DEFAULT_SG = ITALY
   private_constant :DEFAULT_SG
 
-  # Pre-computed lowercase byte arrays for fast case-insensitive name matching in strptime
-  ABBR_DAY_LOWER_BYTES = ABBR_DAYNAMES.map { |n| n.downcase.bytes.freeze }.freeze
-  DAY_LOWER_BYTES = DAYNAMES.map { |n| n.downcase.bytes.freeze }.freeze
-  ABBR_MONTH_LOWER_BYTES = ABBR_MONTHNAMES.each_with_object([]) { |n, a|
-    a << (n ? n.downcase.bytes.freeze : nil)
-  }.freeze
-  MONTH_LOWER_BYTES = MONTHNAMES.each_with_object([]) { |n, a|
-    a << (n ? n.downcase.bytes.freeze : nil)
-  }.freeze
-  private_constant :ABBR_DAY_LOWER_BYTES, :DAY_LOWER_BYTES,
-                   :ABBR_MONTH_LOWER_BYTES, :MONTH_LOWER_BYTES
-
   # 3-byte integer key lookup tables for O(1) abbreviated name matching.
   # Key = (byte0_lower << 16) | (byte1_lower << 8) | byte2_lower
   # Value = [index, full_name_length]
@@ -53,6 +41,12 @@ class Date
   # Case-insensitive abbreviated day name -> wday number (0-6)
   ABBR_DAY_NUM = ABBR_DAYNAMES.each_with_index.to_h { |n, i| [n.downcase, i] }.freeze
   private_constant :ABBR_MONTH_NUM, :ABBR_DAY_NUM
+
+  # Lowercase full name strings for StringScanner-based head matching
+  DAY_LOWER_STRS = DAYNAMES.map { |n| n.downcase.freeze }.freeze
+  MONTH_LOWER_STRS = MONTHNAMES.map { |n| n&.downcase&.freeze }.freeze
+  private_constant :DAY_LOWER_STRS, :MONTH_LOWER_STRS
+
 
   JULIAN_EPOCH_DATE             = '-4712-01-01'.freeze
   JULIAN_EPOCH_DATETIME         = '-4712-01-01T00:00:00+00:00'.freeze
@@ -340,10 +334,6 @@ class Date
 
   # === Strptime constants (from strptime.rb) ===
 
-  # Specs that produce numeric output (used by NUM_PATTERN_P lookahead)
-  STRPTIME_NUMERIC_SPECS = 'CDdeFGgHIjkLlMmNQRrSsTUuVvWwXxYy'.freeze
-  private_constant :STRPTIME_NUMERIC_SPECS
-
   # Zone pattern matching: numeric offsets and named zones
   # Matches (case-insensitive):
   #   - Numeric: +/-HHMM, +/-HH:MM, +/-HH:MM:SS, +/-HH,frac, +/-HH.frac
@@ -371,24 +361,4 @@ class Date
     [nil,         [:year, :wnum1, :cwday, :hour, :min, :sec]],
   ].freeze
   private_constant :COMPLETE_FRAGS_TAB
-
-  # O(1) boolean lookup table for numeric specs (used by _sp_num_p_b?)
-  # Includes both STRPTIME_NUMERIC_SPECS chars and digits '0'..'9'
-  STRPTIME_NUMERIC_SPEC_SET = Array.new(256, false).tap { |a|
-    STRPTIME_NUMERIC_SPECS.each_byte { |b| a[b] = true }
-    48.upto(57) { |b| a[b] = true } # '0'..'9'
-  }.freeze
-  private_constant :STRPTIME_NUMERIC_SPEC_SET
-
-  # O(1) boolean lookup table for E-modifier valid specs
-  STRPTIME_E_VALID_SET = Array.new(256, false).tap { |a|
-    'cCxXyY'.each_byte { |b| a[b] = true }
-  }.freeze
-  private_constant :STRPTIME_E_VALID_SET
-
-  # O(1) boolean lookup table for O-modifier valid specs
-  STRPTIME_O_VALID_SET = Array.new(256, false).tap { |a|
-    'deHImMSuUVwWy'.each_byte { |b| a[b] = true }
-  }.freeze
-  private_constant :STRPTIME_O_VALID_SET
 end

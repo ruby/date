@@ -21,14 +21,14 @@ class Date
       string = String === string ? string : string.to_str
       format = String === format ? format : format.to_str
       if format == '%F' || format == '%Y-%m-%d'
-        return _strptime_ymd(string)
+        return internal_strptime_ymd(string)
       end
       if format == '%a %b %d %Y'
-        return _strptime_abdy(string)
+        return internal_strptime_abdy(string)
       end
       hash = {}
-      si = _sp_run(string, 0, format, hash)
-      return nil if hash.delete(:_fail)
+      si = catch(:sp_fail) { sp_run(string, 0, format, hash) }
+      return nil unless si
       hash[:leftover] = string[si..] if si < string.length
       if (cent = hash.delete(:_cent))
         hash[:year]   = hash[:year]   + cent * 100 if hash.key?(:year)
@@ -66,12 +66,12 @@ class Date
     def strptime(string = JULIAN_EPOCH_DATE, format = '%F', start = DEFAULT_SG)
       str = String === string ? string : string.to_str
       if format == '%F' || format == '%Y-%m-%d'
-        result = _strptime_ymd_to_date(str, start)
+        result = internalinternal_strptime_ymd_to_date(str, start)
         return result if result
         raise Error, 'invalid date'
       end
       if format == '%a %b %d %Y'
-        result = _strptime_abdy_to_date(str, start)
+        result = internalinternal_strptime_abdy_to_date(str, start)
         return result if result
         raise Error, 'invalid date'
       end
@@ -84,870 +84,462 @@ class Date
         raise Error, 'invalid date' if jd.nil?
         return new_from_jd(jd, start)
       end
-      _new_by_frags(hash, start)
+      internal_new_by_frags(hash, start)
     end
 
 
     private
 
-    # Returns true if the format at position fi starts a numeric conversion spec.
-    # All byte-level comparison, no String allocation.
-    def _sp_num_p_b?(fmt, fi, flen)
-      return false if fi >= flen
-      c = fmt.getbyte(fi)
-      return true if c >= 48 && c <= 57 # '0'..'9'
-      if c == 37 # '%'
-        i = fi + 1
-        return false if i >= flen
-        c2 = fmt.getbyte(i)
-        if c2 == 69 || c2 == 79 # 'E' or 'O'
-          i += 1
-          return false if i >= flen
-          c2 = fmt.getbyte(i)
-        end
-        return STRPTIME_NUMERIC_SPEC_SET[c2]
-      end
-      false
-    end
+    # Pre-compiled regex constants for sp_run
+    SP_WHITESPACE     = /[ \t\n\r\v\f]+/
+    SP_COLONS         = /:+/
+    SP_EO_CHECK       = /[EO]/
+    SP_E_COMBO        = /E[cCxXyY]/
+    SP_O_COMBO        = /O[deHImMSuUVwWy]/
+    SP_ALPHA3         = /[A-Za-z]{3}/
+    SP_SIGN           = /[+-]/
+    SP_SPACE_OR_DIGIT = / \d|\d{1,2}/
+    SP_AMPM_DOT       = /[AaPp]\.[Mm]\./
+    SP_AMPM           = /[AaPp][Mm]/
+    SP_NUM_CHECK      = /\d|%[EO]?[CDdeFGgHIjkLlMmNQRrSsTUuVvWwXxYy0-9]/
+    SP_DIGITS_1       = /\d/
+    SP_DIGITS_2       = /\d{1,2}/
+    SP_DIGITS_3       = /\d{1,3}/
+    SP_DIGITS_4       = /\d{1,4}/
+    SP_DIGITS_9       = /\d{1,9}/
+    SP_DIGITS_MAX     = /\d+/
+    private_constant :SP_WHITESPACE, :SP_COLONS, :SP_EO_CHECK, :SP_E_COMBO,
+                     :SP_O_COMBO, :SP_ALPHA3, :SP_SIGN, :SP_SPACE_OR_DIGIT,
+                     :SP_AMPM_DOT, :SP_AMPM, :SP_NUM_CHECK,
+                     :SP_DIGITS_1, :SP_DIGITS_2, :SP_DIGITS_3, :SP_DIGITS_4,
+                     :SP_DIGITS_9, :SP_DIGITS_MAX
 
-    # Read up to max_w decimal digits from str starting at si.
-    # Returns [value, chars_consumed] or [nil, 0] if no digit found.
-    def _sp_digits(str, si, slen, max_w)
-      l = 0
-      v = 0
-      while si + l < slen
-        c = str.getbyte(si + l)
-        break unless c && c >= 48 && c <= 57 # '0'..'9'
-        break if l >= max_w
-        v = v * 10 + (c - 48)
-        l += 1
-      end
-      return nil, 0 if l == 0
-      return v, l
-    end
+    # Core scanner: walks format string and string simultaneously using StringScanner.
+    # Returns new string position on success; throws :sp_fail on failure.
+    def sp_run(str, si, fmt, hash)
+      fmt_sc = StringScanner.new(fmt)
+      str_sc = StringScanner.new(str)
+      str_sc.pos = si
 
-    # Whitespace byte check (space, tab, newline, carriage return, vertical tab, form feed)
-    def _sp_ws?(b)
-      b == 32 || b == 9 || b == 10 || b == 13 || b == 11 || b == 12
-    end
-
-    # Core scanner: walks format string and string simultaneously.
-    # All comparisons use getbyte for zero-allocation byte-level operation.
-    # Returns new string index si on success.
-    # Sets hash[:_fail]=true and returns -1 on failure.
-    def _sp_run(str, si, fmt, hash) # rubocop:disable Metrics/MethodLength,Metrics/CyclomaticComplexity
-      fi   = 0
-      flen = fmt.bytesize
-      slen = str.bytesize
-
-      while fi < flen
-        ch = fmt.getbyte(fi)
-
+      until fmt_sc.eos?
         # Whitespace in format: skip any whitespace in both format and string
-        if _sp_ws?(ch)
-          while si < slen && _sp_ws?(str.getbyte(si))
-            si += 1
-          end
-          fi += 1
-          while fi < flen && _sp_ws?(fmt.getbyte(fi))
-            fi += 1
-          end
+        if fmt_sc.skip(SP_WHITESPACE)
+          str_sc.skip(SP_WHITESPACE)
           next
         end
 
-        if ch != 37 # '%'
-          if si >= slen
-            hash[:_fail] = true
-            return -1
-          end
-          if str.getbyte(si) != ch
-            hash[:_fail] = true
-            return -1
-          end
-          si += 1
-          fi += 1
+        # Non-% literal: must match exactly
+        unless fmt_sc.check(/%/)
+          fc = fmt_sc.getch
+          throw(:sp_fail) if str_sc.eos?
+          throw(:sp_fail) if str_sc.getch != fc
           next
         end
 
-        fi += 1 # skip '%'
+        fmt_sc.skip(/%/) # skip '%'
 
         # Handle colon modifiers: %:z, %::z, %:::z
-        colons = 0
-        while fi < flen && fmt.getbyte(fi) == 58 # ':'
-          colons += 1
-          fi += 1
-        end
-        if colons > 0
-          unless fi < flen && fmt.getbyte(fi) == 122 # 'z'
-            hash[:_fail] = true
-            return -1
-          end
-          fi += 1
-          new_si = _sp_zone(str, si, slen, hash)
-          if new_si < 0
-            hash[:_fail] = true
-            return -1
-          end
-          si = new_si
+        if fmt_sc.scan(SP_COLONS)
+          throw(:sp_fail) unless fmt_sc.skip(/z/)
+          str_sc.pos = sp_zone(str, str_sc.pos, str.bytesize, hash)
           next
         end
 
         # Handle E/O locale modifiers
-        fb = fi < flen ? fmt.getbyte(fi) : nil
-        if fb == 69 || fb == 79 # 'E' or 'O'
-          valid_set = fb == 69 ? STRPTIME_E_VALID_SET : STRPTIME_O_VALID_SET
-          fb2 = fi + 1 < flen ? fmt.getbyte(fi + 1) : nil
-          if fb2 && valid_set[fb2]
-            fi += 1 # skip E/O, fall through to handle spec
+        if fmt_sc.check(SP_EO_CHECK)
+          if fmt_sc.check(SP_E_COMBO) || fmt_sc.check(SP_O_COMBO)
+            fmt_sc.skip(SP_EO_CHECK) # skip modifier, fall through to spec
           else
             # Invalid combo: match '%' literally in string
-            if si >= slen || str.getbyte(si) != 37 # '%'
-              hash[:_fail] = true
-              return -1
-            end
-            si += 1
+            throw(:sp_fail) if str_sc.eos? || str_sc.peek(1) != '%'
+            str_sc.skip(/%/)
             next
           end
         end
 
-        spec = fi < flen ? fmt.getbyte(fi) : nil
-        fi += 1
+        spec_ch = fmt_sc.getch
+        spec = spec_ch&.ord
 
         case spec
         when 65, 97 # 'A', 'a'
-          # Weekday name: 3-byte key O(1) lookup
-          if si + 2 >= slen
-            hash[:_fail] = true
-            return -1
-          end
-          key = ((str.getbyte(si) | 0x20) << 16) | ((str.getbyte(si + 1) | 0x20) << 8) | (str.getbyte(si + 2) | 0x20)
+          s3 = str_sc.scan(SP_ALPHA3)
+          throw(:sp_fail) unless s3
+          key = compute_3key(s3)
           entry = ABBR_DAY_3KEY[key]
-          unless entry
-            hash[:_fail] = true
-            return -1
-          end
+          throw(:sp_fail) unless entry
           wday_i = entry[0]
-          day_full_len = entry[1]
-          if si + day_full_len <= slen && _sp_head_match?(str, si, slen, DAY_LOWER_BYTES[wday_i], day_full_len)
-            si += day_full_len
-          else
-            si += 3
+          remaining = entry[1] - 3
+          if remaining > 0
+            tail = str_sc.peek(remaining)
+            if tail.length == remaining && tail.downcase == DAY_LOWER_STRS[wday_i][3..]
+              str_sc.pos += remaining
+            end
           end
           hash[:wday] = wday_i
 
         when 66, 98, 104 # 'B', 'b', 'h'
-          # Month name: 3-byte key O(1) lookup
-          if si + 2 >= slen
-            hash[:_fail] = true
-            return -1
-          end
-          key = ((str.getbyte(si) | 0x20) << 16) | ((str.getbyte(si + 1) | 0x20) << 8) | (str.getbyte(si + 2) | 0x20)
+          s3 = str_sc.scan(SP_ALPHA3)
+          throw(:sp_fail) unless s3
+          key = compute_3key(s3)
           entry = ABBR_MONTH_3KEY[key]
-          unless entry
-            hash[:_fail] = true
-            return -1
-          end
+          throw(:sp_fail) unless entry
           mon_i = entry[0]
-          mon_full_len = entry[1]
-          if si + mon_full_len <= slen && _sp_head_match?(str, si, slen, MONTH_LOWER_BYTES[mon_i], mon_full_len)
-            si += mon_full_len
-          else
-            si += 3
+          remaining = entry[1] - 3
+          if remaining > 0
+            tail = str_sc.peek(remaining)
+            if tail.length == remaining && tail.downcase == MONTH_LOWER_STRS[mon_i][3..]
+              str_sc.pos += remaining
+            end
           end
           hash[:mon] = mon_i
 
         when 67 # 'C'
-          # Century: greedy unless next spec is numeric
-          w = _sp_num_p_b?(fmt, fi, flen) ? 2 : 10000
-          sb = si < slen ? str.getbyte(si) : nil
-          if sb == 43 || sb == 45 # '+' or '-'
-            sign = sb == 45 ? -1 : 1
-            si += 1
+          num_next = !fmt_sc.eos? && fmt_sc.check(SP_NUM_CHECK)
+          if str_sc.scan(SP_SIGN)
+            sign = str_sc.matched == '-' ? -1 : 1
           else
             sign = 1
           end
-          n, l = _sp_digits(str, si, slen, w)
-          if l == 0
-            hash[:_fail] = true
-            return -1
-          end
-          si += l
-          hash[:_cent] = sign * n
+          s = str_sc.scan(num_next ? SP_DIGITS_2 : SP_DIGITS_MAX)
+          throw(:sp_fail) unless s
+          hash[:_cent] = sign * s.to_i
 
         when 99 # 'c'
-          new_si = _sp_run(str, si, '%a %b %e %H:%M:%S %Y', hash)
-          return new_si if new_si < 0
-          si = new_si
+          str_sc.pos = sp_run(str, str_sc.pos, '%a %b %e %H:%M:%S %Y', hash)
 
         when 68 # 'D'
-          new_si = _sp_run(str, si, '%m/%d/%y', hash)
-          return new_si if new_si < 0
-          si = new_si
+          str_sc.pos = sp_run(str, str_sc.pos, '%m/%d/%y', hash)
 
         when 100, 101 # 'd', 'e'
-          # Day of month (leading space allowed for single-digit) - inlined
-          if si < slen && str.getbyte(si) == 32 # ' '
-            si += 1
-            b = si < slen ? str.getbyte(si) : nil
-            unless b && b >= 48 && b <= 57
-              hash[:_fail] = true
-              return -1
-            end
-            n = b - 48
-            si += 1
-          else
-            b = si < slen ? str.getbyte(si) : nil
-            unless b && b >= 48 && b <= 57
-              hash[:_fail] = true
-              return -1
-            end
-            n = b - 48
-            si += 1
-            b = si < slen ? str.getbyte(si) : nil
-            if b && b >= 48 && b <= 57
-              n = n * 10 + (b - 48)
-              si += 1
-            end
-          end
-          if n < 1 || n > 31
-            hash[:_fail] = true
-            return -1
-          end
+          s = str_sc.scan(SP_SPACE_OR_DIGIT)
+          throw(:sp_fail) unless s
+          n = s.to_i
+          throw(:sp_fail) if n < 1 || n > 31
           hash[:mday] = n
 
         when 70 # 'F'
-          new_si = _sp_run(str, si, '%Y-%m-%d', hash)
-          return new_si if new_si < 0
-          si = new_si
+          str_sc.pos = sp_run(str, str_sc.pos, '%Y-%m-%d', hash)
 
         when 71 # 'G'
-          # ISO week-based year: greedy unless next spec is numeric
-          sb = si < slen ? str.getbyte(si) : nil
-          if sb == 43 || sb == 45 # '+' or '-'
-            sign = sb == 45 ? -1 : 1
-            si += 1
+          if str_sc.scan(SP_SIGN)
+            sign = str_sc.matched == '-' ? -1 : 1
           else
             sign = 1
           end
-          w = _sp_num_p_b?(fmt, fi, flen) ? 4 : 10000
-          n, l = _sp_digits(str, si, slen, w)
-          if l == 0
-            hash[:_fail] = true
-            return -1
-          end
-          si += l
-          hash[:cwyear] = sign * n
+          num_next = !fmt_sc.eos? && fmt_sc.check(SP_NUM_CHECK)
+          s = str_sc.scan(num_next ? SP_DIGITS_4 : SP_DIGITS_MAX)
+          throw(:sp_fail) unless s
+          hash[:cwyear] = sign * s.to_i
 
         when 103 # 'g'
-          # 2-digit ISO week year
-          n, l = _sp_digits(str, si, slen, 2)
-          if l == 0 || n > 99
-            hash[:_fail] = true
-            return -1
-          end
-          si += l
+          s = str_sc.scan(SP_DIGITS_2)
+          throw(:sp_fail) unless s
+          n = s.to_i
+          throw(:sp_fail) if n > 99
           hash[:cwyear] = n
           hash[:_cent] ||= n >= 69 ? 19 : 20
 
         when 72, 107 # 'H', 'k'
-          # 24-hour clock (leading space allowed) - inlined
-          if si < slen && str.getbyte(si) == 32 # ' '
-            si += 1
-            b = si < slen ? str.getbyte(si) : nil
-            unless b && b >= 48 && b <= 57
-              hash[:_fail] = true
-              return -1
-            end
-            n = b - 48
-            si += 1
-          else
-            b = si < slen ? str.getbyte(si) : nil
-            unless b && b >= 48 && b <= 57
-              hash[:_fail] = true
-              return -1
-            end
-            n = b - 48
-            si += 1
-            b = si < slen ? str.getbyte(si) : nil
-            if b && b >= 48 && b <= 57
-              n = n * 10 + (b - 48)
-              si += 1
-            end
-          end
-          if n > 24
-            hash[:_fail] = true
-            return -1
-          end
+          s = str_sc.scan(SP_SPACE_OR_DIGIT)
+          throw(:sp_fail) unless s
+          n = s.to_i
+          throw(:sp_fail) if n > 24
           hash[:hour] = n
 
         when 73, 108 # 'I', 'l'
-          # 12-hour clock (leading space allowed) - inlined
-          if si < slen && str.getbyte(si) == 32 # ' '
-            si += 1
-            b = si < slen ? str.getbyte(si) : nil
-            unless b && b >= 48 && b <= 57
-              hash[:_fail] = true
-              return -1
-            end
-            n = b - 48
-            si += 1
-          else
-            b = si < slen ? str.getbyte(si) : nil
-            unless b && b >= 48 && b <= 57
-              hash[:_fail] = true
-              return -1
-            end
-            n = b - 48
-            si += 1
-            b = si < slen ? str.getbyte(si) : nil
-            if b && b >= 48 && b <= 57
-              n = n * 10 + (b - 48)
-              si += 1
-            end
-          end
-          if n < 1 || n > 12
-            hash[:_fail] = true
-            return -1
-          end
+          s = str_sc.scan(SP_SPACE_OR_DIGIT)
+          throw(:sp_fail) unless s
+          n = s.to_i
+          throw(:sp_fail) if n < 1 || n > 12
           hash[:hour] = n
 
         when 106 # 'j'
-          # Day of year (3-digit)
-          n, l = _sp_digits(str, si, slen, 3)
-          if l == 0 || n < 1 || n > 366
-            hash[:_fail] = true
-            return -1
-          end
-          si += l
+          s = str_sc.scan(SP_DIGITS_3)
+          throw(:sp_fail) unless s
+          n = s.to_i
+          throw(:sp_fail) if n < 1 || n > 366
           hash[:yday] = n
 
         when 76 # 'L'
-          # Milliseconds: greedy unless next spec is numeric
-          sb = si < slen ? str.getbyte(si) : nil
-          if sb == 43 || sb == 45 # '+' or '-'
-            sign = sb == 45 ? -1 : 1
-            si += 1
+          if str_sc.scan(SP_SIGN)
+            sign = str_sc.matched == '-' ? -1 : 1
           else
             sign = 1
           end
-          osi = si
-          w = _sp_num_p_b?(fmt, fi, flen) ? 3 : 10000
-          n, l = _sp_digits(str, si, slen, w)
-          if l == 0
-            hash[:_fail] = true
-            return -1
-          end
-          si += l
+          osi = str_sc.pos
+          num_next = !fmt_sc.eos? && fmt_sc.check(SP_NUM_CHECK)
+          s = str_sc.scan(num_next ? SP_DIGITS_3 : SP_DIGITS_MAX)
+          throw(:sp_fail) unless s
+          n = s.to_i
           n = -n if sign == -1
-          hash[:sec_fraction] = Rational(n, 10**(si - osi))
+          hash[:sec_fraction] = Rational(n, 10**(str_sc.pos - osi))
 
         when 77 # 'M'
-          # Minute - inlined
-          b = si < slen ? str.getbyte(si) : nil
-          unless b && b >= 48 && b <= 57
-            hash[:_fail] = true
-            return -1
-          end
-          n = b - 48
-          si += 1
-          b = si < slen ? str.getbyte(si) : nil
-          if b && b >= 48 && b <= 57
-            n = n * 10 + (b - 48)
-            si += 1
-          end
-          if n > 59
-            hash[:_fail] = true
-            return -1
-          end
+          s = str_sc.scan(SP_DIGITS_2)
+          throw(:sp_fail) unless s
+          n = s.to_i
+          throw(:sp_fail) if n > 59
           hash[:min] = n
 
         when 109 # 'm'
-          # Month - inlined
-          b = si < slen ? str.getbyte(si) : nil
-          unless b && b >= 48 && b <= 57
-            hash[:_fail] = true
-            return -1
-          end
-          n = b - 48
-          si += 1
-          b = si < slen ? str.getbyte(si) : nil
-          if b && b >= 48 && b <= 57
-            n = n * 10 + (b - 48)
-            si += 1
-          end
-          if n < 1 || n > 12
-            hash[:_fail] = true
-            return -1
-          end
+          s = str_sc.scan(SP_DIGITS_2)
+          throw(:sp_fail) unless s
+          n = s.to_i
+          throw(:sp_fail) if n < 1 || n > 12
           hash[:mon] = n
 
         when 78 # 'N'
-          # Nanoseconds (or sub-second fraction): greedy unless next spec is numeric
-          sb = si < slen ? str.getbyte(si) : nil
-          if sb == 43 || sb == 45 # '+' or '-'
-            sign = sb == 45 ? -1 : 1
-            si += 1
+          if str_sc.scan(SP_SIGN)
+            sign = str_sc.matched == '-' ? -1 : 1
           else
             sign = 1
           end
-          osi = si
-          w = _sp_num_p_b?(fmt, fi, flen) ? 9 : 10000
-          n, l = _sp_digits(str, si, slen, w)
-          if l == 0
-            hash[:_fail] = true
-            return -1
-          end
-          si += l
+          osi = str_sc.pos
+          num_next = !fmt_sc.eos? && fmt_sc.check(SP_NUM_CHECK)
+          s = str_sc.scan(num_next ? SP_DIGITS_9 : SP_DIGITS_MAX)
+          throw(:sp_fail) unless s
+          n = s.to_i
           n = -n if sign == -1
-          hash[:sec_fraction] = Rational(n, 10**(si - osi))
+          hash[:sec_fraction] = Rational(n, 10**(str_sc.pos - osi))
 
         when 110, 116 # 'n', 't'
-          # Match any whitespace
-          new_si = _sp_run(str, si, ' ', hash)
-          return new_si if new_si < 0
-          si = new_si
+          str_sc.pos = sp_run(str, str_sc.pos, ' ', hash)
 
         when 80, 112 # 'P', 'p'
-          # AM/PM with optional dot notation (A.M./P.M.)
-          if si >= slen
-            hash[:_fail] = true
-            return -1
-          end
-          c0 = str.getbyte(si)
-          if c0 == 80 || c0 == 112 # 'P' or 'p'
+          throw(:sp_fail) if str_sc.eos?
+          c0 = str_sc.peek(1)
+          if c0 == 'P' || c0 == 'p'
             merid = 12
-          elsif c0 == 65 || c0 == 97 # 'A' or 'a'
+          elsif c0 == 'A' || c0 == 'a'
             merid = 0
           else
-            hash[:_fail] = true
-            return -1
+            throw(:sp_fail)
           end
-          if si + 1 < slen && str.getbyte(si + 1) == 46 # '.'
-            # Dot notation: X.M.
-            if si + 3 >= slen || str.getbyte(si + 3) != 46 # '.'
-              hash[:_fail] = true
-              return -1
-            end
-            c_m = str.getbyte(si + 2)
-            unless c_m == 77 || c_m == 109 # 'M' or 'm'
-              hash[:_fail] = true
-              return -1
-            end
-            si += 4
-          else
-            if si + 1 >= slen
-              hash[:_fail] = true
-              return -1
-            end
-            c_m = str.getbyte(si + 1)
-            unless c_m == 77 || c_m == 109 # 'M' or 'm'
-              hash[:_fail] = true
-              return -1
-            end
-            si += 2
+          unless str_sc.scan(SP_AMPM_DOT) || str_sc.scan(SP_AMPM)
+            throw(:sp_fail)
           end
           hash[:_merid] = merid
 
         when 81 # 'Q'
-          # Milliseconds since Unix epoch
           sign = 1
-          if si < slen && str.getbyte(si) == 45 # '-'
+          if str_sc.skip(/-/)
             sign = -1
-            si += 1
           end
-          n, l = _sp_digits(str, si, slen, 10000)
-          if l == 0
-            hash[:_fail] = true
-            return -1
-          end
-          si += l
+          s = str_sc.scan(SP_DIGITS_MAX)
+          throw(:sp_fail) unless s
+          n = s.to_i
           n = -n if sign == -1
           hash[:seconds] = Rational(n, 1000)
 
         when 82 # 'R'
-          new_si = _sp_run(str, si, '%H:%M', hash)
-          return new_si if new_si < 0
-          si = new_si
+          str_sc.pos = sp_run(str, str_sc.pos, '%H:%M', hash)
 
         when 114 # 'r'
-          new_si = _sp_run(str, si, '%I:%M:%S %p', hash)
-          return new_si if new_si < 0
-          si = new_si
+          str_sc.pos = sp_run(str, str_sc.pos, '%I:%M:%S %p', hash)
 
         when 83 # 'S'
-          # Second (0-60 to allow leap second) - inlined
-          b = si < slen ? str.getbyte(si) : nil
-          unless b && b >= 48 && b <= 57
-            hash[:_fail] = true
-            return -1
-          end
-          n = b - 48
-          si += 1
-          b = si < slen ? str.getbyte(si) : nil
-          if b && b >= 48 && b <= 57
-            n = n * 10 + (b - 48)
-            si += 1
-          end
-          if n > 60
-            hash[:_fail] = true
-            return -1
-          end
+          s = str_sc.scan(SP_DIGITS_2)
+          throw(:sp_fail) unless s
+          n = s.to_i
+          throw(:sp_fail) if n > 60
           hash[:sec] = n
 
         when 115 # 's'
-          # Seconds since Unix epoch
           sign = 1
-          if si < slen && str.getbyte(si) == 45 # '-'
+          if str_sc.skip(/-/)
             sign = -1
-            si += 1
           end
-          n, l = _sp_digits(str, si, slen, 10000)
-          if l == 0
-            hash[:_fail] = true
-            return -1
-          end
-          si += l
+          s = str_sc.scan(SP_DIGITS_MAX)
+          throw(:sp_fail) unless s
+          n = s.to_i
           n = -n if sign == -1
           hash[:seconds] = n
 
         when 84 # 'T'
-          new_si = _sp_run(str, si, '%H:%M:%S', hash)
-          return new_si if new_si < 0
-          si = new_si
+          str_sc.pos = sp_run(str, str_sc.pos, '%H:%M:%S', hash)
 
         when 85 # 'U'
-          # Week number (Sunday-based)
-          n, l = _sp_digits(str, si, slen, 2)
-          if l == 0 || n > 53
-            hash[:_fail] = true
-            return -1
-          end
-          si += l
+          s = str_sc.scan(SP_DIGITS_2)
+          throw(:sp_fail) unless s
+          n = s.to_i
+          throw(:sp_fail) if n > 53
           hash[:wnum0] = n
 
         when 117 # 'u'
-          # ISO weekday (1=Mon..7=Sun)
-          n, l = _sp_digits(str, si, slen, 1)
-          if l == 0 || n < 1 || n > 7
-            hash[:_fail] = true
-            return -1
-          end
-          si += l
+          s = str_sc.scan(SP_DIGITS_1)
+          throw(:sp_fail) unless s
+          n = s.to_i
+          throw(:sp_fail) if n < 1 || n > 7
           hash[:cwday] = n
 
         when 86 # 'V'
-          # ISO week number
-          n, l = _sp_digits(str, si, slen, 2)
-          if l == 0 || n < 1 || n > 53
-            hash[:_fail] = true
-            return -1
-          end
-          si += l
+          s = str_sc.scan(SP_DIGITS_2)
+          throw(:sp_fail) unless s
+          n = s.to_i
+          throw(:sp_fail) if n < 1 || n > 53
           hash[:cweek] = n
 
         when 118 # 'v'
-          new_si = _sp_run(str, si, '%e-%b-%Y', hash)
-          return new_si if new_si < 0
-          si = new_si
+          str_sc.pos = sp_run(str, str_sc.pos, '%e-%b-%Y', hash)
 
         when 87 # 'W'
-          # Week number (Monday-based)
-          n, l = _sp_digits(str, si, slen, 2)
-          if l == 0 || n > 53
-            hash[:_fail] = true
-            return -1
-          end
-          si += l
+          s = str_sc.scan(SP_DIGITS_2)
+          throw(:sp_fail) unless s
+          n = s.to_i
+          throw(:sp_fail) if n > 53
           hash[:wnum1] = n
 
         when 119 # 'w'
-          # Weekday (0=Sun..6=Sat)
-          n, l = _sp_digits(str, si, slen, 1)
-          if l == 0 || n > 6
-            hash[:_fail] = true
-            return -1
-          end
-          si += l
+          s = str_sc.scan(SP_DIGITS_1)
+          throw(:sp_fail) unless s
+          n = s.to_i
+          throw(:sp_fail) if n > 6
           hash[:wday] = n
 
         when 88 # 'X'
-          new_si = _sp_run(str, si, '%H:%M:%S', hash)
-          return new_si if new_si < 0
-          si = new_si
+          str_sc.pos = sp_run(str, str_sc.pos, '%H:%M:%S', hash)
 
         when 120 # 'x'
-          new_si = _sp_run(str, si, '%m/%d/%y', hash)
-          return new_si if new_si < 0
-          si = new_si
+          str_sc.pos = sp_run(str, str_sc.pos, '%m/%d/%y', hash)
 
         when 89 # 'Y'
-          # Full year: greedy unless next spec is numeric - inlined
-          sb = si < slen ? str.getbyte(si) : nil
-          if sb == 43 || sb == 45 # '+' or '-'
-            sign = sb == 45 ? -1 : 1
-            si += 1
+          if str_sc.scan(SP_SIGN)
+            sign = str_sc.matched == '-' ? -1 : 1
           else
             sign = 1
           end
-          w = _sp_num_p_b?(fmt, fi, flen) ? 4 : 10000
-          b = si < slen ? str.getbyte(si) : nil
-          unless b && b >= 48 && b <= 57
-            hash[:_fail] = true
-            return -1
-          end
-          n = b - 48
-          si += 1
-          l = 1
-          while l < w && si < slen
-            b = str.getbyte(si)
-            break unless b && b >= 48 && b <= 57
-            n = n * 10 + (b - 48)
-            si += 1
-            l += 1
-          end
-          hash[:year] = sign * n
+          num_next = !fmt_sc.eos? && fmt_sc.check(SP_NUM_CHECK)
+          s = str_sc.scan(num_next ? SP_DIGITS_4 : SP_DIGITS_MAX)
+          throw(:sp_fail) unless s
+          hash[:year] = sign * s.to_i
 
         when 121 # 'y'
-          # 2-digit year - inlined
-          b = si < slen ? str.getbyte(si) : nil
-          unless b && b >= 48 && b <= 57
-            hash[:_fail] = true
-            return -1
-          end
-          n = b - 48
-          si += 1
-          b = si < slen ? str.getbyte(si) : nil
-          if b && b >= 48 && b <= 57
-            n = n * 10 + (b - 48)
-            si += 1
-          end
-          if n > 99
-            hash[:_fail] = true
-            return -1
-          end
+          s = str_sc.scan(SP_DIGITS_2)
+          throw(:sp_fail) unless s
+          n = s.to_i
+          throw(:sp_fail) if n > 99
           hash[:year] = n
           hash[:_cent] ||= n >= 69 ? 19 : 20
 
         when 90, 122 # 'Z', 'z'
-          new_si = _sp_zone(str, si, slen, hash)
-          if new_si < 0
-            hash[:_fail] = true
-            return -1
-          end
-          si = new_si
+          str_sc.pos = sp_zone(str, str_sc.pos, str.bytesize, hash)
 
         when 37 # '%'
-          if si >= slen || str.getbyte(si) != 37
-            hash[:_fail] = true
-            return -1
-          end
-          si += 1
+          throw(:sp_fail) if str_sc.eos? || str_sc.peek(1) != '%'
+          str_sc.skip(/%/)
 
         when 43 # '+'
-          new_si = _sp_run(str, si, '%a %b %e %H:%M:%S %Z %Y', hash)
-          return new_si if new_si < 0
-          si = new_si
+          str_sc.pos = sp_run(str, str_sc.pos, '%a %b %e %H:%M:%S %Z %Y', hash)
 
         else
           # Unknown spec: match '%' then spec literally
-          if si >= slen || str.getbyte(si) != 37 # '%'
-            hash[:_fail] = true
-            return -1
-          end
-          si += 1
-          if spec
-            if si >= slen || str.getbyte(si) != spec
-              hash[:_fail] = true
-              return -1
-            end
-            si += 1
+          throw(:sp_fail) if str_sc.eos? || str_sc.peek(1) != '%'
+          str_sc.skip(/%/)
+          if spec_ch
+            throw(:sp_fail) if str_sc.eos? || str_sc.peek(1) != spec_ch
+            str_sc.getch
           end
         end
       end
 
-      si
-    end
-
-    # Case-insensitive byte-level head match.
-    # Compares str[si..si+len-1] against pre-computed lowercase byte array.
-    # Uses | 0x20 for ASCII alpha downcase (works for A-Z only).
-    def _sp_head_match?(str, si, slen, lower_bytes, len)
-      return false if si + len > slen
-      i = 0
-      while i < len
-        return false if (str.getbyte(si + i) | 0x20) != lower_bytes[i]
-        i += 1
-      end
-      true
+      str_sc.pos
     end
 
     # Fast path for %Y-%m-%d / %F format.
-    # For common "YYYY-MM-DD" format, uses byteslice+to_i (fewer method calls).
-    # Falls back to getbyte loop for non-standard lengths or signed years.
-    def _strptime_ymd(str) # rubocop:disable Metrics/MethodLength,Metrics/CyclomaticComplexity
+    # Uses match? + byteslice to avoid StringScanner allocation overhead.
+    STRPTIME_YMD_EXACT = /\A\d{4}-\d{2}-\d{2}\z/
+    STRPTIME_YMD_PREFIX = /\A\d{4}-\d{2}-\d{2}/
+    STRPTIME_YMD_GENERAL = /\A([+-]?\d+)-(\d{1,2})-(\d{1,2})(.*)\z/m
+    private_constant :STRPTIME_YMD_EXACT, :STRPTIME_YMD_PREFIX, :STRPTIME_YMD_GENERAL
+
+    def internal_strptime_ymd(str)
       slen = str.bytesize
 
-      # Fast path for "YYYY-MM-DD" (exactly 10 chars) or "YYYY-MM-DD..."
-      if slen >= 10 && str.getbyte(4) == 45 && str.getbyte(7) == 45
-        b0 = str.getbyte(0)
-        if b0 >= 48 && b0 <= 57 # first char is digit (positive 4-digit year)
-          year = str.byteslice(0, 4).to_i
-          mon  = str.byteslice(5, 2).to_i
-          mday = str.byteslice(8, 2).to_i
-          return nil if mon < 1 || mon > 12 || mday < 1 || mday > 31
+      # Fast path for "YYYY-MM-DD" (exactly 10 chars)
+      if slen == 10 && STRPTIME_YMD_EXACT.match?(str)
+        year = str.byteslice(0, 4).to_i
+        mon  = str.byteslice(5, 2).to_i
+        mday = str.byteslice(8, 2).to_i
+        return nil if mon < 1 || mon > 12 || mday < 1 || mday > 31
+        return { year: year, mon: mon, mday: mday }
+      end
+
+      # Medium path for "YYYY-MM-DD..." (10+ chars, standard 4-digit year with leftover)
+      if slen > 10 && STRPTIME_YMD_PREFIX.match?(str)
+        year = str.byteslice(0, 4).to_i
+        mon  = str.byteslice(5, 2).to_i
+        mday = str.byteslice(8, 2).to_i
+        if mon >= 1 && mon <= 12 && mday >= 1 && mday <= 31
           hash = { year: year, mon: mon, mday: mday }
-          hash[:leftover] = str.byteslice(10, slen - 10) if slen > 10
+          hash[:leftover] = str.byteslice(10..)
           return hash
         end
       end
 
       # General path for signed years, short years, etc.
-      si = 0
-      sign = 1
-      b = str.getbyte(si)
-      if b == 43 # '+'
-        si += 1
-        b = str.getbyte(si)
-      elsif b == 45 # '-'
-        sign = -1
-        si += 1
-        b = str.getbyte(si)
-      end
-      return nil unless b && b >= 48 && b <= 57
-      year = b - 48
-      si += 1
-      while si < slen
-        b = str.getbyte(si)
-        break unless b && b >= 48 && b <= 57
-        year = year * 10 + (b - 48)
-        si += 1
-      end
-      year = -year if sign == -1
-
-      return nil unless si < slen && str.getbyte(si) == 45
-      si += 1
-      b = str.getbyte(si)
-      return nil unless b && b >= 48 && b <= 57
-      mon = b - 48
-      si += 1
-      b = str.getbyte(si)
-      if b && b >= 48 && b <= 57
-        mon = mon * 10 + (b - 48)
-        si += 1
-      end
-      return nil if mon < 1 || mon > 12
-
-      return nil unless si < slen && str.getbyte(si) == 45
-      si += 1
-      b = str.getbyte(si)
-      return nil unless b && b >= 48 && b <= 57
-      mday = b - 48
-      si += 1
-      b = str.getbyte(si)
-      if b && b >= 48 && b <= 57
-        mday = mday * 10 + (b - 48)
-        si += 1
-      end
-      return nil if mday < 1 || mday > 31
-
+      m = STRPTIME_YMD_GENERAL.match(str)
+      return nil unless m
+      year = m[1].to_i
+      mon  = m[2].to_i
+      mday = m[3].to_i
+      return nil if mon < 1 || mon > 12 || mday < 1 || mday > 31
       hash = { year: year, mon: mon, mday: mday }
-      hash[:leftover] = str.byteslice(si, slen - si) if si < slen
+      rest = m[4]
+      hash[:leftover] = rest unless rest.empty?
       hash
     end
 
-    # Ultra-fast path: parse %Y-%m-%d and directly create Date object.
-    # Skips Hash creation, _sp_complete_frags, and _sp_valid_date_frags_p entirely.
+    # Parse %Y-%m-%d and directly create Date object.
     # Returns Date object on success, nil on failure.
-    def _strptime_ymd_to_date(str, sg) # rubocop:disable Metrics/MethodLength
+    # Uses match? + byteslice to avoid StringScanner allocation overhead.
+    STRPTIME_YMD_GENERAL_EXACT = /\A([+-]?\d+)-(\d{1,2})-(\d{1,2})\z/
+    private_constant :STRPTIME_YMD_GENERAL_EXACT
+
+    def internalinternal_strptime_ymd_to_date(str, sg)
       slen = str.bytesize
 
-      # Ultra-fast path for exactly "YYYY-MM-DD" (10 chars, positive 4-digit year)
-      if slen == 10 && str.getbyte(4) == 45 && str.getbyte(7) == 45
-        b0 = str.getbyte(0)
-        if b0 >= 48 && b0 <= 57
-          year = str.byteslice(0, 4).to_i
-          mon  = str.byteslice(5, 2).to_i
-          mday = str.byteslice(8, 2).to_i
-          if mon >= 1 && mon <= 12 && mday >= 1 && mday <= 31
-            # Inline civil validation + JD
-            if sg != Float::INFINITY
-              dim = DAYS_IN_MONTH_GREGORIAN[mon]
-              if mon == 2 && ((year % 4 == 0 && year % 100 != 0) || year % 400 == 0)
-                dim = 29
-              end
-              return nil if mday > dim
-              gy = mon <= 2 ? year - 1 : year
-              gjd_base = (1461 * (gy + 4716)) / 4 + GJD_MONTH_OFFSET[mon] + mday
-              a = gy / 100
-              gjd = gjd_base - 1524 + 2 - a + a / 4
-              jd = gjd >= sg ? gjd : gjd_base - 1524
-              return new_from_jd(jd, sg)
-            else
-              jd = internal_valid_civil?(year, mon, mday, sg)
-              return jd ? new_from_jd(jd, sg) : nil
+      # Fast path for exactly "YYYY-MM-DD" (10 chars, positive 4-digit year)
+      if slen == 10 && STRPTIME_YMD_EXACT.match?(str)
+        year = str.byteslice(0, 4).to_i
+        mon  = str.byteslice(5, 2).to_i
+        mday = str.byteslice(8, 2).to_i
+        if mon >= 1 && mon <= 12 && mday >= 1 && mday <= 31
+          # Inline civil validation + JD
+          if sg != Float::INFINITY
+            dim = DAYS_IN_MONTH_GREGORIAN[mon]
+            if mon == 2 && ((year % 4 == 0 && year % 100 != 0) || year % 400 == 0)
+              dim = 29
             end
+            return nil if mday > dim
+            gy = mon <= 2 ? year - 1 : year
+            gjd_base = (1461 * (gy + 4716)) / 4 + GJD_MONTH_OFFSET[mon] + mday
+            a = gy / 100
+            gjd = gjd_base - 1524 + 2 - a + a / 4
+            jd = gjd >= sg ? gjd : gjd_base - 1524
+            return new_from_jd(jd, sg)
+          else
+            jd = internal_valid_civil?(year, mon, mday, sg)
+            return jd ? new_from_jd(jd, sg) : nil
           end
-          return nil
         end
+        return nil
       end
 
       # General path for signed years, non-standard lengths
-      si = 0
-      sign = 1
-      b = str.getbyte(si)
-      if b == 43 # '+'
-        si += 1
-        b = str.getbyte(si)
-      elsif b == 45 # '-'
-        sign = -1
-        si += 1
-        b = str.getbyte(si)
-      end
-      return nil unless b && b >= 48 && b <= 57
-      year = b - 48
-      si += 1
-      while si < slen
-        b = str.getbyte(si)
-        break unless b && b >= 48 && b <= 57
-        year = year * 10 + (b - 48)
-        si += 1
-      end
-      year = -year if sign == -1
-      return nil unless si < slen && str.getbyte(si) == 45
-      si += 1
-      b = str.getbyte(si)
-      return nil unless b && b >= 48 && b <= 57
-      mon = b - 48
-      si += 1
-      b = str.getbyte(si)
-      if b && b >= 48 && b <= 57
-        mon = mon * 10 + (b - 48)
-        si += 1
-      end
-      return nil if mon < 1 || mon > 12
-      return nil unless si < slen && str.getbyte(si) == 45
-      si += 1
-      b = str.getbyte(si)
-      return nil unless b && b >= 48 && b <= 57
-      mday = b - 48
-      si += 1
-      b = str.getbyte(si)
-      if b && b >= 48 && b <= 57
-        mday = mday * 10 + (b - 48)
-        si += 1
-      end
-      return nil if mday < 1 || mday > 31
-      return nil if si < slen
+      m = STRPTIME_YMD_GENERAL_EXACT.match(str)
+      return nil unless m
+      year = m[1].to_i
+      mon  = m[2].to_i
+      mday = m[3].to_i
+      return nil if mon < 1 || mon > 12 || mday < 1 || mday > 31
 
       # Inline civil validation + JD computation
-      # For common Gregorian dates with valid day-of-month, compute JD directly
-      if sg != Float::INFINITY # Gregorian path (most common)
+      if sg != Float::INFINITY
         dim = DAYS_IN_MONTH_GREGORIAN[mon]
         if mon == 2 && ((year % 4 == 0 && year % 100 != 0) || year % 400 == 0)
           dim = 29
         end
         return nil if mday > dim
-        # Inline civil_to_jd for Gregorian
         gy = mon <= 2 ? year - 1 : year
         offset = GJD_MONTH_OFFSET[mon]
         gjd_base = (1461 * (gy + 4716)) / 4 + offset + mday
@@ -961,176 +553,74 @@ class Date
       new_from_jd(jd, sg)
     end
 
-    # Fast path for "%a %b %d %Y" format (complex benchmark).
-    # Byte-level name matching + digit parsing. Zero String allocation.
-    def _strptime_abdy(str) # rubocop:disable Metrics/MethodLength,Metrics/CyclomaticComplexity
-      slen = str.bytesize
-      si = 0
+    # Fast path for "%a %b %d %Y" format.
+    # Uses single regex match to avoid StringScanner allocation.
+    STRPTIME_ABDY_PAT = /\A([A-Za-z]{3})([A-Za-z]*) +([A-Za-z]{3})([A-Za-z]*) +(\d{1,2}) +([+-]?\d+)/
+    private_constant :STRPTIME_ABDY_PAT
 
-      # Match weekday name using 3-byte key lookup
-      return nil if si + 2 >= slen
-      key = ((str.getbyte(si) | 0x20) << 16) | ((str.getbyte(si + 1) | 0x20) << 8) | (str.getbyte(si + 2) | 0x20)
+    def internal_strptime_abdy(str)
+      m = STRPTIME_ABDY_PAT.match(str)
+      return nil unless m
+
+      # Validate weekday via 3-byte key lookup
+      key = compute_3key(m[1])
       entry = ABBR_DAY_3KEY[key]
       return nil unless entry
       wday = entry[0]
-      full_len = entry[1]
-      if si + full_len <= slen && _sp_head_match?(str, si, slen, DAY_LOWER_BYTES[wday], full_len)
-        si += full_len
-      else
-        si += 3
+      day_rest = m[2]
+      unless day_rest.empty?
+        return nil unless day_rest.length == entry[1] - 3 && day_rest.downcase == DAY_LOWER_STRS[wday][3..]
       end
 
-      # Expect space(s)
-      return nil if si >= slen || str.getbyte(si) != 32
-      si += 1
-      si += 1 while si < slen && str.getbyte(si) == 32
-
-      # Match month name using 3-byte key lookup
-      return nil if si + 2 >= slen
-      key = ((str.getbyte(si) | 0x20) << 16) | ((str.getbyte(si + 1) | 0x20) << 8) | (str.getbyte(si + 2) | 0x20)
+      # Validate month via 3-byte key lookup
+      key = compute_3key(m[3])
       entry = ABBR_MONTH_3KEY[key]
       return nil unless entry
       mon = entry[0]
-      full_len = entry[1]
-      if si + full_len <= slen && _sp_head_match?(str, si, slen, MONTH_LOWER_BYTES[mon], full_len)
-        si += full_len
-      else
-        si += 3
+      mon_rest = m[4]
+      unless mon_rest.empty?
+        return nil unless mon_rest.length == entry[1] - 3 && mon_rest.downcase == MONTH_LOWER_STRS[mon][3..]
       end
 
-      # Expect space(s)
-      return nil if si >= slen || str.getbyte(si) != 32
-      si += 1
-      si += 1 while si < slen && str.getbyte(si) == 32
-
-      # Parse day (1-2 digits)
-      b = str.getbyte(si)
-      return nil unless b && b >= 48 && b <= 57
-      mday = b - 48
-      si += 1
-      b = str.getbyte(si)
-      if b && b >= 48 && b <= 57
-        mday = mday * 10 + (b - 48)
-        si += 1
-      end
+      mday = m[5].to_i
       return nil if mday < 1 || mday > 31
-
-      # Expect space(s)
-      return nil if si >= slen || str.getbyte(si) != 32
-      si += 1
-      si += 1 while si < slen && str.getbyte(si) == 32
-
-      # Parse year: optional sign + greedy digits
-      sign = 1
-      b = str.getbyte(si)
-      if b == 43 # '+'
-        si += 1
-        b = str.getbyte(si)
-      elsif b == 45 # '-'
-        sign = -1
-        si += 1
-        b = str.getbyte(si)
-      end
-
-      return nil unless b && b >= 48 && b <= 57
-      year = b - 48
-      si += 1
-      while si < slen
-        b = str.getbyte(si)
-        break unless b && b >= 48 && b <= 57
-        year = year * 10 + (b - 48)
-        si += 1
-      end
-      year = -year if sign == -1
+      year = m[6].to_i
 
       hash = { year: year, mon: mon, mday: mday, wday: wday }
-      hash[:leftover] = str.byteslice(si, slen - si) if si < slen
+      post = m.post_match
+      hash[:leftover] = post unless post.empty?
       hash
     end
 
-    # Ultra-fast path: parse "%a %b %d %Y" and directly create Date object.
-    # Combines parsing + civil validation + JD computation without Hash.
-    def _strptime_abdy_to_date(str, sg) # rubocop:disable Metrics/MethodLength,Metrics/CyclomaticComplexity
-      slen = str.bytesize
-      si = 0
+    # Parse "%a %b %d %Y" and directly create Date object.
+    # Uses single regex match to avoid StringScanner allocation.
+    def internalinternal_strptime_abdy_to_date(str, sg)
+      m = STRPTIME_ABDY_PAT.match(str)
+      return nil unless m
+      return nil unless m.post_match.empty?
 
-      # Match weekday name using 3-byte key lookup
-      return nil if si + 2 >= slen
-      key = ((str.getbyte(si) | 0x20) << 16) | ((str.getbyte(si + 1) | 0x20) << 8) | (str.getbyte(si + 2) | 0x20)
+      # Validate weekday via 3-byte key lookup
+      key = compute_3key(m[1])
       entry = ABBR_DAY_3KEY[key]
       return nil unless entry
-      full_len = entry[1]
-      # Try full name first, then abbreviation
-      if si + full_len <= slen && _sp_head_match?(str, si, slen, DAY_LOWER_BYTES[entry[0]], full_len)
-        si += full_len
-      else
-        si += 3
+      day_rest = m[2]
+      unless day_rest.empty?
+        return nil unless day_rest.length == entry[1] - 3 && day_rest.downcase == DAY_LOWER_STRS[entry[0]][3..]
       end
 
-      # Expect space(s)
-      return nil if si >= slen || str.getbyte(si) != 32
-      si += 1
-      si += 1 while si < slen && str.getbyte(si) == 32
-
-      # Match month name using 3-byte key lookup
-      return nil if si + 2 >= slen
-      key = ((str.getbyte(si) | 0x20) << 16) | ((str.getbyte(si + 1) | 0x20) << 8) | (str.getbyte(si + 2) | 0x20)
+      # Validate month via 3-byte key lookup
+      key = compute_3key(m[3])
       entry = ABBR_MONTH_3KEY[key]
       return nil unless entry
       mon = entry[0]
-      full_len = entry[1]
-      if si + full_len <= slen && _sp_head_match?(str, si, slen, MONTH_LOWER_BYTES[mon], full_len)
-        si += full_len
-      else
-        si += 3
+      mon_rest = m[4]
+      unless mon_rest.empty?
+        return nil unless mon_rest.length == entry[1] - 3 && mon_rest.downcase == MONTH_LOWER_STRS[mon][3..]
       end
 
-      # Expect space(s)
-      return nil if si >= slen || str.getbyte(si) != 32
-      si += 1
-      si += 1 while si < slen && str.getbyte(si) == 32
-
-      # Parse day (1-2 digits)
-      b = str.getbyte(si)
-      return nil unless b && b >= 48 && b <= 57
-      mday = b - 48
-      si += 1
-      b = str.getbyte(si)
-      if b && b >= 48 && b <= 57
-        mday = mday * 10 + (b - 48)
-        si += 1
-      end
+      mday = m[5].to_i
       return nil if mday < 1 || mday > 31
-
-      # Expect space(s)
-      return nil if si >= slen || str.getbyte(si) != 32
-      si += 1
-      si += 1 while si < slen && str.getbyte(si) == 32
-
-      # Parse year: optional sign + greedy digits
-      sign = 1
-      b = str.getbyte(si)
-      if b == 43 # '+'
-        si += 1
-        b = str.getbyte(si)
-      elsif b == 45 # '-'
-        sign = -1
-        si += 1
-        b = str.getbyte(si)
-      end
-      return nil unless b && b >= 48 && b <= 57
-      year = b - 48
-      si += 1
-      while si < slen
-        b = str.getbyte(si)
-        break unless b && b >= 48 && b <= 57
-        year = year * 10 + (b - 48)
-        si += 1
-      end
-      year = -year if sign == -1
-
-      # Must consume entire string
-      return nil if si < slen
+      year = m[6].to_i
 
       # Inline civil validation + JD computation
       if sg != Float::INFINITY
@@ -1153,46 +643,33 @@ class Date
     end
 
     # Parse zone from string at position si; update hash[:zone] and hash[:offset].
-    # Returns new si on success, -1 on failure.
-    def _sp_zone(str, si, slen, hash)
+    # Returns new si on success; throws :sp_fail on failure.
+    def sp_zone(str, si, slen, hash)
       m = STRPTIME_ZONE_PAT.match(str[si..])
-      return -1 unless m
+      throw(:sp_fail) unless m
       zone_str = m[1]
       hash[:zone]   = zone_str
-      hash[:offset] = _sp_zone_to_diff(zone_str)
+      hash[:offset] = sp_zone_to_diff(zone_str)
       si + m[0].length
     end
 
     # Convert a zone string to seconds offset from UTC.
     # Returns Integer (seconds) or Rational, or nil if unparseable.
     # Mirrors date_zone_to_diff() in ext/date/date_parse.c.
-    def _sp_zone_to_diff(zone_str) # rubocop:disable Metrics/MethodLength,Metrics/CyclomaticComplexity
+    def sp_zone_to_diff(zone_str)
       # Fast path for common numeric zones
       len = zone_str.length
-      b0 = zone_str.getbyte(0)
-      if b0 == 43 || b0 == 45 # '+' or '-'
-        sign = b0 == 45 ? -1 : 1
-        if len == 6 && zone_str.getbyte(3) == 58 # +HH:MM
-          b1 = zone_str.getbyte(1)
-          b2 = zone_str.getbyte(2)
-          b4 = zone_str.getbyte(4)
-          b5 = zone_str.getbyte(5)
-          if b1 >= 48 && b1 <= 57 && b2 >= 48 && b2 <= 57 && b4 >= 48 && b4 <= 57 && b5 >= 48 && b5 <= 57
-            h = (b1 - 48) * 10 + (b2 - 48)
-            m = (b4 - 48) * 10 + (b5 - 48)
-            return nil if h > 23 || m > 59
-            return sign * (h * 3600 + m * 60)
-          end
-        elsif len == 5 # +HHMM
-          b1 = zone_str.getbyte(1)
-          b2 = zone_str.getbyte(2)
-          b3 = zone_str.getbyte(3)
-          b4 = zone_str.getbyte(4)
-          if b1 >= 48 && b1 <= 57 && b2 >= 48 && b2 <= 57 && b3 >= 48 && b3 <= 57 && b4 >= 48 && b4 <= 57
-            return sign * ((b1 - 48) * 36000 + (b2 - 48) * 3600 + (b3 - 48) * 600 + (b4 - 48) * 60)
-          end
+      c0 = zone_str[0]
+      if c0 == '+' || c0 == '-'
+        sc = StringScanner.new(zone_str)
+        if sc.scan(/([+-])(\d{2}):?(\d{2})\z/)
+          sign = sc[1] == '-' ? -1 : 1
+          h = sc[2].to_i
+          m = sc[3].to_i
+          return nil if h > 23 || m > 59
+          return sign * (h * 3600 + m * 60)
         end
-      elsif len == 1 && (b0 == 90 || b0 == 122) # Z/z
+      elsif len == 1 && (c0 == 'Z' || c0 == 'z')
         return 0
       elsif len <= 3
         off = ZONE_TABLE[zone_str.downcase]
@@ -1283,7 +760,7 @@ class Date
 
     # Rewrite :seconds (from %s/%Q) into jd + time components.
     # Offset is applied first (converts UTC epoch to local time).
-    def _sp_rewrite_frags(hash)
+    def sp_rewrite_frags(hash)
       seconds = hash.delete(:seconds)
       return hash unless seconds
 
@@ -1305,7 +782,7 @@ class Date
 
     # Complete partial date fragments by filling defaults from today's date.
     # Mirrors rt_complete_frags() in C.
-    def _sp_complete_frags(klass, hash) # rubocop:disable Metrics/MethodLength,Metrics/CyclomaticComplexity
+    def sp_complete_frags(klass, hash)
       # Fast path: detect :civil case (most common) without iterating all entries
       k = nil
       a = nil
@@ -1423,7 +900,7 @@ class Date
     # Mirrors c_weeknum_to_jd() in ext/date/date_core.c:
     #   rjd2 = JD(Jan 1) + 6  (= JD of Jan 7)
     #   return (rjd2 - MOD((rjd2 - f + 1), 7) - 7) + 7*w + d
-    def _sp_weeknum_to_jd(y, w, d, f, sg)
+    def sp_weeknum_to_jd(y, w, d, f, sg)
       jd_jan7 = civil_to_jd(y, 1, 1, sg) + 6
       (jd_jan7 - (jd_jan7 - f + 1) % 7 - 7) + 7 * w + d
     end
@@ -1431,7 +908,7 @@ class Date
     # Find the Julian Day number from the fragment hash.
     # Tries jd, ordinal, civil, commercial, wnum0, wnum1 in order.
     # Returns jd integer or nil.
-    def _sp_valid_date_frags_p(hash, sg) # rubocop:disable Metrics/CyclomaticComplexity
+    def sp_valid_date_frags_p(hash, sg)
       return hash[:jd] if hash[:jd]
 
       if (yday = hash[:yday]) && (year = hash[:year])
@@ -1462,7 +939,7 @@ class Date
         wday = 0 if !wday.nil? && wday == 7
       end
       if wday && (week = hash[:wnum0]) && (year = hash[:year])
-        jd = _sp_weeknum_to_jd(year, week, wday, 0, sg)
+        jd = sp_weeknum_to_jd(year, week, wday, 0, sg)
         return jd if jd
       end
 
@@ -1472,7 +949,7 @@ class Date
       wday = hash[:cwday] if wday.nil?
       wday = (wday - 1) % 7 if wday
       if wday && (week = hash[:wnum1]) && (year = hash[:year])
-        jd = _sp_weeknum_to_jd(year, week, wday, 1, sg)
+        jd = sp_weeknum_to_jd(year, week, wday, 1, sg)
         return jd if jd
       end
 
@@ -1480,11 +957,11 @@ class Date
     end
 
     # Create a Date object from parsed fragment hash.
-    def _new_by_frags(hash, sg)
+    def internal_new_by_frags(hash, sg)
       raise Error, 'invalid date' if hash.nil?
-      hash = _sp_rewrite_frags(hash)
-      hash = _sp_complete_frags(Date, hash)
-      jd   = _sp_valid_date_frags_p(hash, sg)
+      hash = sp_rewrite_frags(hash)
+      hash = sp_complete_frags(Date, hash)
+      jd   = sp_valid_date_frags_p(hash, sg)
       raise Error, 'invalid date' if jd.nil?
       new_from_jd(jd, sg)
     end

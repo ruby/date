@@ -839,12 +839,12 @@ class DateTime < Date
     # Create a DateTime object from parsed fragment hash.
     # Uses the same fragment rewrite/complete/validate logic as Date._new_by_frags
     # but additionally extracts time components (hour, min, sec, offset, sec_fraction).
-    def _dt_new_by_frags(hash, sg) # rubocop:disable Metrics/MethodLength
+    def _dt_new_by_frags(hash, sg)
       raise Date::Error, 'invalid date' if hash.nil?
-      hash = _sp_rewrite_frags(hash)
+      hash = sp_rewrite_frags(hash)
       orig_sec = hash[:sec]
-      hash = _sp_complete_frags(DateTime, hash)
-      jd   = _sp_valid_date_frags_p(hash, sg)
+      hash = sp_complete_frags(DateTime, hash)
+      jd   = sp_valid_date_frags_p(hash, sg)
       raise Date::Error, 'invalid date' if jd.nil?
 
       h  = hash[:hour] || 0
@@ -904,15 +904,15 @@ class DateTime < Date
     @sec_i
   end
 
-  def _sec_frac
+  def sec_frac
     @sec_frac
   end
 
-  def _of_seconds
+  def of_seconds
     @of
   end
 
-  def _zone_str
+  def zone_str
     _of2str(@of)
   end
 

@@ -35,56 +35,21 @@ class Date
       # Fast path: YYYY-MM-DDTHH:MM:SS+HH:MM (25 bytes) or YYYY-MM-DDTHH:MM:SSZ (20 bytes)
       len = string.length
       if len == 25 || len == 20
-        b0 = string.getbyte(0)
-        if b0 >= 48 && b0 <= 57 &&
-           string.getbyte(4) == 45 && string.getbyte(7) == 45 &&
-           (string.getbyte(10) | 32) == 116 && # T or t
-           string.getbyte(13) == 58 && string.getbyte(16) == 58
-          b1 = string.getbyte(1)
-          b2 = string.getbyte(2)
-          b3 = string.getbyte(3)
-          b5 = string.getbyte(5)
-          b6 = string.getbyte(6)
-          b8 = string.getbyte(8)
-          b9 = string.getbyte(9)
-          b11 = string.getbyte(11)
-          b12 = string.getbyte(12)
-          b14 = string.getbyte(14)
-          b15 = string.getbyte(15)
-          b17 = string.getbyte(17)
-          b18 = string.getbyte(18)
-          if b1 >= 48 && b1 <= 57 && b2 >= 48 && b2 <= 57 && b3 >= 48 && b3 <= 57 &&
-             b5 >= 48 && b5 <= 57 && b6 >= 48 && b6 <= 57 &&
-             b8 >= 48 && b8 <= 57 && b9 >= 48 && b9 <= 57 &&
-             b11 >= 48 && b11 <= 57 && b12 >= 48 && b12 <= 57 &&
-             b14 >= 48 && b14 <= 57 && b15 >= 48 && b15 <= 57 &&
-             b17 >= 48 && b17 <= 57 && b18 >= 48 && b18 <= 57
-            h = {
-              year: (b0 - 48) * 1000 + (b1 - 48) * 100 + (b2 - 48) * 10 + (b3 - 48),
-              mon:  (b5 - 48) * 10 + (b6 - 48),
-              mday: (b8 - 48) * 10 + (b9 - 48),
-              hour: (b11 - 48) * 10 + (b12 - 48),
-              min:  (b14 - 48) * 10 + (b15 - 48),
-              sec:  (b17 - 48) * 10 + (b18 - 48)
-            }
-            b19 = string.getbyte(19)
-            if (b19 == 90 || b19 == 122) && len == 20 # Z or z
-              h[:zone] = string[19, 1]
-              h[:offset] = 0
-            elsif (b19 == 43 || b19 == 45) && len == 25 && string.getbyte(22) == 58
-              zone = string[19, 6]
-              h[:zone] = zone
-              b20 = string.getbyte(20)
-              b21 = string.getbyte(21)
-              b23 = string.getbyte(23)
-              b24 = string.getbyte(24)
-              if b20 >= 48 && b20 <= 57 && b21 >= 48 && b21 <= 57 &&
-                 b23 >= 48 && b23 <= 57 && b24 >= 48 && b24 <= 57
-                h[:offset] = (b19 == 45 ? -1 : 1) * ((b20 - 48) * 36000 + (b21 - 48) * 3600 + (b23 - 48) * 600 + (b24 - 48) * 60)
-                return h
-              end
-            end
-            return h if h.key?(:zone)
+        sc = StringScanner.new(string)
+        if sc.scan(/(\d{4})-(\d{2})-(\d{2})[Tt](\d{2}):(\d{2}):(\d{2})/)
+          h = {
+            year: sc[1].to_i, mon: sc[2].to_i, mday: sc[3].to_i,
+            hour: sc[4].to_i, min: sc[5].to_i, sec: sc[6].to_i
+          }
+          if sc.scan(/[Zz]\z/)
+            h[:zone] = sc.matched
+            h[:offset] = 0
+            return h
+          elsif sc.scan(/([+-])(\d{2}):(\d{2})\z/)
+            zone = sc.matched
+            h[:zone] = zone
+            h[:offset] = (sc[1] == '-' ? -1 : 1) * (sc[2].to_i * 3600 + sc[3].to_i * 60)
+            return h
           end
         end
       end
@@ -92,24 +57,18 @@ class Date
       h = {}
       if (m = RFC3339_RE.match(string))
         h[:year]  = m[1].to_i
-        s = m[2]
-        h[:mon]  = (s.getbyte(0) - 48) * 10 + (s.getbyte(1) - 48)
-        s = m[3]
-        h[:mday] = (s.getbyte(0) - 48) * 10 + (s.getbyte(1) - 48)
-        s = m[4]
-        h[:hour] = (s.getbyte(0) - 48) * 10 + (s.getbyte(1) - 48)
-        s = m[5]
-        h[:min]  = (s.getbyte(0) - 48) * 10 + (s.getbyte(1) - 48)
-        s = m[6]
-        h[:sec]  = (s.getbyte(0) - 48) * 10 + (s.getbyte(1) - 48)
+        h[:mon]   = m[2].to_i
+        h[:mday]  = m[3].to_i
+        h[:hour]  = m[4].to_i
+        h[:min]   = m[5].to_i
+        h[:sec]   = m[6].to_i
         h[:sec_fraction] = Rational(m[7].to_i, 10 ** m[7].length) if m[7]
         zone = m[8]
         h[:zone] = zone
-        b0 = zone.getbyte(0)
-        if b0 == 90 || b0 == 122 # Z or z
+        if zone[0] == 'Z' || zone[0] == 'z'
           h[:offset] = 0
         else
-          h[:offset] = (b0 == 45 ? -1 : 1) * ((zone.getbyte(1) - 48) * 36000 + (zone.getbyte(2) - 48) * 3600 + (zone.getbyte(4) - 48) * 600 + (zone.getbyte(5) - 48) * 60)
+          h[:offset] = (zone[0] == '-' ? -1 : 1) * (zone[1, 2].to_i * 3600 + zone[4, 2].to_i * 60)
         end
       end
       h
@@ -140,30 +99,20 @@ class Date
       return {} if string.empty?
       raise ArgumentError, "string length (#{string.length}) exceeds the limit #{limit}" if limit && string.length > limit
 
-      # Byte-level fast path for Type 1: "Dow, DD Mon YYYY HH:MM:SS GMT" (29 bytes)
-      # Avoids all regex and string allocation overhead
+      # Fast path for Type 1: "Dow, DD Mon YYYY HH:MM:SS GMT" (29 bytes)
       len = string.length
       if len == 29
-        b0 = string.getbyte(0)
-        if b0 >= 65 && string.getbyte(3) == 44 && string.getbyte(4) == 32 && # alpha, ',', ' '
-           string.getbyte(7) == 32 && string.getbyte(11) == 32 &&
-           string.getbyte(16) == 32 && string.getbyte(19) == 58 &&
-           string.getbyte(22) == 58 && string.getbyte(25) == 32 &&
-           string.getbyte(26) == 71 && string.getbyte(27) == 77 && string.getbyte(28) == 84 # 'G','M','T'
-          wkey = ((b0 | 32) << 16) | ((string.getbyte(1) | 32) << 8) | (string.getbyte(2) | 32)
+        sc = StringScanner.new(string)
+        if sc.scan(/([A-Za-z]{3}), (\d{2}) ([A-Za-z]{3}) (\d{4}) (\d{2}):(\d{2}):(\d{2}) (GMT)\z/i)
+          wkey = compute_3key(sc[1])
           wday_info = ABBR_DAY_3KEY[wkey]
           if wday_info
-            mkey = ((string.getbyte(8) | 32) << 16) | ((string.getbyte(9) | 32) << 8) | (string.getbyte(10) | 32)
+            mkey = compute_3key(sc[3])
             mon_info = ABBR_MONTH_3KEY[mkey]
             if mon_info
               return {
-                wday: wday_info[0],
-                mday: (string.getbyte(5) - 48) * 10 + (string.getbyte(6) - 48),
-                mon: mon_info[0],
-                year: (string.getbyte(12) - 48) * 1000 + (string.getbyte(13) - 48) * 100 + (string.getbyte(14) - 48) * 10 + (string.getbyte(15) - 48),
-                hour: (string.getbyte(17) - 48) * 10 + (string.getbyte(18) - 48),
-                min: (string.getbyte(20) - 48) * 10 + (string.getbyte(21) - 48),
-                sec: (string.getbyte(23) - 48) * 10 + (string.getbyte(24) - 48),
+                wday: wday_info[0], mday: sc[2].to_i, mon: mon_info[0],
+                year: sc[4].to_i, hour: sc[5].to_i, min: sc[6].to_i, sec: sc[7].to_i,
                 zone: 'GMT', offset: 0
               }
             end
@@ -174,43 +123,32 @@ class Date
       h = {}
       if (m = HTTPDATE_TYPE1_RE.match(string))
         h[:wday]   = HTTPDATE_WDAY[m[1].downcase]
-        s = m[2]
-        h[:mday] = (s.getbyte(0) - 48) * 10 + (s.getbyte(1) - 48)
+        h[:mday]   = m[2].to_i
         h[:mon]    = ABBR_MONTH_NUM[m[3].downcase]
         h[:year]   = m[4].to_i
-        s = m[5]
-        h[:hour] = (s.getbyte(0) - 48) * 10 + (s.getbyte(1) - 48)
-        s = m[6]
-        h[:min]  = (s.getbyte(0) - 48) * 10 + (s.getbyte(1) - 48)
-        s = m[7]
-        h[:sec]  = (s.getbyte(0) - 48) * 10 + (s.getbyte(1) - 48)
+        h[:hour]   = m[5].to_i
+        h[:min]    = m[6].to_i
+        h[:sec]    = m[7].to_i
         h[:zone]   = m[8]
         h[:offset] = 0
       elsif (m = HTTPDATE_TYPE2_RE.match(string))
         h[:wday]   = HTTPDATE_FULL_WDAY[m[1].downcase]
-        s = m[2]
-        h[:mday] = (s.getbyte(0) - 48) * 10 + (s.getbyte(1) - 48)
+        h[:mday]   = m[2].to_i
         h[:mon]    = ABBR_MONTH_NUM[m[3].downcase]
         y = m[4].to_i
         h[:year]   = y >= 69 ? y + 1900 : y + 2000
-        s = m[5]
-        h[:hour] = (s.getbyte(0) - 48) * 10 + (s.getbyte(1) - 48)
-        s = m[6]
-        h[:min]  = (s.getbyte(0) - 48) * 10 + (s.getbyte(1) - 48)
-        s = m[7]
-        h[:sec]  = (s.getbyte(0) - 48) * 10 + (s.getbyte(1) - 48)
+        h[:hour]   = m[5].to_i
+        h[:min]    = m[6].to_i
+        h[:sec]    = m[7].to_i
         h[:zone]   = m[8]
         h[:offset] = 0
       elsif (m = HTTPDATE_TYPE3_RE.match(string))
         h[:wday]   = HTTPDATE_WDAY[m[1].downcase]
         h[:mon]    = ABBR_MONTH_NUM[m[2].downcase]
         h[:mday]   = m[3].to_i
-        s = m[4]
-        h[:hour] = (s.getbyte(0) - 48) * 10 + (s.getbyte(1) - 48)
-        s = m[5]
-        h[:min]  = (s.getbyte(0) - 48) * 10 + (s.getbyte(1) - 48)
-        s = m[6]
-        h[:sec]  = (s.getbyte(0) - 48) * 10 + (s.getbyte(1) - 48)
+        h[:hour]   = m[4].to_i
+        h[:min]    = m[5].to_i
+        h[:sec]    = m[6].to_i
         h[:year]   = m[7].to_i
       end
       h
@@ -243,41 +181,26 @@ class Date
       return {} if string.empty?
       raise ArgumentError, "string length (#{string.length}) exceeds the limit #{limit}" if limit && string.length > limit
 
-      # Byte-level fast path: "Dow, DD Mon YYYY HH:MM:SS +ZZZZ" (31 bytes, 2-digit day)
-      # Avoids all regex and string allocation overhead
+      # Fast path: "Dow, DD Mon YYYY HH:MM:SS +ZZZZ" (31 bytes, 2-digit day)
       len = string.length
       if len == 31
-        b0 = string.getbyte(0)
-        if b0 >= 65 && string.getbyte(3) == 44 && string.getbyte(4) == 32 && # alpha, ',', ' '
-           string.getbyte(7) == 32 && string.getbyte(11) == 32 &&
-           string.getbyte(16) == 32 && string.getbyte(19) == 58 &&
-           string.getbyte(22) == 58 && string.getbyte(25) == 32
-          bz0 = string.getbyte(26)
-          if bz0 == 43 || bz0 == 45 # '+' or '-'
-            wkey = ((b0 | 32) << 16) | ((string.getbyte(1) | 32) << 8) | (string.getbyte(2) | 32)
-            wday_info = ABBR_DAY_3KEY[wkey]
-            if wday_info
-              mkey = ((string.getbyte(8) | 32) << 16) | ((string.getbyte(9) | 32) << 8) | (string.getbyte(10) | 32)
-              mon_info = ABBR_MONTH_3KEY[mkey]
-              if mon_info
-                bz1 = string.getbyte(27)
-                bz2 = string.getbyte(28)
-                bz3 = string.getbyte(29)
-                bz4 = string.getbyte(30)
-                sign = bz0 == 45 ? -1 : 1
-                offset_val = sign * ((bz1 - 48) * 36000 + (bz2 - 48) * 3600 + (bz3 - 48) * 600 + (bz4 - 48) * 60)
-                zone = (bz0 == 43 && bz1 == 48 && bz2 == 48 && bz3 == 48 && bz4 == 48) ? '+0000' : string.byteslice(26, 5)
-                return {
-                  wday: wday_info[0],
-                  mday: (string.getbyte(5) - 48) * 10 + (string.getbyte(6) - 48),
-                  mon: mon_info[0],
-                  year: (string.getbyte(12) - 48) * 1000 + (string.getbyte(13) - 48) * 100 + (string.getbyte(14) - 48) * 10 + (string.getbyte(15) - 48),
-                  hour: (string.getbyte(17) - 48) * 10 + (string.getbyte(18) - 48),
-                  min: (string.getbyte(20) - 48) * 10 + (string.getbyte(21) - 48),
-                  sec: (string.getbyte(23) - 48) * 10 + (string.getbyte(24) - 48),
-                  zone: zone, offset: offset_val
-                }
-              end
+        sc = StringScanner.new(string)
+        if sc.scan(/([A-Za-z]{3}), (\d{2}) ([A-Za-z]{3}) (\d{4}) (\d{2}):(\d{2}):(\d{2}) ([+-]\d{4})\z/)
+          wkey = compute_3key(sc[1])
+          wday_info = ABBR_DAY_3KEY[wkey]
+          if wday_info
+            mkey = compute_3key(sc[3])
+            mon_info = ABBR_MONTH_3KEY[mkey]
+            if mon_info
+              zone = sc[8]
+              sign = zone[0] == '-' ? -1 : 1
+              offset_val = sign * (zone[1, 2].to_i * 3600 + zone[3, 2].to_i * 60)
+              zone = '+0000' if zone == '+0000'
+              return {
+                wday: wday_info[0], mday: sc[2].to_i, mon: mon_info[0],
+                year: sc[4].to_i, hour: sc[5].to_i, min: sc[6].to_i, sec: sc[7].to_i,
+                zone: zone, offset: offset_val
+              }
             end
           end
         end
@@ -293,7 +216,7 @@ class Date
         h[:mon]    = ABBR_MONTH_NUM[m[3].downcase]
         y_s = m[4]
         y = y_s.to_i
-        ylen = y_s.getbyte(0) == 45 ? y_s.length - 1 : y_s.length
+        ylen = y_s[0] == '-' ? y_s.length - 1 : y_s.length
         if ylen < 4
           if ylen == 3
             h[:year] = y + 1900
@@ -303,14 +226,9 @@ class Date
         else
           h[:year] = y
         end
-        s5 = m[5]
-        h[:hour] = (s5.getbyte(0) - 48) * 10 + (s5.getbyte(1) - 48)
-        s6 = m[6]
-        h[:min]  = (s6.getbyte(0) - 48) * 10 + (s6.getbyte(1) - 48)
-        if m[7]
-          s7 = m[7]
-          h[:sec] = (s7.getbyte(0) - 48) * 10 + (s7.getbyte(1) - 48)
-        end
+        h[:hour]   = m[5].to_i
+        h[:min]    = m[6].to_i
+        h[:sec]    = m[7].to_i if m[7]
         h[:zone]   = m[8]
         h[:offset] = fast_zone_offset(m[8])
       end
@@ -346,26 +264,9 @@ class Date
 
       # Fast path: YYYY-MM-DD (exactly 10 bytes, all ASCII)
       if string.length == 10
-        b0 = string.getbyte(0)
-        if b0 >= 48 && b0 <= 57
-          b1 = string.getbyte(1)
-          b2 = string.getbyte(2)
-          b3 = string.getbyte(3)
-          if b1 >= 48 && b1 <= 57 && b2 >= 48 && b2 <= 57 && b3 >= 48 && b3 <= 57 &&
-             string.getbyte(4) == 45 && string.getbyte(7) == 45
-            b5 = string.getbyte(5)
-            b6 = string.getbyte(6)
-            b8 = string.getbyte(8)
-            b9 = string.getbyte(9)
-            if b5 >= 48 && b5 <= 57 && b6 >= 48 && b6 <= 57 &&
-               b8 >= 48 && b8 <= 57 && b9 >= 48 && b9 <= 57
-              return {
-                year: (b0 - 48) * 1000 + (b1 - 48) * 100 + (b2 - 48) * 10 + (b3 - 48),
-                mon:  (b5 - 48) * 10 + (b6 - 48),
-                mday: (b8 - 48) * 10 + (b9 - 48)
-              }
-            end
-          end
+        sc = StringScanner.new(string)
+        if sc.scan(/(\d{4})-(\d{2})-(\d{2})\z/)
+          return { year: sc[1].to_i, mon: sc[2].to_i, mday: sc[3].to_i }
         end
       end
 
@@ -425,26 +326,9 @@ class Date
 
       # Fast path: YYYY-MM-DD (exactly 10 bytes, all ASCII)
       if string.length == 10
-        b0 = string.getbyte(0)
-        if b0 >= 48 && b0 <= 57
-          b1 = string.getbyte(1)
-          b2 = string.getbyte(2)
-          b3 = string.getbyte(3)
-          if b1 >= 48 && b1 <= 57 && b2 >= 48 && b2 <= 57 && b3 >= 48 && b3 <= 57 &&
-             string.getbyte(4) == 45 && string.getbyte(7) == 45
-            b5 = string.getbyte(5)
-            b6 = string.getbyte(6)
-            b8 = string.getbyte(8)
-            b9 = string.getbyte(9)
-            if b5 >= 48 && b5 <= 57 && b6 >= 48 && b6 <= 57 &&
-               b8 >= 48 && b8 <= 57 && b9 >= 48 && b9 <= 57
-              return {
-                mday: (b8 - 48) * 10 + (b9 - 48),
-                year: (b0 - 48) * 1000 + (b1 - 48) * 100 + (b2 - 48) * 10 + (b3 - 48),
-                mon:  (b5 - 48) * 10 + (b6 - 48)
-              }
-            end
-          end
+        sc = StringScanner.new(string)
+        if sc.scan(/(\d{4})-(\d{2})-(\d{2})\z/)
+          return { mday: sc[3].to_i, year: sc[1].to_i, mon: sc[2].to_i }
         end
       end
 
@@ -498,23 +382,14 @@ class Date
 
       # Fast path: X##.##.## (9 bytes: era + YY.MM.DD)
       if string.length == 9
-        b0 = string.getbyte(0) | 32 # downcase
-        era_offset = JISX0301_ERA[b0.chr]
-        if era_offset &&
-           string.getbyte(3) == 46 && string.getbyte(6) == 46 # '.'
-          b1 = string.getbyte(1)
-          b2 = string.getbyte(2)
-          b4 = string.getbyte(4)
-          b5 = string.getbyte(5)
-          b7 = string.getbyte(7)
-          b8 = string.getbyte(8)
-          if b1 >= 48 && b1 <= 57 && b2 >= 48 && b2 <= 57 &&
-             b4 >= 48 && b4 <= 57 && b5 >= 48 && b5 <= 57 &&
-             b7 >= 48 && b7 <= 57 && b8 >= 48 && b8 <= 57
+        sc = StringScanner.new(string)
+        if sc.scan(/([A-Za-z])(\d{2})\.(\d{2})\.(\d{2})\z/)
+          era_offset = JISX0301_ERA[sc[1].downcase]
+          if era_offset
             return {
-              year: (b1 - 48) * 10 + (b2 - 48) + era_offset,
-              mon:  (b4 - 48) * 10 + (b5 - 48),
-              mday: (b7 - 48) * 10 + (b8 - 48)
+              year: sc[2].to_i + era_offset,
+              mon:  sc[3].to_i,
+              mday: sc[4].to_i
             }
           end
         end
@@ -582,49 +457,17 @@ class Date
 
       # Fast ISO: YYYY-MM-DD (exactly 10 ASCII bytes)
       if len == 10
-        b0 = string.getbyte(0)
-        if b0 >= 48 && b0 <= 57
-          b1 = string.getbyte(1)
-          b2 = string.getbyte(2)
-          b3 = string.getbyte(3)
-          if b1 >= 48 && b1 <= 57 && b2 >= 48 && b2 <= 57 && b3 >= 48 && b3 <= 57 &&
-             string.getbyte(4) == 45 && string.getbyte(7) == 45
-            b5 = string.getbyte(5)
-            b6 = string.getbyte(6)
-            b8 = string.getbyte(8)
-            b9 = string.getbyte(9)
-            if b5 >= 48 && b5 <= 57 && b6 >= 48 && b6 <= 57 &&
-               b8 >= 48 && b8 <= 57 && b9 >= 48 && b9 <= 57
-              return {
-                year: (b0 - 48) * 1000 + (b1 - 48) * 100 + (b2 - 48) * 10 + (b3 - 48),
-                mon:  (b5 - 48) * 10 + (b6 - 48),
-                mday: (b8 - 48) * 10 + (b9 - 48)
-              }
-            end
-          end
+        sc = StringScanner.new(string)
+        if sc.scan(/(\d{4})-(\d{2})-(\d{2})\z/)
+          return { year: sc[1].to_i, mon: sc[2].to_i, mday: sc[3].to_i }
         end
       end
 
       # Fast compact: YYYYMMDD (exactly 8 ASCII digit bytes)
       if len == 8
-        b0 = string.getbyte(0)
-        if b0 >= 48 && b0 <= 57
-          b1 = string.getbyte(1)
-          b2 = string.getbyte(2)
-          b3 = string.getbyte(3)
-          b4 = string.getbyte(4)
-          b5 = string.getbyte(5)
-          b6 = string.getbyte(6)
-          b7 = string.getbyte(7)
-          if b1 >= 48 && b1 <= 57 && b2 >= 48 && b2 <= 57 && b3 >= 48 && b3 <= 57 &&
-             b4 >= 48 && b4 <= 57 && b5 >= 48 && b5 <= 57 &&
-             b6 >= 48 && b6 <= 57 && b7 >= 48 && b7 <= 57
-            return {
-              year: (b0 - 48) * 1000 + (b1 - 48) * 100 + (b2 - 48) * 10 + (b3 - 48),
-              mon:  (b4 - 48) * 10 + (b5 - 48),
-              mday: (b6 - 48) * 10 + (b7 - 48)
-            }
-          end
+        sc = StringScanner.new(string)
+        if sc.scan(/(\d{4})(\d{2})(\d{2})\z/)
+          return { year: sc[1].to_i, mon: sc[2].to_i, mday: sc[3].to_i }
         end
       end
 
@@ -981,33 +824,18 @@ class Date
 
     # Fast zone offset calculation for common patterns.
     # Handles: Z/z, +HH:MM/-HH:MM, +HHMM/-HHMM, short named zones.
-    # Falls back to _sp_zone_to_diff for complex cases.
-    def fast_zone_offset(zone_str) # rubocop:disable Metrics/CyclomaticComplexity
+    # Falls back to sp_zone_to_diff for complex cases.
+    def fast_zone_offset(zone_str)
       len = zone_str.length
-      b0 = zone_str.getbyte(0)
 
       # Z/z
-      return 0 if len == 1 && (b0 == 90 || b0 == 122)
+      return 0 if len == 1 && (zone_str[0] == 'Z' || zone_str[0] == 'z')
 
-      if b0 == 43 || b0 == 45 # '+' or '-'
-        sign = b0 == 45 ? -1 : 1
-        if len == 6 && zone_str.getbyte(3) == 58 # +HH:MM
-          b1 = zone_str.getbyte(1)
-          b2 = zone_str.getbyte(2)
-          b4 = zone_str.getbyte(4)
-          b5 = zone_str.getbyte(5)
-          if b1 >= 48 && b1 <= 57 && b2 >= 48 && b2 <= 57 && b4 >= 48 && b4 <= 57 && b5 >= 48 && b5 <= 57
-            return sign * ((b1 - 48) * 36000 + (b2 - 48) * 3600 + (b4 - 48) * 600 + (b5 - 48) * 60)
-          end
-        end
-        if len == 5 # +HHMM
-          b1 = zone_str.getbyte(1)
-          b2 = zone_str.getbyte(2)
-          b3 = zone_str.getbyte(3)
-          b4 = zone_str.getbyte(4)
-          if b1 >= 48 && b1 <= 57 && b2 >= 48 && b2 <= 57 && b3 >= 48 && b3 <= 57 && b4 >= 48 && b4 <= 57
-            return sign * ((b1 - 48) * 36000 + (b2 - 48) * 3600 + (b3 - 48) * 600 + (b4 - 48) * 60)
-          end
+      if zone_str[0] == '+' || zone_str[0] == '-'
+        sc = StringScanner.new(zone_str)
+        if sc.scan(/([+-])(\d{2}):?(\d{2})\z/)
+          sign = sc[1] == '-' ? -1 : 1
+          return sign * (sc[2].to_i * 3600 + sc[3].to_i * 60)
         end
       end
 
@@ -1018,7 +846,7 @@ class Date
       end
 
       # Fall back to full parser
-      _sp_zone_to_diff(zone_str)
+      sp_zone_to_diff(zone_str)
     end
 
     # ------------------------------------------------------------------
@@ -1522,7 +1350,7 @@ class Date
     # s3e: 3-element (year, month, day) disambiguation
     # Faithfully mirrors the C implementation's s3e() logic.
     # Arguments: y, m, d are strings (or Integer for m when month name was parsed)
-    def s3e(h, y, m, d, bc) # rubocop:disable Metrics/MethodLength,Metrics/CyclomaticComplexity
+    def s3e(h, y, m, d, bc)
       # Fast path: y is unambiguously a year (3+ digits or signed), m and d are simple digits.
       # This covers ISO "2001-02-03" but not ambiguous cases like "23/5/1999".
       if y && m && d && !bc && y.is_a?(String) && m.is_a?(String) && d.is_a?(String) &&
@@ -1695,7 +1523,7 @@ class Date
           new_from_jd(jd, sg)
         end
       else
-        _new_by_frags(hash, sg)
+        internal_new_by_frags(hash, sg)
       end
     end
 
