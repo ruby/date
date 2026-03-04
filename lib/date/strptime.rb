@@ -504,23 +504,8 @@ class Date
         mon  = str.byteslice(5, 2).to_i
         mday = str.byteslice(8, 2).to_i
         if mon >= 1 && mon <= 12 && mday >= 1 && mday <= 31
-          # Inline civil validation + JD
-          if sg != Float::INFINITY
-            dim = DAYS_IN_MONTH_GREGORIAN[mon]
-            if mon == 2 && ((year % 4 == 0 && year % 100 != 0) || year % 400 == 0)
-              dim = 29
-            end
-            return nil if mday > dim
-            gy = mon <= 2 ? year - 1 : year
-            gjd_base = (1461 * (gy + 4716)) / 4 + GJD_MONTH_OFFSET[mon] + mday
-            a = gy / 100
-            gjd = gjd_base - 1524 + 2 - a + a / 4
-            jd = gjd >= sg ? gjd : gjd_base - 1524
-            return new_from_jd(jd, sg)
-          else
-            jd = internal_valid_civil?(year, mon, mday, sg)
-            return jd ? new_from_jd(jd, sg) : nil
-          end
+          jd = internal_valid_civil?(year, mon, mday, sg)
+          return jd ? new_from_jd(jd, sg) : nil
         end
         return nil
       end
@@ -533,23 +518,8 @@ class Date
       mday = m[3].to_i
       return nil if mon < 1 || mon > 12 || mday < 1 || mday > 31
 
-      # Inline civil validation + JD computation
-      if sg != Float::INFINITY
-        dim = DAYS_IN_MONTH_GREGORIAN[mon]
-        if mon == 2 && ((year % 4 == 0 && year % 100 != 0) || year % 400 == 0)
-          dim = 29
-        end
-        return nil if mday > dim
-        gy = mon <= 2 ? year - 1 : year
-        offset = GJD_MONTH_OFFSET[mon]
-        gjd_base = (1461 * (gy + 4716)) / 4 + offset + mday
-        a = gy / 100
-        gjd = gjd_base - 1524 + 2 - a + a / 4
-        jd = gjd >= sg ? gjd : gjd_base - 1524
-      else
-        jd = internal_valid_civil?(year, mon, mday, sg)
-        return nil unless jd
-      end
+      jd = internal_valid_civil?(year, mon, mday, sg)
+      return nil unless jd
       new_from_jd(jd, sg)
     end
 
@@ -622,23 +592,8 @@ class Date
       return nil if mday < 1 || mday > 31
       year = m[6].to_i
 
-      # Inline civil validation + JD computation
-      if sg != Float::INFINITY
-        dim = DAYS_IN_MONTH_GREGORIAN[mon]
-        if mon == 2 && ((year % 4 == 0 && year % 100 != 0) || year % 400 == 0)
-          dim = 29
-        end
-        return nil if mday > dim
-        gy = mon <= 2 ? year - 1 : year
-        offset = GJD_MONTH_OFFSET[mon]
-        gjd_base = (1461 * (gy + 4716)) / 4 + offset + mday
-        a = gy / 100
-        gjd = gjd_base - 1524 + 2 - a + a / 4
-        jd = gjd >= sg ? gjd : gjd_base - 1524
-      else
-        jd = internal_valid_civil?(year, mon, mday, sg)
-        return nil unless jd
-      end
+      jd = internal_valid_civil?(year, mon, mday, sg)
+      return nil unless jd
       new_from_jd(jd, sg)
     end
 

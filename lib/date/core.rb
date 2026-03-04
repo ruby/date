@@ -14,14 +14,7 @@ class Date
     def civil(year = -4712, month = 1, day = 1, start = DEFAULT_SG)
       if Integer === year && Integer === month && Integer === day && month >= 1 && month <= 12
         if day >= 1 && day <= 28
-          gy = month > 2 ? year : year - 1
-          gjd_base = (1461 * (gy + 4716)) / 4 + GJD_MONTH_OFFSET[month] + day
-          a = gy / 100
-          jd_julian = gjd_base - 1524
-          gjd = jd_julian + 2 - a + a / 4
-          obj = allocate
-          obj.__send__(:init_from_jd, gjd >= start ? gjd : jd_julian, start)
-          return obj
+          return new_from_jd(civil_to_jd(year, month, day, start), start)
         elsif day >= -31
           dim = if month == 2
             if start == Float::INFINITY
@@ -34,14 +27,7 @@ class Date
           end
           d = day < 0 ? day + dim + 1 : day
           if d >= 1 && d <= dim
-            gy = month > 2 ? year : year - 1
-            gjd_base = (1461 * (gy + 4716)) / 4 + GJD_MONTH_OFFSET[month] + d
-            a = gy / 100
-            jd_julian = gjd_base - 1524
-            gjd = jd_julian + 2 - a + a / 4
-            obj = allocate
-            obj.__send__(:init_from_jd, gjd >= start ? gjd : jd_julian, start)
-            return obj
+            return new_from_jd(civil_to_jd(year, month, d, start), start)
           end
         end
       end
@@ -178,14 +164,8 @@ class Date
     # Related: Date.jd, Date.new.
     def ordinal(year = -4712, yday = 1, start = DEFAULT_SG)
       if Integer === year && Integer === yday && yday >= 1 && yday <= 365
-        gy = year - 1
-        gjd_base = (1461 * (gy + 4716)) / 4 + 429  # GJD_MONTH_OFFSET[1] + 1
-        a = gy / 100
-        gjd = gjd_base - 1524 + 2 - a + a / 4
-        jd1 = gjd >= start ? gjd : gjd_base - 1524
-        obj = allocate
-        obj.__send__(:init_from_jd, jd1 + yday - 1, start)
-        return obj
+        jd1 = civil_to_jd(year, 1, 1, start)
+        return new_from_jd(jd1 + yday - 1, start)
       end
       year = Integer(year)
       yday = Integer(yday)
@@ -257,18 +237,8 @@ class Date
       if Integer === cwyear && Integer === cweek && Integer === cwday &&
          cweek >= 1 && cweek <= 52 && cwday >= 1 && cwday <= 7
         # ISO 8601: every year has at least 52 weeks, so weeks 1-52 are always valid.
-        # Inline civil_to_jd(cwyear, 1, 4, start): month=1, day=4
-        gy = cwyear - 1
-        gjd_base4 = (1461 * (gy + 4716)) / 4 + 432  # GJD_MONTH_OFFSET[1] + 4
-        a = gy / 100
-        gjd4 = gjd_base4 - 1524 + 2 - a + a / 4
-        jd_jan4 = gjd4 >= start ? gjd4 : gjd_base4 - 1524
-        wday_jan4 = (jd_jan4 + 1) % 7
-        mon_wk1 = jd_jan4 - (wday_jan4 == 0 ? 6 : wday_jan4 - 1)
-        jd = mon_wk1 + (cweek - 1) * 7 + (cwday - 1)
-        obj = allocate
-        obj.__send__(:init_from_jd, jd, start)
-        return obj
+        jd = commercial_to_jd(cwyear, cweek, cwday, start)
+        return new_from_jd(jd, start)
       end
       cwyear = Integer(cwyear)
       cweek = Integer(cweek)
@@ -683,18 +653,7 @@ class Date
         d = day
         d += dim + 1 if d < 0
         if d >= 1 && d <= dim
-          gy = m <= 2 ? year - 1 : year
-          gjd_base = (1461 * (gy + 4716)) / 4 + GJD_MONTH_OFFSET[m] + d
-          if start == Float::INFINITY
-            @jd = gjd_base - 1524
-          elsif start == -Float::INFINITY
-            a = gy / 100
-            @jd = gjd_base - 1524 + 2 - a + a / 4
-          else
-            a = gy / 100
-            gjd = gjd_base - 1524 + 2 - a + a / 4
-            @jd = gjd >= start ? gjd : gjd_base - 1524
-          end
+          @jd    = self.class.__send__(:civil_to_jd, year, m, d, start)
           @sg    = start
           @year  = year
           @month = m
@@ -852,12 +811,7 @@ class Date
   def yday
     return @yday if @yday
     internal_civil unless @year
-    # inline civil_to_jd(@year, 1, 1, @sg): month=1 (<= 2 so y-=1), day=1
-    yy = @year - 1
-    gjd_base = (1461 * (yy + 4716)) / 4 + 429  # GJD_MONTH_OFFSET[1](=428) + 1
-    a = yy / 100
-    gjd = gjd_base - 1524 + 2 - a + a / 4
-    jd_jan1 = gjd >= @sg ? gjd : gjd_base - 1524
+    jd_jan1 = self.class.__send__(:civil_to_jd, @year, 1, 1, @sg)
     val = @jd - jd_jan1 + 1
     @yday = val unless frozen?
     val
@@ -1335,29 +1289,14 @@ class Date
     m2 = @month + n.to_i
     y2 = @year + (m2 - 1).div(12)
     m2 = (m2 - 1) % 12 + 1
-    # inline days_in_month
-    if m2 == 2
-      if @sg == Float::INFINITY
-        dim = y2 % 4 == 0 ? 29 : 28
-      else
-        dim = ((y2 % 4 == 0 && y2 % 100 != 0) || y2 % 400 == 0) ? 29 : 28
-      end
+    if @sg == Float::INFINITY
+      dim = self.class.__send__(:days_in_month_julian, y2, m2)
     else
-      dim = DAYS_IN_MONTH_GREGORIAN[m2]
+      dim = self.class.__send__(:days_in_month_gregorian, y2, m2)
     end
     d2 = @day < dim ? @day : dim
-    # inline civil_to_jd(y2, m2, d2, @sg)
-    offset = GJD_MONTH_OFFSET[m2]
-    yy = m2 <= 2 ? y2 - 1 : y2
-    gjd_base = (1461 * (yy + 4716)) / 4 + offset + d2
-    a = yy / 100
-    gjd = gjd_base - 1524 + 2 - a + a / 4
-    jd2 = gjd >= @sg ? gjd : gjd_base - 1524
-    # inline new_from_jd
-    obj = self.class.allocate
-    obj.instance_variable_set(:@jd, jd2)
-    obj.instance_variable_set(:@sg, @sg)
-    obj
+    jd2 = self.class.__send__(:civil_to_jd, y2, m2, d2, @sg)
+    self.class.__send__(:new_from_jd, jd2, @sg)
   end
 
   # call-seq:
@@ -1603,16 +1542,7 @@ class Date
   #   Date.new(2001, 2, 3, Date::JULIAN).to_time # => 2001-02-16 00:00:00 -0600
   #
   def to_time
-    # Use Gregorian date for Time (inline jd_to_gregorian)
-    a = @jd + 32044
-    b = (4 * a + 3) / 146097
-    c = a - (146097 * b) / 4
-    dd = (4 * c + 3) / 1461
-    e = c - (1461 * dd) / 4
-    m = (5 * e + 2) / 153
-    day   = e - (153 * m + 2) / 5 + 1
-    month = m + 3 - 12 * (m / 10)
-    year  = 100 * b + dd - 4800 + m / 10
+    year, month, day = self.class.__send__(:jd_to_gregorian, @jd)
     Time.local(year, month, day)
   end
 
@@ -1944,48 +1874,8 @@ class Date
     @year  = 100 * b + d - 4800 + m / 10
   end
 
-  # Inline jd_to_commercial: compute and cache cwyear/cweek
   def compute_commercial
-    jd = @jd
-    wday_val = (jd + 1) % 7
-    cwday_val = wday_val == 0 ? 7 : wday_val
-    thursday = jd + (4 - cwday_val)
-    sg = @sg
-    # inline jd_to_gregorian/jd_to_julian to get year only
-    if sg == Float::INFINITY
-      # Julian
-      c = thursday + 32082
-      d = (4 * c + 3) / 1461
-      e = c - (1461 * d) / 4
-      m = (5 * e + 2) / 153
-      y = d - 4800 + m / 10
-    elsif thursday >= sg
-      # Gregorian
-      a = thursday + 32044
-      b = (4 * a + 3) / 146097
-      c = a - (146097 * b) / 4
-      d = (4 * c + 3) / 1461
-      e = c - (1461 * d) / 4
-      m = (5 * e + 2) / 153
-      y = 100 * b + d - 4800 + m / 10
-    else
-      # Julian
-      c = thursday + 32082
-      d = (4 * c + 3) / 1461
-      e = c - (1461 * d) / 4
-      m = (5 * e + 2) / 153
-      y = d - 4800 + m / 10
-    end
-    # inline civil_to_jd(y, 1, 4, sg): month=1 (<= 2), day=4
-    yy = y - 1
-    gjd_base = (1461 * (yy + 4716)) / 4 + 432  # GJD_MONTH_OFFSET[1](=428) + 4
-    a2 = yy / 100
-    gjd = gjd_base - 1524 + 2 - a2 + a2 / 4
-    jd_jan4 = gjd >= sg ? gjd : gjd_base - 1524
-    wday_jan4 = (jd_jan4 + 1) % 7
-    iso_wday_jan4 = wday_jan4 == 0 ? 7 : wday_jan4
-    mon_wk1 = jd_jan4 - (iso_wday_jan4 - 1)
-    cw = (jd - mon_wk1) / 7 + 1
+    y, cw, = self.class.__send__(:jd_to_commercial, @jd, @sg)
     unless frozen?
       @cweek = cw
       @cwyear = y

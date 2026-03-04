@@ -1511,17 +1511,9 @@ class Date
       if y && m && d &&
          !hash.key?(:jd) && !hash.key?(:yday) && !hash.key?(:cwyear) &&
          !hash.key?(:wnum0) && !hash.key?(:wnum1) && !hash.key?(:seconds)
-        # Ultra-fast path: inline Gregorian JD for obviously valid dates
-        # (year > 1582 ensures JD > ITALY for any month/day; d <= 28 is always valid)
-        if y >= 1583 && m >= 1 && m <= 12 && d >= 1 && d <= 28 && sg <= 2299161
-          gy = m <= 2 ? y - 1 : y
-          a = gy / 100
-          new_from_jd((1461 * (gy + 4716)) / 4 + GJD_MONTH_OFFSET[m] + d - 1524 + 2 - a + a / 4, sg)
-        else
-          jd = internal_valid_civil?(y, m, d, sg)
-          raise Error, 'invalid date' if jd.nil?
-          new_from_jd(jd, sg)
-        end
+        jd = internal_valid_civil?(y, m, d, sg)
+        raise Error, 'invalid date' if jd.nil?
+        new_from_jd(jd, sg)
       else
         internal_new_by_frags(hash, sg)
       end
