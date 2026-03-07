@@ -140,7 +140,7 @@ class DateTime < Date
     time_r = Rational(@hour * 3600 + @min * 60 + @sec_i, 86400) +
              Rational(@sec_frac.numerator, @sec_frac.denominator * 86400)
     of_r = Rational(@of, 86400)
-    jd_r + time_r - of_r - Rational(1, 2)
+    jd_r + time_r - of_r - 0.5r
   end
 
   # ---------------------------------------------------------------------------
@@ -440,12 +440,12 @@ class DateTime < Date
     when 2
       jd_like, sg_or_bool = array
       sg = sg_or_bool == true ? ITALY : (sg_or_bool == false ? JULIAN : sg_or_bool.to_f)
-      _init_datetime(jd_like.to_i, 0, 0, 0, Rational(0), 0, sg)
+      _init_datetime(jd_like.to_i, 0, 0, 0, 0r, 0, sg)
     when 3
       ajd, of_r, sg = array
       of_sec = (of_r * 86400).to_i
       # Reconstruct local JD and time from AJD
-      local_r = ajd + Rational(1, 2) + of_r
+      local_r = ajd + 0.5r + of_r
       jd      = local_r.floor
       rem_r   = (local_r - jd) * 86400
       h       = rem_r.to_i / 3600
@@ -857,7 +857,7 @@ class DateTime < Date
         warn("invalid offset is ignored: #{of}", uplevel: 0)
         of = 0
       end
-      sf = hash[:sec_fraction] || Rational(0)
+      sf = hash[:sec_fraction] || 0r
       _new_dt_from_jd_time(jd, h, m, s, sf, of, sg)
     end
 
@@ -880,7 +880,7 @@ class DateTime < Date
         s_i = s_r.floor
         [s_i, s_r - s_i]
       else
-        [Integer(second), Rational(0)]
+        [Integer(second), 0r]
       end
     end
 
@@ -932,7 +932,7 @@ class DateTime < Date
       s_i = s_r.floor
       [s_i, s_r - s_i]
     else
-      [Integer(second), Rational(0)]
+      [Integer(second), 0r]
     end
   end
 

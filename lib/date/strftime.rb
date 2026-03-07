@@ -523,7 +523,7 @@ class Date
   end
 
   def sec_frac
-    Rational(0)
+    0r
   end
 
   def of_seconds

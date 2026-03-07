@@ -328,7 +328,7 @@ class Date
     def new!(ajd = 0, of = 0, sg = DEFAULT_SG)
       # ajd is Astronomical Julian Day (may be Rational)
       # Convert to integer JD and day fraction (same as C's old_to_new)
-      raw_jd = ajd + Rational(1, 2)
+      raw_jd = ajd + 0.5r
       jd = raw_jd.floor
       df = raw_jd - jd
       obj = allocate
@@ -875,7 +875,7 @@ class Date
   #   DateTime.new(2001,2,3,12).day_fraction # => (1/2)
   #
   def day_fraction
-    @df || Rational(0)
+    @df || 0r
   end
 
   # call-seq:
@@ -1585,7 +1585,7 @@ class Date
     when 3
       # Format 1.8: [ajd, of, sg]
       ajd, _of, sg = array
-      raw_jd = ajd + Rational(1, 2)
+      raw_jd = ajd + 0.5r
       jd = raw_jd.floor
       df = raw_jd - jd
       init_from_jd(jd, sg, df == 0 ? nil : df)
