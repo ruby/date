@@ -3195,34 +3195,70 @@ date_s_gregorian_leap_p(VALUE klass, VALUE y)
     return f_boolcast(c_gregorian_leap_p(ry));
 }
 
+#ifndef HAVE_RB_GC_MARK_MOVABLE
+#define rb_gc_mark_movable rb_gc_mark
+#else
+static void
+d_lite_gc_compact(void *ptr)
+{
+    union DateData *dat = ptr;
+    if (simple_dat_p(dat))
+        dat->s.nth = rb_gc_location(dat->s.nth);
+    else {
+        dat->c.nth = rb_gc_location(dat->c.nth);
+        dat->c.sf = rb_gc_location(dat->c.sf);
+    }
+}
+#endif
+
 static void
 d_lite_gc_mark(void *ptr)
 {
     union DateData *dat = ptr;
     if (simple_dat_p(dat))
-	rb_gc_mark(dat->s.nth);
+        rb_gc_mark_movable(dat->s.nth);
     else {
-	rb_gc_mark(dat->c.nth);
-	rb_gc_mark(dat->c.sf);
+        rb_gc_mark_movable(dat->c.nth);
+        rb_gc_mark_movable(dat->c.sf);
     }
-}
-
-static size_t
-d_lite_memsize(const void *ptr)
-{
-    const union DateData *dat = ptr;
-    return complex_dat_p(dat) ? sizeof(struct ComplexDateData) : sizeof(struct SimpleDateData);
 }
 
 #ifndef HAVE_RB_EXT_RACTOR_SAFE
 #   define RUBY_TYPED_FROZEN_SHAREABLE 0
 #endif
 
+#ifdef RUBY_TYPED_EMBEDDABLE
+#  define HAVE_RUBY_TYPED_EMBEDDABLE 1
+#else
+# ifdef HAVE_CONST_RUBY_TYPED_EMBEDDABLE
+#  define RUBY_TYPED_EMBEDDABLE RUBY_TYPED_EMBEDDABLE
+#  define HAVE_RUBY_TYPED_EMBEDDABLE 1
+# else
+#  define RUBY_TYPED_EMBEDDABLE 0
+# endif
+#endif
+
+static size_t
+d_lite_memsize(const void *ptr)
+{
+#ifdef HAVE_RUBY_TYPED_EMBEDDABLE
+    return 0;
+#else
+    return sizeof(union DateData);
+#endif
+}
+
 static const rb_data_type_t d_lite_type = {
-    "Date",
-    {d_lite_gc_mark, RUBY_TYPED_DEFAULT_FREE, d_lite_memsize,},
-    0, 0,
-    RUBY_TYPED_FREE_IMMEDIATELY|RUBY_TYPED_WB_PROTECTED|RUBY_TYPED_FROZEN_SHAREABLE,
+    .wrap_struct_name = "Date",
+    .function = {
+        .dmark = d_lite_gc_mark,
+        .dfree = RUBY_TYPED_DEFAULT_FREE,
+        .dsize = d_lite_memsize,
+#ifdef HAVE_RB_GC_MARK_MOVABLE
+        .dcompact = d_lite_gc_compact,
+#endif
+    },
+    .flags = RUBY_TYPED_FREE_IMMEDIATELY|RUBY_TYPED_WB_PROTECTED|RUBY_TYPED_EMBEDDABLE|RUBY_TYPED_FROZEN_SHAREABLE,
 };
 
 inline static VALUE
@@ -3232,11 +3268,11 @@ d_simple_new_internal(VALUE klass,
 		      int y, int m, int d,
 		      unsigned flags)
 {
-    struct SimpleDateData *dat;
+    union DateData *u_dat;
     VALUE obj;
 
-    obj = TypedData_Make_Struct(klass, struct SimpleDateData,
-				&d_lite_type, dat);
+    obj = TypedData_Make_Struct(klass, union DateData, &d_lite_type, u_dat);
+    struct SimpleDateData *dat = &u_dat->s;
     set_to_simple(obj, dat, nth, jd, sg, y, m, d, flags);
 
     assert(have_jd_p(dat) || have_civil_p(dat));
@@ -3253,11 +3289,12 @@ d_complex_new_internal(VALUE klass,
 		       int h, int min, int s,
 		       unsigned flags)
 {
-    struct ComplexDateData *dat;
+
+    union DateData *u_dat;
     VALUE obj;
 
-    obj = TypedData_Make_Struct(klass, struct ComplexDateData,
-				&d_lite_type, dat);
+    obj = TypedData_Make_Struct(klass, union DateData, &d_lite_type, u_dat);
+    struct ComplexDateData *dat = &u_dat->c;
     set_to_complex(obj, dat, nth, jd, df, sf, of, sg,
 		   y, m, d, h, min, s, flags);
 
@@ -7804,8 +7841,6 @@ d_lite_marshal_load(VALUE self, VALUE a)
     if (simple_dat_p(dat)) {
 	if (df || !f_zero_p(sf) || of) {
 	    /* loading a fractional date; promote to complex */
-	    dat = ruby_xrealloc(dat, sizeof(struct ComplexDateData));
-	    RTYPEDDATA(self)->data = dat;
 	    goto complex_data;
 	}
 	set_to_simple(self, &dat->s, nth, jd, sg, 0, 0, 0, HAVE_JD);
