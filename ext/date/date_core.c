@@ -3249,16 +3249,17 @@ d_lite_memsize(const void *ptr)
 }
 
 static const rb_data_type_t d_lite_type = {
-    .wrap_struct_name = "Date",
-    .function = {
-        .dmark = d_lite_gc_mark,
-        .dfree = RUBY_TYPED_DEFAULT_FREE,
-        .dsize = d_lite_memsize,
+    "Date",
+    {
+        d_lite_gc_mark,
+        RUBY_TYPED_DEFAULT_FREE,
+        d_lite_memsize,
 #ifdef HAVE_RB_GC_MARK_MOVABLE
-        .dcompact = d_lite_gc_compact,
+        d_lite_gc_compact,
 #endif
     },
-    .flags = RUBY_TYPED_FREE_IMMEDIATELY|RUBY_TYPED_WB_PROTECTED|RUBY_TYPED_EMBEDDABLE|RUBY_TYPED_FROZEN_SHAREABLE,
+    0, 0,
+    RUBY_TYPED_FREE_IMMEDIATELY|RUBY_TYPED_WB_PROTECTED|RUBY_TYPED_EMBEDDABLE|RUBY_TYPED_FROZEN_SHAREABLE,
 };
 
 inline static VALUE
