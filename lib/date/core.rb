@@ -34,6 +34,27 @@ class Date
       civil_fallback(year, month, day, start)
     end
 
+    # call-seq:
+    #   Date.new(year = -4712, month = 1, mday = 1, start = Date::ITALY) -> date
+    #
+    # Returns a new \Date object constructed from the given arguments:
+    #
+    #   Date.new(2022).to_s        # => "2022-01-01"
+    #   Date.new(2022, 2).to_s     # => "2022-02-01"
+    #   Date.new(2022, 2, 4).to_s  # => "2022-02-04"
+    #
+    # Argument +month+ should be in range (1..12) or range (-12..-1);
+    # when the argument is negative, counts backward from the end of the year:
+    #
+    #   Date.new(2022, -11, 4).to_s # => "2022-02-04"
+    #
+    # Argument +mday+ should be in range (1..n) or range (-n..-1)
+    # where +n+ is the number of days in the month;
+    # when the argument is negative, counts backward from the end of the month.
+    #
+    # See argument {start}[rdoc-ref:language/calendars.rdoc@Argument+start].
+    #
+    # Related: Date.jd.
     def new(year = -4712, month = 1, day = 1, start = DEFAULT_SG)
       civil(year, month, day, start)
     end
@@ -323,11 +344,6 @@ class Date
     # Internal calendar arithmetic (pure Ruby, no C dependency)
     # ---------------------------------------------------------------------------
 
-    # Floor division that works correctly for negative numbers.
-    def idiv(a, b)
-      a.div(b)
-    end
-
     # Gregorian leap year?
     def internal_gregorian_leap?(y)
       (y % 4 == 0 && y % 100 != 0) || y % 400 == 0
@@ -391,26 +407,26 @@ class Date
     # Gregorian JD -> (year, month, day)
     def jd_to_gregorian(jd)
       a = jd + 32044
-      b = idiv(4 * a + 3, 146097)
-      c = a - idiv(146097 * b, 4)
-      d = idiv(4 * c + 3, 1461)
-      e = c - idiv(1461 * d, 4)
-      m = idiv(5 * e + 2, 153)
-      day  = e - idiv(153 * m + 2, 5) + 1
-      mon  = m + 3 - 12 * idiv(m, 10)
-      year = 100 * b + d - 4800 + idiv(m, 10)
+      b = (4 * a + 3).div(146097)
+      c = a - (146097 * b).div(4)
+      d = (4 * c + 3).div(1461)
+      e = c - (1461 * d).div(4)
+      m = (5 * e + 2).div(153)
+      day  = e - (153 * m + 2).div(5) + 1
+      mon  = m + 3 - 12 * m.div(10)
+      year = 100 * b + d - 4800 + m.div(10)
       [year, mon, day]
     end
 
     # Julian JD -> (year, month, day)
     def jd_to_julian(jd)
       c = jd + 32082
-      d = idiv(4 * c + 3, 1461)
-      e = c - idiv(1461 * d, 4)
-      m = idiv(5 * e + 2, 153)
-      day  = e - idiv(153 * m + 2, 5) + 1
-      mon  = m + 3 - 12 * idiv(m, 10)
-      year = d - 4800 + idiv(m, 10)
+      d = (4 * c + 3).div(1461)
+      e = c - (1461 * d).div(4)
+      m = (5 * e + 2).div(153)
+      day  = e - (153 * m + 2).div(5) + 1
+      mon  = m + 3 - 12 * m.div(10)
+      year = d - 4800 + m.div(10)
       [year, mon, day]
     end
 
@@ -550,69 +566,6 @@ class Date
       end
     end
 
-  end
-
-  # ---------------------------------------------------------------------------
-  # Initializer
-  # ---------------------------------------------------------------------------
-
-  # call-seq:
-  #   Date.new(year = -4712, month = 1, mday = 1, start = Date::ITALY) -> date
-  #
-  # Returns a new \Date object constructed from the given arguments:
-  #
-  #   Date.new(2022).to_s        # => "2022-01-01"
-  #   Date.new(2022, 2).to_s     # => "2022-02-01"
-  #   Date.new(2022, 2, 4).to_s  # => "2022-02-04"
-  #
-  # Argument +month+ should be in range (1..12) or range (-12..-1);
-  # when the argument is negative, counts backward from the end of the year:
-  #
-  #   Date.new(2022, -11, 4).to_s # => "2022-02-04"
-  #
-  # Argument +mday+ should be in range (1..n) or range (-n..-1)
-  # where +n+ is the number of days in the month;
-  # when the argument is negative, counts backward from the end of the month.
-  #
-  # See argument {start}[rdoc-ref:language/calendars.rdoc@Argument+start].
-  #
-  # Related: Date.jd.
-  def initialize(year = -4712, month = 1, day = 1, start = DEFAULT_SG)
-    if Integer === year && Integer === month && Integer === day
-      m = month
-      m += 13 if m < 0
-      if m >= 1 && m <= 12
-        dim = if m == 2
-          if start == Float::INFINITY
-            year % 4 == 0 ? 29 : 28
-          else
-            (year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)) ? 29 : 28
-          end
-        else
-          DAYS_IN_MONTH_GREGORIAN[m]
-        end
-        d = day
-        d += dim + 1 if d < 0
-        if d >= 1 && d <= dim
-          @jd    = self.class.__send__(:civil_to_jd, year, m, d, start)
-          @sg    = start
-          @year  = year
-          @month = m
-          @day   = d
-          return
-        end
-      end
-      raise Date::Error, "invalid date"
-    end
-    self.class.__send__(:check_numeric, day, "day")
-    self.class.__send__(:check_numeric, month, "month")
-    self.class.__send__(:check_numeric, year, "year")
-    year  = Integer(year)
-    month = Integer(month)
-    day   = Integer(day)
-    jd = self.class.__send__(:internal_valid_civil?, year, month, day, start)
-    raise Date::Error, "invalid date" unless jd
-    init_from_jd(jd, start)
   end
 
   # ---------------------------------------------------------------------------
