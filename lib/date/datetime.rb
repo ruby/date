@@ -355,47 +355,39 @@ class DateTime < Date
     if keys
       if keys.size == 1
         case keys[0]
-        when :year
-          internal_civil unless @year
-          { year: @year }
-        when :month
-          internal_civil unless @year
-          { month: @month }
-        when :day
-          internal_civil unless @year
-          { day: @day }
-        when :wday         then { wday: (@jd + 1) % 7 }
+        when :year         then { year: year }
+        when :month        then { month: month }
+        when :day          then { day: day }
+        when :wday         then { wday: wday }
         when :yday         then { yday: yday }
-        when :hour         then { hour: @hour }
-        when :min          then { min: @min }
-        when :sec          then { sec: @sec_i }
-        when :sec_fraction then { sec_fraction: @sec_frac }
-        when :zone         then { zone: _of2str(@of) }
+        when :hour         then { hour: hour }
+        when :min          then { min: min }
+        when :sec          then { sec: sec }
+        when :sec_fraction then { sec_fraction: sec_fraction }
+        when :zone         then { zone: zone }
         else {}
         end
       else
-        internal_civil unless @year
         h = {}
         keys.each do |k|
           case k
-          when :year         then h[:year] = @year
-          when :month        then h[:month] = @month
-          when :day          then h[:day] = @day
-          when :wday         then h[:wday] = (@jd + 1) % 7
+          when :year         then h[:year] = year
+          when :month        then h[:month] = month
+          when :day          then h[:day] = day
+          when :wday         then h[:wday] = wday
           when :yday         then h[:yday] = yday
-          when :hour         then h[:hour] = @hour
-          when :min          then h[:min] = @min
-          when :sec          then h[:sec] = @sec_i
-          when :sec_fraction then h[:sec_fraction] = @sec_frac
-          when :zone         then h[:zone] = _of2str(@of)
+          when :hour         then h[:hour] = hour
+          when :min          then h[:min] = min
+          when :sec          then h[:sec] = sec
+          when :sec_fraction then h[:sec_fraction] = sec_fraction
+          when :zone         then h[:zone] = zone
           end
         end
         h
       end
     else
-      internal_civil unless @year
-      { year: @year, month: @month, day: @day, wday: (@jd + 1) % 7, yday: yday,
-        hour: @hour, min: @min, sec: @sec_i, sec_fraction: @sec_frac, zone: _of2str(@of) }
+      { year: year, month: month, day: day, wday: wday, yday: yday,
+        hour: hour, min: min, sec: sec, sec_fraction: sec_fraction, zone: zone }
     end
   end
 
@@ -905,14 +897,11 @@ class DateTime < Date
     @sec_i    = s
     @sec_frac = sf.is_a?(Rational) ? sf : Rational(sf)
     @of       = of.to_i
-    # Initialize lazily-computed (inherited from Date) ivars up front so every
-    # DateTime instance shares a single object shape.
+    # Initialize lazily-computed (inherited from Date) civil ivars up front so
+    # every DateTime instance shares a single object shape.
     @year   = nil
     @month  = nil
     @day    = nil
-    @yday   = nil
-    @cweek  = nil
-    @cwyear = nil
   end
 
   def _split_second(second)

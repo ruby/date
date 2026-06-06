@@ -706,12 +706,9 @@ class Date
   #   Date.new(2001, 2, 3).yday # => 34
   #
   def yday
-    return @yday if @yday
     internal_civil unless @year
     jd_jan1 = self.class.__send__(:civil_to_jd, @year, 1, 1, @sg)
-    val = @jd - jd_jan1 + 1
-    @yday = val unless frozen?
-    val
+    @jd - jd_jan1 + 1
   end
 
   # call-seq:
@@ -748,7 +745,7 @@ class Date
   #   Date.new(2001, 2, 3).cweek # => 5
   #
   def cweek
-    @cweek || compute_commercial[1]
+    compute_commercial[1]
   end
 
   # call-seq:
@@ -761,7 +758,7 @@ class Date
   #   Date.new(2000, 1, 1).cwyear # => 1999
   #
   def cwyear
-    @cwyear || compute_commercial[0]
+    compute_commercial[0]
   end
 
   # call-seq:
@@ -976,44 +973,8 @@ class Date
     end
   end
 
-  def <(other)
-    case other
-    when Date
-      d = @jd <=> other.jd
-      d != 0 ? d < 0 : day_fraction < other.day_fraction
-    when Numeric
-      r = ajd <=> other
-      raise ArgumentError, "comparison of #{self.class} with #{other.class} failed" if r.nil?
-      r < 0
-    else
-      raise ArgumentError, "comparison of #{self.class} with #{other.class} failed"
-    end
-  end
-
-  def >(other)
-    case other
-    when Date
-      d = @jd <=> other.jd
-      d != 0 ? d > 0 : day_fraction > other.day_fraction
-    when Numeric
-      r = ajd <=> other
-      raise ArgumentError, "comparison of #{self.class} with #{other.class} failed" if r.nil?
-      r > 0
-    else
-      raise ArgumentError, "comparison of #{self.class} with #{other.class} failed"
-    end
-  end
-
-  def ==(other)
-    case other
-    when Date
-      @jd == other.jd && day_fraction == other.day_fraction
-    when Numeric
-      ajd == other
-    else
-      false
-    end
-  end
+  # #<, #>, #==, #<=, #>= are all provided by Comparable via #<=>, matching
+  # the C extension, which includes Comparable and defines only #<=> and #===.
 
   def eql?(other)
     other.is_a?(Date) && @jd == other.jd && day_fraction == other.day_fraction
@@ -1452,9 +1413,6 @@ class Date
     @year   = other.instance_variable_get(:@year)
     @month  = other.instance_variable_get(:@month)
     @day    = other.instance_variable_get(:@day)
-    @yday   = other.instance_variable_get(:@yday)
-    @cweek  = other.instance_variable_get(:@cweek)
-    @cwyear = other.instance_variable_get(:@cwyear)
   end
 
   # :nodoc:
@@ -1536,36 +1494,28 @@ class Date
     if keys
       if keys.size == 1
         case keys[0]
-        when :year
-          internal_civil unless @year
-          { year: @year }
-        when :month
-          internal_civil unless @year
-          { month: @month }
-        when :day
-          internal_civil unless @year
-          { day: @day }
-        when :wday  then { wday: (@jd + 1) % 7 }
+        when :year  then { year: year }
+        when :month then { month: month }
+        when :day   then { day: day }
+        when :wday  then { wday: wday }
         when :yday  then { yday: yday }
         else {}
         end
       else
-        internal_civil unless @year
         h = {}
         keys.each do |k|
           case k
-          when :year  then h[:year] = @year
-          when :month then h[:month] = @month
-          when :day   then h[:day] = @day
-          when :wday  then h[:wday] = (@jd + 1) % 7
+          when :year  then h[:year] = year
+          when :month then h[:month] = month
+          when :day   then h[:day] = day
+          when :wday  then h[:wday] = wday
           when :yday  then h[:yday] = yday
           end
         end
         h
       end
     else
-      internal_civil unless @year
-      { year: @year, month: @month, day: @day, wday: (@jd + 1) % 7, yday: yday }
+      { year: year, month: month, day: day, wday: wday, yday: yday }
     end
   end
 
@@ -1747,14 +1697,12 @@ class Date
     @jd = jd
     @sg = sg
     @df = df
-    # Initialize all lazily-computed ivars up front so every Date instance
-    # shares a single object shape regardless of which accessors are called.
+    # Initialize the lazily-computed civil ivars up front so every Date
+    # instance shares a single object shape regardless of which accessors
+    # are called. (yday/cweek/cwyear are not cached; see #yday/#cweek.)
     @year   = nil
     @month  = nil
     @day    = nil
-    @yday   = nil
-    @cweek  = nil
-    @cwyear = nil
   end
 
   def internal_civil
@@ -1779,12 +1727,10 @@ class Date
     @year  = 100 * b + d - 4800 + m / 10
   end
 
+  # Compute [cwyear, cweek] from the Julian Day. Not cached, matching the
+  # C extension, which recomputes commercial fields on each access.
   def compute_commercial
     y, cw, = self.class.__send__(:jd_to_commercial, @jd, @sg)
-    unless frozen?
-      @cweek = cw
-      @cwyear = y
-    end
     [y, cw]
   end
 
