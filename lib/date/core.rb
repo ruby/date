@@ -1426,6 +1426,7 @@ class Date
     when 3
       # Format 1.8: [ajd, of, sg]
       ajd, _of, sg = array
+      sg = normalize_start(sg)
       raw_jd = ajd + 0.5r
       jd = raw_jd.floor
       df = raw_jd - jd
@@ -1433,6 +1434,7 @@ class Date
     when 6
       # Current format: [nth, jd, df, sf, of, sg]
       _nth, jd, df, sf, _of, sg = array
+      sg = normalize_start(sg)
       if df != 0 || sf != 0
         day_frac = (Rational(df) + sf) / 86400
         init_from_jd(jd, sg, day_frac)
@@ -1678,6 +1680,13 @@ class Date
   # ---------------------------------------------------------------------------
 
   private
+
+  # Normalize a start value coming from old marshal formats: a Date::Infinity
+  # object becomes the equivalent Float (start is stored as a Float/Integer
+  # internally, like the C extension's double).
+  def normalize_start(sg)
+    sg.is_a?(Infinity) ? sg.to_f : sg
+  end
 
   def init_from_jd(jd, sg, df = nil)
     @jd            = jd

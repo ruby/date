@@ -435,6 +435,7 @@ class DateTime < Date
       _init_datetime(jd_like.to_i, 0, 0, 0, 0r, 0, sg)
     when 3
       ajd, of_r, sg = array
+      sg = normalize_start(sg)
       of_sec = (of_r * 86400).to_i
       # Reconstruct local JD and time from AJD
       local_r = ajd + 0.5r + of_r
@@ -448,6 +449,7 @@ class DateTime < Date
       _init_datetime(jd, h, m, s_i, s_f, of_sec, sg)
     when 6
       _nth, jd, df, sf, of, sg = array
+      sg = normalize_start(sg)
       h  = df / 3600
       df -= h * 3600
       m  = df / 60
