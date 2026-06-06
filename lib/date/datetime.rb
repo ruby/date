@@ -164,7 +164,7 @@ class DateTime < Date
   def +(other)
     case other
     when Integer
-      self.class.__send__(:_new_dt_from_jd_time,@jd + other, @hour, @min, @sec_i, @sec_frac, @of, @sg)
+      self.class.__send__(:_new_dt_from_jd_time,@jd + other, @hour, @min, @sec_i, @sec_frac, @of, @start)
     when Rational, Float
       # other is days (may be fractional) — add as seconds
       extra_sec = other.to_r * 86400
@@ -203,7 +203,7 @@ class DateTime < Date
     when Date
       ajd - other.ajd
     when Integer
-      self.class.__send__(:_new_dt_from_jd_time,@jd - other, @hour, @min, @sec_i, @sec_frac, @of, @sg)
+      self.class.__send__(:_new_dt_from_jd_time,@jd - other, @hour, @min, @sec_i, @sec_frac, @of, @start)
     when Rational, Float
       self + (-other)
     when Numeric
@@ -240,7 +240,7 @@ class DateTime < Date
   #    d.new_offset('+09:00')	#=> #<DateTime: 2001-02-03T15:05:06+09:00 ...>
   def new_offset(of = 0)
     of_sec = _str_offset_to_sec(of)
-    self.class.__send__(:_new_dt_from_jd_time,@jd, @hour, @min, @sec_i, @sec_frac, of_sec, @sg)
+    self.class.__send__(:_new_dt_from_jd_time,@jd, @hour, @min, @sec_i, @sec_frac, of_sec, @start)
   end
 
   # ---------------------------------------------------------------------------
@@ -408,9 +408,9 @@ class DateTime < Date
 
   def hash
     if @hour == 0 && @min == 0 && @sec_i == 0
-      [@jd, @sg].hash
+      [@jd, @start].hash
     else
-      [@jd, @hour, @min, @sec_i, @sg].hash
+      [@jd, @hour, @min, @sec_i, @start].hash
     end
   end
 
@@ -423,7 +423,7 @@ class DateTime < Date
     # 6-element format: [nth, jd, df, sf, of, sg]
     df = @hour * 3600 + @min * 60 + @sec_i
     sf = (@sec_frac * 1_000_000_000).to_r  # nanoseconds as Rational
-    [0, @jd, df, sf, @of, @sg]
+    [0, @jd, df, sf, @of, @start]
   end
 
   # :nodoc:
@@ -468,7 +468,7 @@ class DateTime < Date
   #
   # Returns a Date object which denotes self.
   def to_date
-    Date.__send__(:new_from_jd, @jd, @sg)
+    Date.__send__(:new_from_jd, @jd, @start)
   end
 
   # call-seq:
@@ -889,19 +889,19 @@ class DateTime < Date
   end
 
   def _init_datetime(jd, h, m, s, sf, of, sg)
-    @jd       = jd
-    @sg       = sg
-    @df       = nil
-    @hour     = h
-    @min      = m
-    @sec_i    = s
-    @sec_frac = sf.is_a?(Rational) ? sf : Rational(sf)
-    @of       = of.to_i
+    @jd            = jd
+    @start         = sg
+    @day_fraction  = nil
+    @hour          = h
+    @min           = m
+    @sec_i         = s
+    @sec_frac      = sf.is_a?(Rational) ? sf : Rational(sf)
+    @of            = of.to_i
     # Initialize lazily-computed (inherited from Date) civil ivars up front so
     # every DateTime instance shares a single object shape.
-    @year   = nil
-    @month  = nil
-    @day    = nil
+    @year          = nil
+    @month         = nil
+    @day           = nil
   end
 
   def _split_second(second)
@@ -946,7 +946,7 @@ class DateTime < Date
     s_r = rem - m * 60
     s_i = s_r.floor
     s_f = s_r - s_i
-    self.class.__send__(:_new_dt_from_jd_time,jd, h, m, s_i, s_f, @of, @sg)
+    self.class.__send__(:_new_dt_from_jd_time,jd, h, m, s_i, s_f, @of, @start)
   end
 
 end

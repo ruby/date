@@ -644,7 +644,7 @@ class Date
   # See argument {start}[rdoc-ref:language/calendars.rdoc@Argument+start].
   #
   def start
-    @sg
+    @start
   end
 
   # call-seq:
@@ -707,7 +707,7 @@ class Date
   #
   def yday
     internal_civil unless @year
-    jd_jan1 = self.class.__send__(:civil_to_jd, @year, 1, 1, @sg)
+    jd_jan1 = self.class.__send__(:civil_to_jd, @year, 1, 1, @start)
     @jd - jd_jan1 + 1
   end
 
@@ -771,7 +771,7 @@ class Date
   def day_fraction
     # C returns Integer 0 (INT2FIX(0)) for a simple Date without a fraction,
     # and a Rational only when a day fraction is present.
-    @df || 0
+    @day_fraction || 0
   end
 
   # call-seq:
@@ -784,7 +784,7 @@ class Date
   #
   def leap?
     internal_civil unless @year
-    if @jd < @sg  # julian?
+    if @jd < @start  # julian?
       @year % 4 == 0
     else
       (@year % 4 == 0 && @year % 100 != 0) || @year % 400 == 0
@@ -801,7 +801,7 @@ class Date
   #   (Date.new(1582, 10, 15) - 1).gregorian? # => false
   #
   def gregorian?
-    jd >= @sg
+    jd >= @start
   end
 
   # call-seq:
@@ -832,7 +832,7 @@ class Date
   def new_start(start = DEFAULT_SG)
     obj = self.class.allocate
     obj.instance_variable_set(:@jd, @jd)
-    obj.instance_variable_set(:@sg, start)
+    obj.instance_variable_set(:@start, start)
     obj
   end
 
@@ -981,7 +981,7 @@ class Date
   end
 
   def hash
-    [@jd, @sg].hash
+    [@jd, @start].hash
   end
 
   # call-seq:
@@ -1053,10 +1053,10 @@ class Date
       if instance_of?(Date)
         obj = Date.allocate
         obj.instance_variable_set(:@jd, @jd + other)
-        obj.instance_variable_set(:@sg, @sg)
+        obj.instance_variable_set(:@start, @start)
         obj
       else
-        self.class.__send__(:new_from_jd, @jd + other, @sg, @df)
+        self.class.__send__(:new_from_jd, @jd + other, @start, @day_fraction)
       end
     when Numeric
       r = other.to_r
@@ -1064,7 +1064,7 @@ class Date
       total = r + day_fraction
       days = total.floor
       frac = total - days
-      self.class.__send__(:new_from_jd, @jd + days, @sg, frac == 0 ? nil : frac)
+      self.class.__send__(:new_from_jd, @jd + days, @start, frac == 0 ? nil : frac)
     else
       raise TypeError, "expected numeric"
     end
@@ -1095,10 +1095,10 @@ class Date
       if instance_of?(Date)
         obj = Date.allocate
         obj.instance_variable_set(:@jd, @jd - other)
-        obj.instance_variable_set(:@sg, @sg)
+        obj.instance_variable_set(:@start, @start)
         obj
       else
-        self.class.__send__(:new_from_jd, @jd - other, @sg, @df)
+        self.class.__send__(:new_from_jd, @jd - other, @start, @day_fraction)
       end
     when Numeric
       r = other.to_r
@@ -1106,7 +1106,7 @@ class Date
       total = day_fraction - r
       days = total.floor
       frac = total - days
-      self.class.__send__(:new_from_jd, @jd + days, @sg, frac == 0 ? nil : frac)
+      self.class.__send__(:new_from_jd, @jd + days, @start, frac == 0 ? nil : frac)
     else
       raise TypeError, "expected numeric"
     end
@@ -1142,14 +1142,14 @@ class Date
     m2 = @month + n.to_i
     y2 = @year + (m2 - 1).div(12)
     m2 = (m2 - 1) % 12 + 1
-    if @sg == Float::INFINITY
+    if @start == Float::INFINITY
       dim = self.class.__send__(:days_in_month_julian, y2, m2)
     else
       dim = self.class.__send__(:days_in_month_gregorian, y2, m2)
     end
     d2 = @day < dim ? @day : dim
-    jd2 = self.class.__send__(:civil_to_jd, y2, m2, d2, @sg)
-    self.class.__send__(:new_from_jd, jd2, @sg)
+    jd2 = self.class.__send__(:civil_to_jd, y2, m2, d2, @start)
+    self.class.__send__(:new_from_jd, jd2, @start)
   end
 
   # call-seq:
@@ -1276,13 +1276,13 @@ class Date
     if Integer === step && instance_of?(Date) && limit.instance_of?(Date)
       raise ArgumentError, "step can't be 0" if step == 0
       limit_jd = limit.jd
-      sg = @sg
+      sg = @start
       if step > 0
         jd = @jd
         while jd <= limit_jd
           obj = Date.allocate
           obj.instance_variable_set(:@jd, jd)
-          obj.instance_variable_set(:@sg, sg)
+          obj.instance_variable_set(:@start, sg)
           yield obj
           jd += step
         end
@@ -1291,7 +1291,7 @@ class Date
         while jd >= limit_jd
           obj = Date.allocate
           obj.instance_variable_set(:@jd, jd)
-          obj.instance_variable_set(:@sg, sg)
+          obj.instance_variable_set(:@start, sg)
           yield obj
           jd += step
         end
@@ -1326,11 +1326,11 @@ class Date
     if instance_of?(Date) && max.instance_of?(Date)
       jd = @jd
       max_jd = max.jd
-      sg = @sg
+      sg = @start
       while jd <= max_jd
         obj = Date.allocate
         obj.instance_variable_set(:@jd, jd)
-        obj.instance_variable_set(:@sg, sg)
+        obj.instance_variable_set(:@start, sg)
         yield obj
         jd += 1
       end
@@ -1348,11 +1348,11 @@ class Date
     if instance_of?(Date) && min.instance_of?(Date)
       jd = @jd
       min_jd = min.jd
-      sg = @sg
+      sg = @start
       while jd >= min_jd
         obj = Date.allocate
         obj.instance_variable_set(:@jd, jd)
-        obj.instance_variable_set(:@sg, sg)
+        obj.instance_variable_set(:@start, sg)
         yield obj
         jd -= 1
       end
@@ -1381,7 +1381,7 @@ class Date
   #   Date.new(2001, 2, 3).to_datetime # => #<DateTime: 2001-02-03T00:00:00+00:00>
   #
   def to_datetime
-    DateTime.new(year, month, day, 0, 0, 0, 0, @sg)
+    DateTime.new(year, month, day, 0, 0, 0, 0, @start)
   end
 
   # call-seq:
@@ -1407,25 +1407,25 @@ class Date
   def initialize_copy(other)
     # Assign every ivar in the canonical order so copies share the same shape
     # as freshly constructed instances (see init_from_jd).
-    @jd     = other.instance_variable_get(:@jd)
-    @sg     = other.instance_variable_get(:@sg)
-    @df     = other.instance_variable_get(:@df)
-    @year   = other.instance_variable_get(:@year)
-    @month  = other.instance_variable_get(:@month)
-    @day    = other.instance_variable_get(:@day)
+    @jd            = other.instance_variable_get(:@jd)
+    @start         = other.instance_variable_get(:@start)
+    @day_fraction  = other.instance_variable_get(:@day_fraction)
+    @year          = other.instance_variable_get(:@year)
+    @month         = other.instance_variable_get(:@month)
+    @day           = other.instance_variable_get(:@day)
   end
 
   # :nodoc:
   def marshal_dump
     # 6-element format: [nth, jd, df, sf, of, sg]
     # df = seconds into day (Integer), sf = sub-second fraction (Rational)
-    if @df
-      total_sec = @df * 86400
+    if @day_fraction
+      total_sec = @day_fraction * 86400
       df_int = total_sec.floor
       sf = total_sec - df_int
-      [0, @jd, df_int, sf, 0, @sg]
+      [0, @jd, df_int, sf, 0, @start]
     else
-      [0, @jd, 0, 0, 0, @sg]
+      [0, @jd, 0, 0, 0, @start]
     end
   end
 
@@ -1677,7 +1677,7 @@ class Date
   #   # => "#<Date: 2001-02-03 ((2451944j,0s,0n),+0s,2299161j)>"
   #
   def inspect
-    sg = @sg.is_a?(Float) ? @sg.to_s : @sg
+    sg = @start.is_a?(Float) ? @start.to_s : @start
     "#<Date: #{to_s} ((#{@jd}j,0s,0n),+0s,#{sg}j)>".force_encoding(Encoding::US_ASCII)
   end
 
@@ -1694,24 +1694,24 @@ class Date
   private
 
   def init_from_jd(jd, sg, df = nil)
-    @jd = jd
-    @sg = sg
-    @df = df
+    @jd            = jd
+    @start         = sg
+    @day_fraction  = df
     # Initialize the lazily-computed civil ivars up front so every Date
     # instance shares a single object shape regardless of which accessors
     # are called. (yday/cweek/cwyear are not cached; see #yday/#cweek.)
-    @year   = nil
-    @month  = nil
-    @day    = nil
+    @year          = nil
+    @month         = nil
+    @day           = nil
   end
 
   def internal_civil
     return if @year
     jd = @jd
-    if @sg == Float::INFINITY       # always Julian
+    if @start == Float::INFINITY       # always Julian
       b = 0
       c = jd + 32082
-    elsif jd >= @sg                 # Gregorian (handles -Infinity too)
+    elsif jd >= @start                 # Gregorian (handles -Infinity too)
       a = jd + 32044
       b = (4 * a + 3) / 146097
       c = a - (146097 * b) / 4
@@ -1730,7 +1730,7 @@ class Date
   # Compute [cwyear, cweek] from the Julian Day. Not cached, matching the
   # C extension, which recomputes commercial fields on each access.
   def compute_commercial
-    y, cw, = self.class.__send__(:jd_to_commercial, @jd, @sg)
+    y, cw, = self.class.__send__(:jd_to_commercial, @jd, @start)
     [y, cw]
   end
 
