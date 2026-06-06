@@ -657,7 +657,7 @@ class Date
   #    DateTime.new(2001,2,2,14,5,6,'-7').ajd	#=> (11769328217/4800)
   def ajd
     r = Rational(@jd * 2 - 1, 2)
-    @df ? r + @df : r
+    r + day_fraction
   end
 
   # call-seq:
@@ -1061,7 +1061,7 @@ class Date
     when Numeric
       r = other.to_r
       raise TypeError, "#{other.class} can't be coerced into Integer" unless r.is_a?(Rational)
-      total = r + (@df || 0)
+      total = r + day_fraction
       days = total.floor
       frac = total - days
       self.class.__send__(:new_from_jd, @jd + days, @sg, frac == 0 ? nil : frac)
@@ -1090,7 +1090,7 @@ class Date
   def -(other)
     case other
     when Date
-      Rational(@jd - other.jd) + (@df || 0) - other.day_fraction
+      Rational(@jd - other.jd) + day_fraction - other.day_fraction
     when Integer
       if instance_of?(Date)
         obj = Date.allocate
@@ -1103,7 +1103,7 @@ class Date
     when Numeric
       r = other.to_r
       raise TypeError, "#{other.class} can't be coerced into Integer" unless r.is_a?(Rational)
-      total = (@df || 0) - r
+      total = day_fraction - r
       days = total.floor
       frac = total - days
       self.class.__send__(:new_from_jd, @jd + days, @sg, frac == 0 ? nil : frac)
