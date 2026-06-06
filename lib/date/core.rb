@@ -1050,14 +1050,7 @@ class Date
   def +(other)
     case other
     when Integer
-      if instance_of?(Date)
-        obj = Date.allocate
-        obj.instance_variable_set(:@jd, @jd + other)
-        obj.instance_variable_set(:@start, @start)
-        obj
-      else
-        self.class.__send__(:new_from_jd, @jd + other, @start, @day_fraction)
-      end
+      self.class.__send__(:new_from_jd, @jd + other, @start, @day_fraction)
     when Numeric
       r = other.to_r
       raise TypeError, "#{other.class} can't be coerced into Integer" unless r.is_a?(Rational)
@@ -1092,14 +1085,7 @@ class Date
     when Date
       Rational(@jd - other.jd) + day_fraction - other.day_fraction
     when Integer
-      if instance_of?(Date)
-        obj = Date.allocate
-        obj.instance_variable_set(:@jd, @jd - other)
-        obj.instance_variable_set(:@start, @start)
-        obj
-      else
-        self.class.__send__(:new_from_jd, @jd - other, @start, @day_fraction)
-      end
+      self.class.__send__(:new_from_jd, @jd - other, @start, @day_fraction)
     when Numeric
       r = other.to_r
       raise TypeError, "#{other.class} can't be coerced into Integer" unless r.is_a?(Rational)
