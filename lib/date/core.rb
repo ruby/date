@@ -82,6 +82,7 @@ class Date
     #
     # Related: Date.new.
     def jd(jd = 0, start = DEFAULT_SG)
+      check_numeric(jd, "jd")
       jd = Integer(jd)
       obj = allocate
       obj.__send__(:init_from_jd, jd, start)
@@ -167,6 +168,8 @@ class Date
         jd1 = civil_to_jd(year, 1, 1, start)
         return new_from_jd(jd1 + yday - 1, start)
       end
+      check_numeric(yday, "yday")
+      check_numeric(year, "year")
       year = Integer(year)
       yday = Integer(yday)
       jd = internal_valid_ordinal?(year, yday, start)
@@ -240,6 +243,9 @@ class Date
         jd = commercial_to_jd(cwyear, cweek, cwday, start)
         return new_from_jd(jd, start)
       end
+      check_numeric(cwday, "cwday")
+      check_numeric(cweek, "cweek")
+      check_numeric(cwyear, "year")
       cwyear = Integer(cwyear)
       cweek = Integer(cweek)
       cwday = Integer(cwday)
@@ -268,40 +274,6 @@ class Date
     end
 
     # call-seq:
-    #   Date.weeknum(year, week, wday, wstart = 0, start = Date::ITALY) -> date
-    def weeknum(year = -4712, week = 0, wday = 1, wstart = 0, start = DEFAULT_SG)
-      year = Integer(year)
-      week = Integer(week)
-      wday = Integer(wday)
-      wstart = Integer(wstart)
-      # Validate wday range
-      raise Date::Error, "invalid date" unless wday >= 0 && wday <= 6
-      # Validate week: reconstruct and check round-trip
-      jd = weeknum_to_jd(year, week, wday, wstart, start)
-      # Verify the resulting date is in the same year (week must be valid)
-      y2, = jd_to_civil(jd, start)
-      raise Date::Error, "invalid date" if y2 != year
-      new_from_jd(jd, start)
-    end
-
-    # call-seq:
-    #   Date.nth_kday(year, month, n, k, start = Date::ITALY) -> date
-    def nth_kday(year = -4712, month = 1, n = 1, k = 1, start = DEFAULT_SG)
-      year = Integer(year)
-      month = Integer(month)
-      n = Integer(n)
-      k = Integer(k)
-      raise Date::Error, "invalid date" unless month >= 1 && month <= 12
-      raise Date::Error, "invalid date" unless k >= 0 && k <= 6
-      raise Date::Error, "invalid date" if n == 0
-      jd = nth_kday_to_jd(year, month, n, k, start)
-      # Verify the result is in the same month
-      y2, m2, = jd_to_civil(jd, start)
-      raise Date::Error, "invalid date" if y2 != year || m2 != month
-      new_from_jd(jd, start)
-    end
-
-    # call-seq:
     #   Date.today(start = Date::ITALY) -> date
     #
     # Returns a new \Date object constructed from the present date:
@@ -324,21 +296,21 @@ class Date
       obj
     end
 
-    # :nodoc:
-    def new!(ajd = 0, of = 0, sg = DEFAULT_SG)
-      # ajd is Astronomical Julian Day (may be Rational)
-      # Convert to integer JD and day fraction (same as C's old_to_new)
-      raw_jd = ajd + 0.5r
-      jd = raw_jd.floor
-      df = raw_jd - jd
-      obj = allocate
-      obj.__send__(:init_from_jd, jd, sg, df == 0 ? nil : df)
-      obj
-    end
-
     private
 
+    # Reject non-Numeric arguments, mirroring C's check_numeric.
+    # The C extension uses NUM2INT/check_numeric and raises TypeError for
+    # non-Numeric input, whereas Integer() would coerce strings like "0xa".
+    def check_numeric(obj, field)
+      unless Numeric === obj
+        raise TypeError, "invalid #{field} (not numeric)"
+      end
+    end
+
     def civil_fallback(year, month, day, start)
+      check_numeric(day, "day")
+      check_numeric(month, "month")
+      check_numeric(year, "year")
       year  = Integer(year)
       month = Integer(month)
       day   = Integer(day)
@@ -491,37 +463,6 @@ class Date
       [y, cweek, cwday]
     end
 
-    # Weeknum (year, week, wday, week_start, sg) -> JD
-    # week_start: 0=Sun-based (%U), 1=Mon-based (%W)
-    def weeknum_to_jd(y, w, d, ws, sg = -Float::INFINITY)
-      jd_jan1 = civil_to_jd(y, 1, 1, sg)
-      wday_jan1 = (jd_jan1 + 1) % 7  # 0=Sun
-      j = jd_jan1 - wday_jan1
-      j += 1 if ws == 1
-      j + 7 * w + d
-    end
-
-    # n-th k-day (nth occurrence of weekday k in year y, month m) -> JD
-    # k: 0=Sun..6=Sat, n: positive from beginning, negative from end
-    def nth_kday_to_jd(y, m, n, k, sg)
-      if n > 0
-        jd_m1 = civil_to_jd(y, m, 1, sg)
-        wday = (jd_m1 + 1) % 7
-        diff = (k - wday + 7) % 7
-        jd_m1 + diff + (n - 1) * 7
-      else
-        # Last day of month
-        if m == 12
-          jd_last = civil_to_jd(y + 1, 1, 1, sg) - 1
-        else
-          jd_last = civil_to_jd(y, m + 1, 1, sg) - 1
-        end
-        wday = (jd_last + 1) % 7
-        diff = (wday - k + 7) % 7
-        jd_last - diff + (n + 1) * 7
-      end
-    end
-
     # ---------------------------------------------------------------------------
     # Validation helpers
     # ---------------------------------------------------------------------------
@@ -663,6 +604,9 @@ class Date
       end
       raise Date::Error, "invalid date"
     end
+    self.class.__send__(:check_numeric, day, "day")
+    self.class.__send__(:check_numeric, month, "month")
+    self.class.__send__(:check_numeric, year, "year")
     year  = Integer(year)
     month = Integer(month)
     day   = Integer(day)
@@ -875,7 +819,9 @@ class Date
   #   DateTime.new(2001,2,3,12).day_fraction # => (1/2)
   #
   def day_fraction
-    @df || 0r
+    # C returns Integer 0 (INT2FIX(0)) for a simple Date without a fraction,
+    # and a Rational only when a day fraction is present.
+    @df || 0
   end
 
   # call-seq:
@@ -1021,13 +967,6 @@ class Date
   # Returns +true+ if +self+ is a Saturday, +false+ otherwise.
   def saturday?
     wday == 6
-  end
-
-  # :nodoc:
-  def nth_kday?(n, k)
-    return false if k != wday
-    jd_ref = self.class.__send__(:nth_kday_to_jd, year, month, n, k, @sg)
-    jd_ref == @jd
   end
 
   # ---------------------------------------------------------------------------
@@ -1552,12 +1491,17 @@ class Date
 
   # :nodoc:
   def initialize_copy(other)
-    @jd    = other.instance_variable_get(:@jd)
-    @sg    = other.instance_variable_get(:@sg)
-    @df    = other.instance_variable_get(:@df)
-    @year  = other.instance_variable_get(:@year)
-    @month = other.instance_variable_get(:@month)
-    @day   = other.instance_variable_get(:@day)
+    # Assign every ivar in the canonical order so copies share the same shape
+    # as freshly constructed instances (see init_from_jd).
+    @jd     = other.instance_variable_get(:@jd)
+    @sg     = other.instance_variable_get(:@sg)
+    @df     = other.instance_variable_get(:@df)
+    @year   = other.instance_variable_get(:@year)
+    @month  = other.instance_variable_get(:@month)
+    @day    = other.instance_variable_get(:@day)
+    @yday   = other.instance_variable_get(:@yday)
+    @cweek  = other.instance_variable_get(:@cweek)
+    @cwyear = other.instance_variable_get(:@cwyear)
   end
 
   # :nodoc:
@@ -1850,6 +1794,14 @@ class Date
     @jd = jd
     @sg = sg
     @df = df
+    # Initialize all lazily-computed ivars up front so every Date instance
+    # shares a single object shape regardless of which accessors are called.
+    @year   = nil
+    @month  = nil
+    @day    = nil
+    @yday   = nil
+    @cweek  = nil
+    @cwyear = nil
   end
 
   def internal_civil

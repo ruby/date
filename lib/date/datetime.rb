@@ -645,26 +645,6 @@ class DateTime < Date
       _new_dt_from_jd_time(jd, t.hour, t.min, t.sec, sec_f, t.utc_offset, start)
     end
 
-    # call-seq:
-    #   DateTime.weeknum(year=-4712, week=0, wday=1, wstart=0, hour=0, min=0, sec=0, offset=0, start=Date::ITALY) -> datetime
-    def weeknum(year = -4712, week = 0, wday = 1, wstart = 0,
-                hour = 0, minute = 0, second = 0, offset = 0, start = Date::ITALY)
-      jd     = weeknum_to_jd(Integer(year), Integer(week), Integer(wday), Integer(wstart), start)
-      of_sec = _parse_of(offset)
-      sec_i, sec_f = _split_sec(second)
-      _new_dt_from_jd_time(jd, Integer(hour), Integer(minute), sec_i, sec_f, of_sec, start)
-    end
-
-    # call-seq:
-    #   DateTime.nth_kday(year=-4712, month=1, n=1, k=1, hour=0, min=0, sec=0, offset=0, start=Date::ITALY) -> datetime
-    def nth_kday(year = -4712, month = 1, n = 1, k = 1,
-                 hour = 0, minute = 0, second = 0, offset = 0, start = Date::ITALY)
-      jd     = nth_kday_to_jd(Integer(year), Integer(month), Integer(n), Integer(k), start)
-      of_sec = _parse_of(offset)
-      sec_i, sec_f = _split_sec(second)
-      _new_dt_from_jd_time(jd, Integer(hour), Integer(minute), sec_i, sec_f, of_sec, start)
-    end
-
     # :nodoc:
     def _new_dt_from_jd_time(jd, h, m, s, sf, of, sg)
       jd, h, m, s = _normalize_hms(jd, h, m, s)
@@ -919,11 +899,20 @@ class DateTime < Date
   def _init_datetime(jd, h, m, s, sf, of, sg)
     @jd       = jd
     @sg       = sg
+    @df       = nil
     @hour     = h
     @min      = m
     @sec_i    = s
     @sec_frac = sf.is_a?(Rational) ? sf : Rational(sf)
     @of       = of.to_i
+    # Initialize lazily-computed (inherited from Date) ivars up front so every
+    # DateTime instance shares a single object shape.
+    @year   = nil
+    @month  = nil
+    @day    = nil
+    @yday   = nil
+    @cweek  = nil
+    @cwyear = nil
   end
 
   def _split_second(second)
