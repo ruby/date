@@ -35,7 +35,7 @@ File.foreach(list_path) do |line|
   entries[abbr] = offset
 end
 
-sorted = entries.sort_by { |k, _| k }
+sorted = entries.sort
 
 max_key_len = sorted.map { |k, _| k.length }.max
 
