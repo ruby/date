@@ -28,7 +28,6 @@ File.foreach(list_path) do |line|
   next unless offset_expr
 
   abbr.strip!
-  offset_expr.strip!
 
   # Evaluate offset expression (e.g., "0*3600", "-5*3600", "-(1*3600+1800)", "16200")
   offset = eval(offset_expr)
