@@ -6,8 +6,8 @@ require 'strscan'
 
 if RUBY_VERSION >= "3.3"
   require_relative "date/version"
-  require_relative "date/constants"
   require_relative "date/shared"
+  require_relative "date/constants"
   require_relative "date/core"
   require_relative "date/strftime"
   require_relative "date/parse"

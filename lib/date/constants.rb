@@ -22,13 +22,11 @@ class Date
   # Key = (byte0_lower << 16) | (byte1_lower << 8) | byte2_lower
   # Value = [index, full_name_length]
   ABBR_DAY_3KEY = ABBR_DAYNAMES.each_with_index.to_h { |n, i|
-    b = n.downcase.bytes
-    [(b[0] << 16) | (b[1] << 8) | b[2], [i, DAYNAMES[i].length].freeze]
+    [compute_3key(n), [i, DAYNAMES[i].length].freeze]
   }.freeze
   ABBR_MONTH_3KEY = ABBR_MONTHNAMES.each_with_index.each_with_object({}) { |(n, i), h|
     next if n.nil?
-    b = n.downcase.bytes
-    h[(b[0] << 16) | (b[1] << 8) | b[2]] = [i, MONTHNAMES[i].length].freeze
+    h[compute_3key(n)] = [i, MONTHNAMES[i].length].freeze
   }.freeze
   private_constant :ABBR_DAY_3KEY, :ABBR_MONTH_3KEY
 
