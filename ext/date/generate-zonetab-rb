@@ -10,18 +10,11 @@ list_path = File.join(__dir__, 'zonetab.list')
 output_path = File.join(__dir__, '..', '..', 'lib', 'date', 'zonetab.rb')
 
 entries = {}
-in_entries = false
+sections = 0
 
 File.foreach(list_path, chomp: true) do |line|
-  if line == '%%'
-    if in_entries
-      break
-    else
-      in_entries = true
-      next
-    end
-  end
-  next unless in_entries
+  break if line == '%%' and (sections += 1) > 1
+  next if sections < 1
 
   abbr, offset_expr = line.split(',', 2)
   next unless offset_expr
