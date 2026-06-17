@@ -12,8 +12,7 @@ output_path = File.join(__dir__, '..', '..', 'lib', 'date', 'zonetab.rb')
 entries = {}
 in_entries = false
 
-File.foreach(list_path) do |line|
-  line.chomp!
+File.foreach(list_path, chomp: true) do |line|
   if line == '%%'
     if in_entries
       break
