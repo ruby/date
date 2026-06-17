@@ -1,13 +1,12 @@
 # -*- mode: ruby -*-
 # Generate lib/date/zonetab.rb from ext/date/zonetab.list
 #
-# Usage: ruby -C ext/date generate-zonetab-rb
+# Usage: ruby ext/date/generate-zonetab-rb ext/date/zonetab.list lib/date/zonetab.rb
 #
 # This script reads zonetab.list (the same source used to generate zonetab.h
 # via gperf) and produces the equivalent Ruby hash table.
 
-list_path = File.join(__dir__, 'zonetab.list')
-output_path = File.join(__dir__, '..', '..', 'lib', 'date', 'zonetab.rb')
+list_path, output_path = ARGV
 
 entries = {}
 sections = 0
@@ -35,7 +34,7 @@ File.open(output_path, 'w') do |f|
   f.puts '# frozen_string_literal: true'
   f.puts
   f.puts '# Timezone name => UTC offset (seconds) mapping table.'
-  f.puts '# Auto-generated from ext/date/zonetab.list by ext/date/generate-zonetab-rb.'
+  f.puts "# Auto-generated from #{list_path} by ext/date/generate-zonetab-rb."
   f.puts '# Do not edit manually.'
   f.puts 'class Date'
   f.puts '  ZONE_TABLE = {'

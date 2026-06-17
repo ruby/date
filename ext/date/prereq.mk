@@ -10,7 +10,7 @@ zonetab.h: zonetab.list
 .PHONY: update-zonetab
 update-zonetab:
 	$(RUBY) -C $(srcdir) update-abbr
-	$(RUBY) -C $(srcdir) generate-zonetab-rb
+	$(RUBY) -C $(top_srcdir) ext/date/generate-zonetab-rb ext/date/zonetab.list lib/date/zonetab.rb
 
 .PHONY: update-nothing
 update-nothing:
