@@ -610,7 +610,7 @@ class Date
 
     # Convert a zone string to seconds offset from UTC.
     # Returns Integer (seconds) or Rational, or nil if unparseable.
-    # Mirrors date_zone_to_diff() in ext/date/date_parse.c.
+    # Ported from the original C date_zone_to_diff().
     def sp_zone_to_diff(zone_str)
       # Fast path for common numeric zones
       len = zone_str.length
@@ -852,7 +852,7 @@ class Date
     # Convert year/week/wday to Julian Day number.
     # f=0: Sunday-based (%U), d=0=Sun..6=Sat
     # f=1: Monday-based (%W), d=0=Mon..6=Sun (Mon-based)
-    # Mirrors c_weeknum_to_jd() in ext/date/date_core.c:
+    # Ported from the original C c_weeknum_to_jd():
     #   rjd2 = JD(Jan 1) + 6  (= JD of Jan 7)
     #   return (rjd2 - MOD((rjd2 - f + 1), 7) - 7) + 7*w + d
     def sp_weeknum_to_jd(y, w, d, f, sg)

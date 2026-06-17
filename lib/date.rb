@@ -4,19 +4,15 @@
 require 'timeout'
 require 'strscan'
 
-if RUBY_VERSION >= "3.3"
-  require_relative "date/version"
-  require_relative "date/shared"
-  require_relative "date/constants"
-  require_relative "date/core"
-  require_relative "date/strftime"
-  require_relative "date/parse"
-  require_relative "date/strptime"
-  require_relative "date/time"
-  require_relative "date/datetime"
-else
-  require 'date_core'
-end
+require_relative "date/version"
+require_relative "date/shared"
+require_relative "date/constants"
+require_relative "date/core"
+require_relative "date/strftime"
+require_relative "date/parse"
+require_relative "date/strptime"
+require_relative "date/time"
+require_relative "date/datetime"
 
 class Date
   # call-seq:
