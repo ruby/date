@@ -128,14 +128,6 @@ class Date
   MONTH_FULL_SPACE = STRFTIME_MONTHS_FULL.map { |m| m ? "#{m} ".freeze : nil }.freeze
   private_constant :DAY_FULL_COMMA, :MONTH_FULL_SPACE
 
-  # Bitmask flag constants for strftime parsing
-  FL_LEFT   = 0x01  # '-' flag
-  FL_SPACE  = 0x02  # '_' flag
-  FL_ZERO   = 0x04  # '0' flag
-  FL_UPPER  = 0x08  # '^' flag
-  FL_CHCASE = 0x10  # '#' flag
-  private_constant :FL_LEFT, :FL_SPACE, :FL_ZERO, :FL_UPPER, :FL_CHCASE
-
   # Pre-computed 2-digit zero-padded strings for 0..99
   PAD2 = (0..99).map { |n| format('%02d', n).freeze }.freeze
   private_constant :PAD2
@@ -232,15 +224,6 @@ class Date
   JISX0301_ERA = { 'm' => 1867, 't' => 1911, 's' => 1925, 'h' => 1988, 'r' => 2018 }.freeze
   JISX0301_RE = /\A\s*([mtshr])?(\d{2})\.(\d{2})\.(\d{2})(?:t(?:(\d{2}):(\d{2})(?::(\d{2})(?:[,.](\d*))?)?(z|[-+]\d{2}(?::?\d{2})?)?)?)?\s*\z/i
   private_constant :JISX0301_ERA, :JISX0301_RE
-
-  # Character class flags
-  HAVE_ALPHA = 1
-  HAVE_DIGIT = 2
-  HAVE_DASH  = 4
-  HAVE_DOT   = 8
-  HAVE_SLASH = 16
-  HAVE_COLON = 32
-  private_constant :HAVE_ALPHA, :HAVE_DIGIT, :HAVE_DASH, :HAVE_DOT, :HAVE_SLASH, :HAVE_COLON
 
   PARSE_DAYS_RE = /\b(sun|mon|tue|wed|thu|fri|sat)[^-\/\d\s]*/i
   PARSE_MON_RE  = /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\S*/i

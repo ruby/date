@@ -3,6 +3,15 @@
 require_relative "zonetab"
 
 class Date
+  # Character class flags used by _parse
+  HAVE_ALPHA = 1
+  HAVE_DIGIT = 2
+  HAVE_DASH  = 4
+  HAVE_DOT   = 8
+  HAVE_SLASH = 16
+  HAVE_COLON = 32
+  private_constant :HAVE_ALPHA, :HAVE_DIGIT, :HAVE_DASH, :HAVE_DOT, :HAVE_SLASH, :HAVE_COLON
+
   class << self
 
     # ------------------------------------------------------------------

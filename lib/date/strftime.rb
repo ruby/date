@@ -1,6 +1,13 @@
 # frozen_string_literal: true
 
 class Date
+  # Bitmask flag constants for strftime parsing
+  FL_LEFT   = 0x01  # '-' flag
+  FL_SPACE  = 0x02  # '_' flag
+  FL_ZERO   = 0x04  # '0' flag
+  FL_UPPER  = 0x08  # '^' flag
+  FL_CHCASE = 0x10  # '#' flag
+  private_constant :FL_LEFT, :FL_SPACE, :FL_ZERO, :FL_UPPER, :FL_CHCASE
 
   # call-seq:
   #   strftime(format = '%F') -> string
