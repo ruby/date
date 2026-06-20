@@ -857,7 +857,8 @@ class Date
   def new_start(start = DEFAULT_SG)
     obj = self.class.allocate
     obj.instance_variable_set(:@jd, @jd)
-    obj.instance_variable_set(:@start, start)
+    # Store the cutover as a Float, matching the C extension (see init_from_jd).
+    obj.instance_variable_set(:@start, start.to_f)
     obj
   end
 
@@ -1690,8 +1691,17 @@ class Date
   #   # => "#<Date: 2001-02-03 ((2451944j,0s,0n),+0s,2299161j)>"
   #
   def inspect
-    sg = @start.is_a?(Float) ? @start.to_s : @start
-    "#<Date: #{to_s} ((#{@jd}j,0s,0n),+0s,#{sg}j)>".force_encoding(Encoding::US_ASCII)
+    sg = @start
+    sg_s = if sg == Float::INFINITY
+             'Inf'
+           elsif sg == -Float::INFINITY
+             '-Inf'
+           elsif sg == sg.to_i
+             sg.to_i.to_s
+           else
+             sg.to_s
+           end
+    "#<Date: #{to_s} ((#{@jd}j,0s,0n),+0s,#{sg_s}j)>".force_encoding(Encoding::US_ASCII)
   end
 
   # override
@@ -1715,7 +1725,10 @@ class Date
 
   def init_from_jd(jd, sg, df = nil)
     @jd            = jd
-    @start         = sg
+    # Store the cutover as a Float, matching the C extension (which keeps it as
+    # a double). Keeps #start, #hash and marshal output consistent regardless of
+    # whether the caller passed an Integer (e.g. ITALY) or a Float sentinel.
+    @start         = sg.to_f
     @day_fraction  = df
     # Initialize the lazily-computed civil ivars up front so every Date
     # instance shares a single object shape regardless of which accessors
