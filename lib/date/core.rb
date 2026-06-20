@@ -12,23 +12,24 @@ class Date
   class << self
     # Same as Date.new.
     def civil(year = -4712, month = 1, day = 1, start = DEFAULT_SG)
-      if Integer === year && Integer === month && Integer === day && month >= 1 && month <= 12
-        if day >= 1 && day <= 28
-          return new_from_jd(civil_to_jd(year, month, day, start), start)
-        elsif day >= -31
-          dim = if month == 2
-            if start == Float::INFINITY
-              year % 4 == 0 ? 29 : 28
-            else
-              (year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)) ? 29 : 28
-            end
-          else
-            DAYS_IN_MONTH_GREGORIAN[month]
-          end
-          d = day < 0 ? day + dim + 1 : day
-          if d >= 1 && d <= dim
-            return new_from_jd(civil_to_jd(year, month, d, start), start)
-          end
+      if Integer === year && Integer === month && Integer === day &&
+         month >= 1 && month <= 12 && day >= 1 && day <= 28
+        # Days 1..28 exist in every month of both the Julian and Gregorian
+        # calendars, so such a date can only be invalid if it falls in the gap
+        # skipped at the calendar reform (gregorian jd < start <= julian jd).
+        # Inline civil_to_jd so the reform gap can be detected without a second
+        # pass: keep both the Gregorian and Julian Julian Day numbers.
+        yy = month <= 2 ? year - 1 : year
+        gjd_base = (1461 * (yy + 4716)) / 4 + GJD_MONTH_OFFSET[month] + day
+        a = yy / 100
+        gjd = gjd_base - 1524 + 2 - a + a / 4
+        if gjd >= start
+          return new_from_jd(gjd, start)
+        else
+          jjd = gjd_base - 1524
+          return new_from_jd(jjd, start) if jjd < start
+          # gjd < start <= jjd: date falls in the reform gap; fall through to
+          # civil_fallback, which raises "invalid date".
         end
       end
       civil_fallback(year, month, day, start)
@@ -187,7 +188,12 @@ class Date
     def ordinal(year = -4712, yday = 1, start = DEFAULT_SG)
       if Integer === year && Integer === yday && yday >= 1 && yday <= 365
         jd1 = civil_to_jd(year, 1, 1, start)
-        return new_from_jd(jd1 + yday - 1, start)
+        jd = jd1 + yday - 1
+        # Guard against the shortened reform year (fewer than 365 days), where
+        # some ydays <= 365 do not exist: the day must still precede next Jan 1.
+        if jd < civil_to_jd(year + 1, 1, 1, start)
+          return new_from_jd(jd, start)
+        end
       end
       check_numeric(yday, "yday")
       check_numeric(year, "year")
@@ -260,9 +266,11 @@ class Date
     def commercial(cwyear = -4712, cweek = 1, cwday = 1, start = DEFAULT_SG)
       if Integer === cwyear && Integer === cweek && Integer === cwday &&
          cweek >= 1 && cweek <= 52 && cwday >= 1 && cwday <= 7
-        # ISO 8601: every year has at least 52 weeks, so weeks 1-52 are always valid.
+        # ISO 8601: every normal year has at least 52 weeks, but the
+        # calendar-reform year is shorter; confirm the day precedes the start of
+        # the next commercial year before trusting the fast path.
         jd = commercial_to_jd(cwyear, cweek, cwday, start)
-        return new_from_jd(jd, start)
+        return new_from_jd(jd, start) if jd < commercial_to_jd(cwyear + 1, 1, 1, start)
       end
       check_numeric(cwday, "cwday")
       check_numeric(cweek, "cweek")
@@ -492,33 +500,50 @@ class Date
       y = y.to_i
       m = m.to_i
       d = d.to_i
-      # Handle negative month/day
+      # Handle negative month
       m += 13 if m < 0
       return nil if m < 1 || m > 12
-      # Days in that month
+
       if sg == Float::INFINITY
+        # Proleptic Julian calendar.
         dim = days_in_month_julian(y, m)
-      else
-        dim = days_in_month_gregorian(y, m)
+        d += dim + 1 if d < 0
+        return nil if d < 1 || d > dim
+        return julian_to_jd(y, m, d)
       end
-      d += dim + 1 if d < 0
-      return nil if d < 1 || d > dim
-      civil_to_jd(y, m, d, sg)
+
+      # Gregorian reckoning: valid for GREGORIAN and for the post-reform side of
+      # a finite cutover. Days skipped by the reform have a Gregorian JD before
+      # the cutover (gjd < sg) and are rejected here, then handled below.
+      gdim = days_in_month_gregorian(y, m)
+      gd = d < 0 ? d + gdim + 1 : d
+      if gd >= 1 && gd <= gdim
+        gjd = gregorian_to_jd(y, m, gd)
+        return gjd if gjd >= sg
+      end
+      return nil if sg == -Float::INFINITY
+
+      # Pre-reform (Julian) side. This also accepts Julian-only leap days such as
+      # 1500-02-29 under ITALY. A day skipped by the reform has jjd >= sg.
+      jdim = days_in_month_julian(y, m)
+      jd2 = d < 0 ? d + jdim + 1 : d
+      return nil if jd2 < 1 || jd2 > jdim
+      jjd = julian_to_jd(y, m, jd2)
+      jjd < sg ? jjd : nil
     end
 
     def internal_valid_ordinal?(y, yday, sg)
       return nil unless y.is_a?(Numeric) && yday.is_a?(Numeric)
       y = y.to_i
       yday = yday.to_i
-      # Days in year
-      if sg == Float::INFINITY
-        diy = internal_julian_leap?(y) ? 366 : 365
-      else
-        diy = internal_gregorian_leap?(y) ? 366 : 365
-      end
+      # The difference of the two Jan 1 Julian Day numbers is the true length of
+      # the year under this cutover, including the shortened reform year. Ordinal
+      # days are continuous from Jan 1, so a bounds check is sufficient.
+      jd_jan1 = civil_to_jd(y, 1, 1, sg)
+      diy = civil_to_jd(y + 1, 1, 1, sg) - jd_jan1
       yday += diy + 1 if yday < 0
       return nil if yday < 1 || yday > diy
-      ordinal_to_jd(y, yday, sg)
+      jd_jan1 + yday - 1
     end
 
     def internal_valid_commercial?(y, w, d, sg)
