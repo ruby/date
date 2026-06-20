@@ -1150,18 +1150,30 @@ class Date
   #   d2 = d1 >> -1 # => #<Date: 2001-01-28>
   #
   def >>(n)
+    self.class.__send__(:new_from_jd, month_shifted_jd(n), @start)
+  end
+
+  # Julian Day number of the date +n+ months from self, clamping the day to the
+  # last day of the target month (using the calendar that applies under the
+  # cutover). Shared with DateTime#>> so the time of day can be preserved.
+  private def month_shifted_jd(n)
     internal_civil unless @year
     m2 = @month + n.to_i
     y2 = @year + (m2 - 1).div(12)
     m2 = (m2 - 1) % 12 + 1
-    if @start == Float::INFINITY
-      dim = self.class.__send__(:days_in_month_julian, y2, m2)
-    else
-      dim = self.class.__send__(:days_in_month_gregorian, y2, m2)
-    end
+    klass = self.class
+    sg = @start
+    julian = if sg == Float::INFINITY
+               true
+             elsif sg == -Float::INFINITY
+               false
+             else
+               klass.__send__(:gregorian_to_jd, y2, m2, 1) < sg
+             end
+    dim = julian ? klass.__send__(:days_in_month_julian, y2, m2)
+                 : klass.__send__(:days_in_month_gregorian, y2, m2)
     d2 = @day < dim ? @day : dim
-    jd2 = self.class.__send__(:civil_to_jd, y2, m2, d2, @start)
-    self.class.__send__(:new_from_jd, jd2, @start)
+    klass.__send__(:civil_to_jd, y2, m2, d2, sg)
   end
 
   # call-seq:

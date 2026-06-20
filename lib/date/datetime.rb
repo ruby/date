@@ -216,6 +216,15 @@ class DateTime < Date
   end
 
   # call-seq:
+  #    dt >> n  ->  date_time
+  #
+  # Returns a new DateTime object representing the time +n+ months later;
+  # the time of day and offset are preserved. (Date#<< delegates to this.)
+  def >>(n)
+    self.class.__send__(:_new_dt_from_jd_time, month_shifted_jd(n), @hour, @min, @sec_i, @sec_frac, @of, @start)
+  end
+
+  # call-seq:
   #   new_start(start = Date::ITALY]) -> new_date
   #
   # Returns a copy of +self+ with the given +start+ value:
@@ -240,7 +249,13 @@ class DateTime < Date
   #    d.new_offset('+09:00')	#=> #<DateTime: 2001-02-03T15:05:06+09:00 ...>
   def new_offset(of = 0)
     of_sec = _str_offset_to_sec(of)
-    self.class.__send__(:_new_dt_from_jd_time,@jd, @hour, @min, @sec_i, @sec_frac, of_sec, @start)
+    # Keep the same absolute instant, re-expressed in the new offset: shift the
+    # locally stored wall-clock fields by the change in offset.
+    total = @jd * 86400 + @hour * 3600 + @min * 60 + @sec_i + (of_sec - @of)
+    jd2, rem = total.divmod(86400)
+    h, rem = rem.divmod(3600)
+    m, s = rem.divmod(60)
+    self.class.__send__(:_new_dt_from_jd_time, jd2, h, m, s, @sec_frac, of_sec, @start)
   end
 
   # ---------------------------------------------------------------------------

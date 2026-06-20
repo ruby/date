@@ -44,7 +44,7 @@ class Date
       return instance_of?(Date) ? +'00:00:00' : "#{PAD2[internal_hour]}:#{PAD2[internal_min]}:#{PAD2[internal_sec]}"
     when '%m/%d/%y', '%D', '%x'
       internal_civil unless @year
-      return "#{PAD2[@month]}/#{PAD2[@day]}/#{PAD2[@year.abs % 100]}"
+      return "#{PAD2[@month]}/#{PAD2[@day]}/#{PAD2[@year % 100]}"
     when '%Y-%m-%dT%H:%M:%S%z'
       internal_civil unless @year
       if instance_of?(Date)
@@ -226,7 +226,7 @@ class Date
       cwday.to_s
     when 121 # 'y'
       internal_civil unless @year
-      PAD2[@year.abs % 100]
+      PAD2[@year % 100]
     when 90  # 'Z'
       zone_str
     when 122 # 'z'
@@ -247,7 +247,7 @@ class Date
       instance_of?(Date) ? '00:00:00' : "#{PAD2[internal_hour]}:#{PAD2[internal_min]}:#{PAD2[internal_sec]}"
     when 68, 120  # 'D', 'x'
       internal_civil unless @year
-      "#{PAD2[@month]}/#{PAD2[@day]}/#{PAD2[@year.abs % 100]}"
+      "#{PAD2[@month]}/#{PAD2[@day]}/#{PAD2[@year % 100]}"
     when 82  # 'R'
       instance_of?(Date) ? '00:00' : "#{PAD2[internal_hour]}:#{PAD2[internal_min]}"
     when 114  # 'r'
@@ -282,9 +282,9 @@ class Date
       cent = year.div(100)
       pad_num(cent, width || 2, flags)
     when 121 # 'y'
-      pad_num(year.abs % 100, width || 2, flags, zero: true)
+      pad_num(year % 100, width || 2, flags, zero: true)
     when 103 # 'g'
-      pad_num(cwyear.abs % 100, width || 2, flags, zero: true)
+      pad_num(cwyear % 100, width || 2, flags, zero: true)
     when 109 # 'm'
       pad_num(month, width || 2, flags, zero: true)
     when 100 # 'd'
