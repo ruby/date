@@ -66,9 +66,6 @@ class Date
   GJD_MONTH_OFFSET = [nil, 428, 459, 122, 153, 183, 214, 244, 275, 306, 336, 367, 397].freeze
   private_constant :GJD_MONTH_OFFSET
 
-  STRFTIME_DATE_DEFAULT_FMT = '%F'.encode(Encoding::US_ASCII)
-  private_constant :STRFTIME_DATE_DEFAULT_FMT
-
   ASCTIME_DAYS  = %w[Sun Mon Tue Wed Thu Fri Sat].freeze
   ASCTIME_MONS  = [nil, 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
                    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].freeze
