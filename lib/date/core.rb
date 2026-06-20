@@ -1691,17 +1691,22 @@ class Date
   #   # => "#<Date: 2001-02-03 ((2451944j,0s,0n),+0s,2299161j)>"
   #
   def inspect
+    "#<Date: #{to_s} ((#{@jd}j,0s,0n),+0s,#{inspect_sg}j)>".force_encoding(Encoding::US_ASCII)
+  end
+
+  # Format the start (cutover) for #inspect the way the C extension does:
+  # "Inf"/"-Inf" for the infinite sentinels and an integer for whole values.
+  private def inspect_sg
     sg = @start
-    sg_s = if sg == Float::INFINITY
-             'Inf'
-           elsif sg == -Float::INFINITY
-             '-Inf'
-           elsif sg == sg.to_i
-             sg.to_i.to_s
-           else
-             sg.to_s
-           end
-    "#<Date: #{to_s} ((#{@jd}j,0s,0n),+0s,#{sg_s}j)>".force_encoding(Encoding::US_ASCII)
+    if sg == Float::INFINITY
+      'Inf'
+    elsif sg == -Float::INFINITY
+      '-Inf'
+    elsif sg == sg.to_i
+      sg.to_i.to_s
+    else
+      sg.to_s
+    end
   end
 
   # override

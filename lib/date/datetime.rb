@@ -406,6 +406,25 @@ class DateTime < Date
     strftime(DATETIME_TO_S_FMT)
   end
 
+  # call-seq:
+  #   inspect -> string
+  #
+  # Returns a string representation of +self+:
+  #
+  #   DateTime.new(2001,2,3,4,5,6,'+7').inspect
+  #   # => "#<DateTime: 2001-02-03T04:05:06+07:00 ((2451943j,75906s,0n),+25200s,2299161j)>"
+  #
+  # The Julian Day number and seconds are given in UTC; the offset and start
+  # (cutover) follow, matching the C extension's format.
+  def inspect
+    utc_total = @jd * 86400 + @hour * 3600 + @min * 60 + @sec_i - @of
+    utc_jd, utc_sec = utc_total.divmod(86400)
+    nano = @sec_frac * 1_000_000_000
+    nano_s = nano.denominator == 1 ? nano.numerator.to_s : "(#{nano.numerator}/#{nano.denominator})"
+    of_s = @of < 0 ? "-#{-@of}" : "+#{@of}"
+    "#<DateTime: #{to_s} ((#{utc_jd}j,#{utc_sec}s,#{nano_s}n),#{of_s}s,#{inspect_sg}j)>".force_encoding(Encoding::US_ASCII)
+  end
+
   def hash
     if @hour == 0 && @min == 0 && @sec_i == 0
       [@jd, @start].hash
