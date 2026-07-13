@@ -1,11 +1,19 @@
 # frozen_string_literal: true
 # date.rb: Written by Tadayoshi Funaba 1998-2011
 
-require 'date_core'
+require 'strscan'
+
+require_relative "date/version"
+require_relative "date/shared"
+require_relative "date/constants"
+require_relative "date/core"
+require_relative "date/strftime"
+require_relative "date/parse"
+require_relative "date/strptime"
+require_relative "date/time"
+require_relative "date/datetime"
 
 class Date
-  VERSION = "3.5.1" # :nodoc:
-
   # call-seq:
   #   infinite? -> false
   #
@@ -64,7 +72,5 @@ class Date
         -Float::INFINITY
       end
     end
-
   end
-
 end

@@ -11,7 +11,7 @@ jobs:
     uses: ruby/actions/.github/workflows/ruby_versions.yml@master
     with:
       engine: cruby
-      min_version: 2.6
+      min_version: 3.3
 
   build:
     if: ${{ startsWith(github.repository, 'ruby/') || github.event_name != 'schedule' }}
@@ -40,7 +40,5 @@ jobs:
       with:
         ruby-version: ${{ matrix.ruby }}
         bundler-cache: true # 'bundle install' and cache
-    - run: choco install gperf
-      if: ${{ matrix.ruby == 'mswin' }}
     - name: Run test
-      run: bundle exec rake compile test
+      run: bundle exec rake test

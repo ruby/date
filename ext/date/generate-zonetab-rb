@@ -1,0 +1,48 @@
+# -*- mode: ruby -*-
+# Generate lib/date/zonetab.rb from ext/date/zonetab.list
+#
+# Usage: ruby ext/date/generate-zonetab-rb ext/date/zonetab.list lib/date/zonetab.rb
+#
+# This script reads zonetab.list (the same source used to generate zonetab.h
+# via gperf) and produces the equivalent Ruby hash table.
+
+list_path, output_path = ARGV
+
+entries = {}
+sections = 0
+
+File.foreach(list_path, chomp: true) do |line|
+  break if line == '%%' and (sections += 1) > 1
+  next if sections < 1
+
+  abbr, offset_expr = line.split(',', 2)
+  next unless offset_expr
+
+  abbr.strip!
+
+  # Evaluate offset expression (e.g., "0*3600", "-5*3600", "-(1*3600+1800)", "16200")
+  offset = eval(offset_expr)
+
+  entries[abbr] = offset
+end
+
+sorted = entries.sort
+
+max_key_len = sorted.map { |k, _| k.length }.max
+
+File.open(output_path, 'w') do |f|
+  f.puts '# frozen_string_literal: true'
+  f.puts
+  f.puts '# Timezone name => UTC offset (seconds) mapping table.'
+  f.puts "# Auto-generated from #{list_path} by ext/date/generate-zonetab-rb."
+  f.puts '# Do not edit manually.'
+  f.puts 'class Date'
+  f.puts '  ZONE_TABLE = {'
+  sorted.each do |abbr, offset|
+    f.printf "    %-*p => %d,\n", max_key_len + 3, abbr, offset
+  end
+  f.puts '  }.freeze'
+  f.puts 'end'
+end
+
+puts "Generated #{output_path} with #{entries.size} entries."
