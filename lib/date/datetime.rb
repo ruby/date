@@ -1,3 +1,4 @@
+# encoding: US-ASCII
 # frozen_string_literal: true
 
 class DateTime < Date
@@ -166,7 +167,7 @@ class DateTime < Date
     when Integer
       self.class.__send__(:_new_dt_from_jd_time,@jd + other, @hour, @min, @sec_i, @sec_frac, @of, @start)
     when Rational, Float
-      # other is days (may be fractional) — add as seconds
+      # other is days (may be fractional) - add as seconds
       extra_sec = other.to_r * 86400
       total_r   = Rational(@jd) * 86400 + @hour * 3600 + @min * 60 + @sec_i + @sec_frac + extra_sec
       _from_total_sec_r(total_r)
@@ -437,7 +438,7 @@ class DateTime < Date
     nano = @sec_frac * 1_000_000_000
     nano_s = nano.denominator == 1 ? nano.numerator.to_s : "(#{nano.numerator}/#{nano.denominator})"
     of_s = @of < 0 ? "-#{-@of}" : "+#{@of}"
-    "#<DateTime: #{to_s} ((#{utc_jd}j,#{utc_sec}s,#{nano_s}n),#{of_s}s,#{inspect_sg}j)>".force_encoding(Encoding::US_ASCII)
+    "#<DateTime: #{to_s} ((#{utc_jd}j,#{utc_sec}s,#{nano_s}n),#{of_s}s,#{inspect_sg}j)>"
   end
 
   def hash

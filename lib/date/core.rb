@@ -1,3 +1,4 @@
+# encoding: US-ASCII
 # frozen_string_literal: true
 
 class Date
@@ -1568,9 +1569,9 @@ class Date
     y_s = y >= 1000 ? y.to_s : (y >= 0 ? format('%04d', y) : format('-%04d', -y))
     w = (@jd + 1) % 7
     if instance_of?(Date)
-      "#{ASCTIME_DAYS[w]} #{ASCTIME_MONS[@month]} #{d_s} 00:00:00 #{y_s}".force_encoding(Encoding::US_ASCII)
+      "#{ASCTIME_DAYS[w]} #{ASCTIME_MONS[@month]} #{d_s} 00:00:00 #{y_s}"
     else
-      "#{ASCTIME_DAYS[w]} #{ASCTIME_MONS[@month]} #{d_s} #{PAD2[internal_hour]}:#{PAD2[internal_min]}:#{PAD2[internal_sec]} #{y_s}".force_encoding(Encoding::US_ASCII)
+      "#{ASCTIME_DAYS[w]} #{ASCTIME_MONS[@month]} #{d_s} #{PAD2[internal_hour]}:#{PAD2[internal_min]}:#{PAD2[internal_sec]} #{y_s}"
     end
   end
   alias_method :ctime, :asctime
@@ -1598,7 +1599,7 @@ class Date
   #   Date.new(2001, 2, 3).rfc3339 # => "2001-02-03T00:00:00+00:00"
   #
   def rfc3339
-    (to_s << 'T00:00:00+00:00').force_encoding(Encoding::US_ASCII)
+    to_s << 'T00:00:00+00:00'
   end
 
   # call-seq:
@@ -1615,9 +1616,9 @@ class Date
     y = @year
     y_s = y >= 1000 ? y.to_s : (y >= 0 ? format('%04d', y) : format('-%04d', -y))
     if instance_of?(Date)
-      "#{RFC2822_DAYS[w]}, #{@day}#{RFC_MON_SPACE[@month]}#{y_s} 00:00:00 +0000".force_encoding(Encoding::US_ASCII)
+      "#{RFC2822_DAYS[w]}, #{@day}#{RFC_MON_SPACE[@month]}#{y_s} 00:00:00 +0000"
     else
-      "#{RFC2822_DAYS[w]}, #{@day}#{RFC_MON_SPACE[@month]}#{y_s} #{PAD2[internal_hour]}:#{PAD2[internal_min]}:#{PAD2[internal_sec]} +0000".force_encoding(Encoding::US_ASCII)
+      "#{RFC2822_DAYS[w]}, #{@day}#{RFC_MON_SPACE[@month]}#{y_s} #{PAD2[internal_hour]}:#{PAD2[internal_min]}:#{PAD2[internal_sec]} +0000"
     end
   end
   alias_method :rfc822, :rfc2822
@@ -1636,9 +1637,9 @@ class Date
     y = @year
     y_s = y >= 1000 ? y.to_s : (y >= 0 ? format('%04d', y) : format('-%04d', -y))
     if instance_of?(Date)
-      "#{ASCTIME_DAYS[w]}, #{PAD2[@day]}#{RFC_MON_SPACE[@month]}#{y_s} 00:00:00 GMT".force_encoding(Encoding::US_ASCII)
+      "#{ASCTIME_DAYS[w]}, #{PAD2[@day]}#{RFC_MON_SPACE[@month]}#{y_s} 00:00:00 GMT"
     else
-      "#{ASCTIME_DAYS[w]}, #{PAD2[@day]}#{RFC_MON_SPACE[@month]}#{y_s} #{PAD2[internal_hour]}:#{PAD2[internal_min]}:#{PAD2[internal_sec]} GMT".force_encoding(Encoding::US_ASCII)
+      "#{ASCTIME_DAYS[w]}, #{PAD2[@day]}#{RFC_MON_SPACE[@month]}#{y_s} #{PAD2[internal_hour]}:#{PAD2[internal_min]}:#{PAD2[internal_sec]} GMT"
     end
   end
 
@@ -1686,11 +1687,11 @@ class Date
     y = @year
     if y >= 1000
       # Fast path: 4-digit year needs no zero-padding (most common case).
-      (y.to_s << suffix).force_encoding(Encoding::US_ASCII)
+      y.to_s << suffix
     elsif y >= 0
-      (format('%04d', y) << suffix).force_encoding(Encoding::US_ASCII)
+      format('%04d', y) << suffix
     else
-      (format('-%04d', -y) << suffix).force_encoding(Encoding::US_ASCII)
+      format('-%04d', -y) << suffix
     end
   end
 
@@ -1703,7 +1704,7 @@ class Date
   #   # => "#<Date: 2001-02-03 ((2451944j,0s,0n),+0s,2299161j)>"
   #
   def inspect
-    "#<Date: #{to_s} ((#{@jd}j,0s,0n),+0s,#{inspect_sg}j)>".force_encoding(Encoding::US_ASCII)
+    "#<Date: #{to_s} ((#{@jd}j,0s,0n),+0s,#{inspect_sg}j)>"
   end
 
   # Format the start (cutover) for #inspect the way the C extension does:
