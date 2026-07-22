@@ -22,14 +22,27 @@ class Date
   def strftime(format = DEFAULT_STRFTIME_FMT)
     if format.equal?(DEFAULT_STRFTIME_FMT)
       internal_civil unless @year
-      return fast_ymd.force_encoding(Encoding::US_ASCII)
+      result = fast_ymd.force_encoding(Encoding::US_ASCII)
+      fmt = DEFAULT_STRFTIME_FMT
+    else
+      fmt = format.to_str
+      if fmt == YMD_FMT
+        internal_civil unless @year
+        result = fast_ymd.force_encoding(Encoding::US_ASCII)
+      else
+        result = internal_strftime(fmt).force_encoding(fmt.encoding)
+      end
     end
-    fmt = format.to_str
-    if fmt == YMD_FMT
-      internal_civil unless @year
-      return fast_ymd.force_encoding(Encoding::US_ASCII)
+    # The C extension formats into an output buffer that grows 1024, 2048, ...
+    # and gives up with Errno::ERANGE once the buffer would reach 1024 * flen
+    # (flen = format string length) while still not fitting. The effective
+    # limit is thus the smallest 1024 * 2**k that is >= 1024 * flen, i.e.
+    # 1024 << ceil(log2(flen)); output whose byte length reaches it raises.
+    # The limit is always >= 1024, so skip the check entirely for shorter output.
+    if result.bytesize >= 1024
+      raise Errno::ERANGE, "strftime" if result.bytesize >= 1024 << (fmt.bytesize - 1).bit_length
     end
-    internal_strftime(fmt).force_encoding(fmt.encoding)
+    result
   end
 
   private
@@ -167,9 +180,7 @@ class Date
       internal_civil unless @year
       y = @year
       if y >= 1000
-        s = y.to_s
-        raise Errno::ERANGE, "strftime" if s.length >= STRFTIME_MAX_COPY_LEN
-        s
+        y.to_s
       elsif y >= 0
         format('%04d', y)
       else
@@ -192,15 +203,15 @@ class Date
     when 83  # 'S'
       PAD2[internal_sec]
     when 97  # 'a'
-      STRFTIME_DAYS_ABBR[(@jd + 1) % 7]
+      ABBR_DAYNAMES[(@jd + 1) % 7]
     when 65  # 'A'
-      STRFTIME_DAYS_FULL[(@jd + 1) % 7]
+      DAYNAMES[(@jd + 1) % 7]
     when 98, 104  # 'b', 'h'
       internal_civil unless @year
-      STRFTIME_MONTHS_ABBR[@month]
+      ABBR_MONTHNAMES[@month]
     when 66  # 'B'
       internal_civil unless @year
-      STRFTIME_MONTHS_FULL[@month]
+      MONTHNAMES[@month]
     when 112 # 'p'
       internal_hour < 12 ? 'AM' : 'PM'
     when 80  # 'P'
@@ -327,13 +338,13 @@ class Date
            (sec_frac * 1000).floor
       pad_num(ms, width || 1, flags)
     when 65  # 'A'
-      fmt_str(STRFTIME_DAYS_FULL[wday], width, flags)
+      fmt_str(DAYNAMES[wday], width, flags)
     when 97  # 'a'
-      fmt_str(STRFTIME_DAYS_ABBR[wday], width, flags)
+      fmt_str(ABBR_DAYNAMES[wday], width, flags)
     when 66  # 'B'
-      fmt_str(STRFTIME_MONTHS_FULL[month], width, flags)
+      fmt_str(MONTHNAMES[month], width, flags)
     when 98, 104  # 'b', 'h'
-      fmt_str(STRFTIME_MONTHS_ABBR[month], width, flags)
+      fmt_str(ABBR_MONTHNAMES[month], width, flags)
     when 112 # 'p'
       fmt_str(internal_hour < 12 ? 'AM' : 'PM', width, flags)
     when 80  # 'P'
@@ -387,7 +398,6 @@ class Date
         s = (y < 0 ? '-' : '') + s
       end
     end
-    raise Errno::ERANGE, "strftime" if s.length >= STRFTIME_MAX_COPY_LEN
     if flags & (FL_UPPER | FL_CHCASE) != 0
       s.upcase
     else

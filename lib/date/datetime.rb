@@ -431,7 +431,7 @@ class DateTime < Date
   #   # => "#<DateTime: 2001-02-03T04:05:06+07:00 ((2451943j,75906s,0n),+25200s,2299161j)>"
   #
   # The Julian Day number and seconds are given in UTC; the offset and start
-  # (cutover) follow, matching the C extension's format.
+  # (cutover) follow.
   def inspect
     utc_total = @jd * 86400 + @hour * 3600 + @min * 60 + @sec_i - @of
     utc_jd, utc_sec = utc_total.divmod(86400)
@@ -683,7 +683,7 @@ class DateTime < Date
     end
 
     # Normalize hour/min/sec.
-    # Negative values: add one period (non-cascading, matching C's c_valid_time_f?).
+    # Negative values: add one period (non-cascading).
     # After normalization, validate ranges and raise Date::Error if out of range.
     # 24:00:00 is valid (normalizes to next day 00:00:00).
     def _normalize_hms(jd, h, m, s)
@@ -927,7 +927,8 @@ class DateTime < Date
 
   def _init_datetime(jd, h, m, s, sf, of, sg)
     @jd            = jd
-    # Store the cutover as a Float, matching the C extension (see init_from_jd).
+    # Store the cutover as a Float so #start/#hash/marshal stay consistent
+    # (see init_from_jd).
     @start         = sg.to_f
     @day_fraction  = nil
     @hour          = h

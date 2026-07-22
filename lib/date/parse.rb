@@ -661,7 +661,7 @@ class Date
     # - Argument {limit}[rdoc-ref:Date@Argument+limit].
     #
     # Related: Date._parse (returns a hash).
-    def parse(string = '-4712-01-01', comp = true, start = DEFAULT_SG, limit: 128)
+    def parse(string = '-4712-01-01', comp = true, start = ITALY, limit: 128)
       hash = _parse(string, comp, limit: limit)
       fast_new_date(hash, start)
     end
@@ -687,7 +687,7 @@ class Date
     # - Argument {limit}[rdoc-ref:Date@Argument+limit].
     #
     # Related: Date._iso8601 (returns a hash).
-    def iso8601(string = JULIAN_EPOCH_DATE, start = DEFAULT_SG, limit: 128)
+    def iso8601(string = '-4712-01-01', start = ITALY, limit: 128)
       hash = _iso8601(string, limit: limit)
       fast_new_date(hash, start)
     end
@@ -709,7 +709,7 @@ class Date
     # - Argument {limit}[rdoc-ref:Date@Argument+limit].
     #
     # Related: Date._rfc3339 (returns a hash).
-    def rfc3339(string = JULIAN_EPOCH_DATETIME, start = DEFAULT_SG, limit: 128)
+    def rfc3339(string = '-4712-01-01T00:00:00+00:00', start = ITALY, limit: 128)
       hash = _rfc3339(string, limit: limit)
       fast_new_date(hash, start)
     end
@@ -730,7 +730,7 @@ class Date
     # - Argument {limit}[rdoc-ref:Date@Argument+limit].
     #
     # Related: Date._xmlschema (returns a hash).
-    def xmlschema(string = JULIAN_EPOCH_DATE, start = DEFAULT_SG, limit: 128)
+    def xmlschema(string = '-4712-01-01', start = ITALY, limit: 128)
       hash = _xmlschema(string, limit: limit)
       fast_new_date(hash, start)
     end
@@ -752,7 +752,7 @@ class Date
     # - Argument {limit}[rdoc-ref:Date@Argument+limit].
     #
     # Related: Date._rfc2822 (returns a hash).
-    def rfc2822(string = JULIAN_EPOCH_DATETIME_RFC2822, start = DEFAULT_SG, limit: 128)
+    def rfc2822(string = 'Mon, 1 Jan -4712 00:00:00 +0000', start = ITALY, limit: 128)
       hash = _rfc2822(string, limit: limit)
       fast_new_date(hash, start)
     end
@@ -775,7 +775,7 @@ class Date
     # - Argument {limit}[rdoc-ref:Date@Argument+limit].
     #
     # Related: Date._httpdate (returns a hash).
-    def httpdate(string = JULIAN_EPOCH_DATETIME_HTTPDATE, start = DEFAULT_SG, limit: 128)
+    def httpdate(string = 'Mon, 01 Jan -4712 00:00:00 GMT', start = ITALY, limit: 128)
       hash = _httpdate(string, limit: limit)
       fast_new_date(hash, start)
     end
@@ -800,7 +800,7 @@ class Date
     # - Argument {limit}[rdoc-ref:Date@Argument+limit].
     #
     # Related: Date._jisx0301 (returns a hash).
-    def jisx0301(string = JULIAN_EPOCH_DATE, start = DEFAULT_SG, limit: 128)
+    def jisx0301(string = '-4712-01-01', start = ITALY, limit: 128)
       hash = _jisx0301(string, limit: limit)
       fast_new_date(hash, start)
     end

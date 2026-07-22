@@ -63,7 +63,7 @@ class Date
     # See also {strptime(3)}[https://man7.org/linux/man-pages/man3/strptime.3.html].
     #
     # Related: Date._strptime (returns a hash).
-    def strptime(string = JULIAN_EPOCH_DATE, format = '%F', start = DEFAULT_SG)
+    def strptime(string = '-4712-01-01', format = '%F', start = ITALY)
       str = String === string ? string : string.to_str
       if format == '%F' || format == '%Y-%m-%d'
         result = internalinternal_strptime_ymd_to_date(str, start)

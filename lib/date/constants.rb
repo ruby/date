@@ -3,20 +3,33 @@
 
 # Constants
 class Date
+  # An array of strings of full month names in English.  The first
+  # element is nil.
   MONTHNAMES = [nil, 'January', 'February', 'March', 'April', 'May', 'June',
                 'July', 'August', 'September', 'October', 'November', 'December'].freeze
+  # An array of strings of abbreviated month names in English.  The
+  # first element is nil.
   ABBR_MONTHNAMES = [nil, 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
                      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].freeze
+  # An array of strings of the full names of days of the week in English.
+  # The first is "Sunday".
   DAYNAMES = %w[Sunday Monday Tuesday Wednesday Thursday Friday Saturday].freeze
+  # An array of strings of abbreviated day names in English.  The
+  # first is "Sun".
   ABBR_DAYNAMES = %w[Sun Mon Tue Wed Thu Fri Sat].freeze
 
+  # The Julian day number of the day of calendar reform for Italy
+  # and some catholic countries.
   ITALY     = 2299161 # 1582-10-15
+  # The Julian day number of the day of calendar reform for England
+  # and her colonies.
   ENGLAND   = 2361222 # 1752-09-14
+  # The Julian day number of the day of calendar reform for the
+  # proleptic Julian calendar.
   JULIAN    = Float::INFINITY
+  # The Julian day number of the day of calendar reform for the
+  # proleptic Gregorian calendar.
   GREGORIAN = -Float::INFINITY
-
-  DEFAULT_SG = ITALY
-  private_constant :DEFAULT_SG
 
   # 3-byte integer key lookup tables for O(1) abbreviated name matching.
   # Key = (byte0_lower << 16) | (byte1_lower << 8) | byte2_lower
@@ -46,12 +59,10 @@ class Date
   private_constant :DAY_LOWER_STRS, :MONTH_LOWER_STRS
 
 
-  JULIAN_EPOCH_DATE             = '-4712-01-01'.freeze
-  JULIAN_EPOCH_DATETIME         = '-4712-01-01T00:00:00+00:00'.freeze
-  JULIAN_EPOCH_DATETIME_RFC2822 = 'Mon, 1 Jan -4712 00:00:00 +0000'.freeze
-  JULIAN_EPOCH_DATETIME_HTTPDATE = 'Mon, 01 Jan -4712 00:00:00 GMT'.freeze
-  private_constant :JULIAN_EPOCH_DATE, :JULIAN_EPOCH_DATETIME,
-                   :JULIAN_EPOCH_DATETIME_RFC2822, :JULIAN_EPOCH_DATETIME_HTTPDATE
+  # Still referenced as a default argument by DateTime._strptime / .strptime,
+  # whose constant-resolution and defaults are addressed separately (A16).
+  JULIAN_EPOCH_DATETIME = '-4712-01-01T00:00:00+00:00'.freeze
+  private_constant :JULIAN_EPOCH_DATETIME
 
   # === Calendar computation (from core.rb) ===
 
@@ -66,14 +77,8 @@ class Date
   GJD_MONTH_OFFSET = [nil, 428, 459, 122, 153, 183, 214, 244, 275, 306, 336, 367, 397].freeze
   private_constant :GJD_MONTH_OFFSET
 
-  ASCTIME_DAYS  = %w[Sun Mon Tue Wed Thu Fri Sat].freeze
-  ASCTIME_MONS  = [nil, 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].freeze
-  RFC2822_DAYS  = ASCTIME_DAYS
-  private_constant :ASCTIME_DAYS, :ASCTIME_MONS, :RFC2822_DAYS
-
   # Pre-computed " Mon " strings for rfc2822/httpdate: " Jan ", " Feb ", ...
-  RFC_MON_SPACE = ASCTIME_MONS.map { |m| m ? " #{m} ".freeze : nil }.freeze
+  RFC_MON_SPACE = ABBR_MONTHNAMES.map { |m| m ? " #{m} ".freeze : nil }.freeze
   private_constant :RFC_MON_SPACE
 
   ERA_TABLE = [
@@ -103,26 +108,18 @@ class Date
   YMD_FMT = '%Y-%m-%d'
   private_constant :YMD_FMT
 
-  # Locale-independent month/day name tables (same as C ext)
-  STRFTIME_MONTHS_FULL  = MONTHNAMES.freeze
-  STRFTIME_MONTHS_ABBR  = ABBR_MONTHNAMES.freeze
-  STRFTIME_DAYS_FULL    = DAYNAMES.freeze
-  STRFTIME_DAYS_ABBR    = ABBR_DAYNAMES.freeze
-  private_constant :STRFTIME_MONTHS_FULL, :STRFTIME_MONTHS_ABBR,
-                   :STRFTIME_DAYS_FULL,   :STRFTIME_DAYS_ABBR
-
   # Pre-computed "Sun Jan " prefix table for %c / asctime [wday][month]
   ASCTIME_PREFIX = Array.new(7) { |w|
     Array.new(13) { |m|
-      m == 0 ? nil : "#{STRFTIME_DAYS_ABBR[w]} #{STRFTIME_MONTHS_ABBR[m]} ".freeze
+      m == 0 ? nil : "#{ABBR_DAYNAMES[w]} #{ABBR_MONTHNAMES[m]} ".freeze
     }.freeze
   }.freeze
   private_constant :ASCTIME_PREFIX
 
   # Pre-computed "Saturday, " prefix table for %A format [wday]
-  DAY_FULL_COMMA = STRFTIME_DAYS_FULL.map { |d| "#{d}, ".freeze }.freeze
+  DAY_FULL_COMMA = DAYNAMES.map { |d| "#{d}, ".freeze }.freeze
   # Pre-computed "March " prefix table for %B format [month]
-  MONTH_FULL_SPACE = STRFTIME_MONTHS_FULL.map { |m| m ? "#{m} ".freeze : nil }.freeze
+  MONTH_FULL_SPACE = MONTHNAMES.map { |m| m ? "#{m} ".freeze : nil }.freeze
   private_constant :DAY_FULL_COMMA, :MONTH_FULL_SPACE
 
   # Pre-computed 2-digit zero-padded strings for 0..99
@@ -155,9 +152,7 @@ class Date
 
   # Maximum allowed format width to prevent unreasonable memory allocation
   STRFTIME_MAX_WIDTH = 65535
-  # Maximum length for a single formatted field (matches C's STRFTIME_MAX_COPY_LEN)
-  STRFTIME_MAX_COPY_LEN = 1024
-  private_constant :STRFTIME_MAX_WIDTH, :STRFTIME_MAX_COPY_LEN
+  private_constant :STRFTIME_MAX_WIDTH
 
   # === Parse regex patterns (from parse.rb) ===
 
