@@ -308,11 +308,11 @@ class DateTime < Date
   #    DateTime.parse('2001-02-03T04:05:06.123456789+07:00').jisx0301(9)
   #				#=> "H13.02.03T04:05:06.123456789+07:00"
   def jisx0301(n = 0)
-    n = n.to_i
+    n = _num_to_int(n)
     ERA_TABLE.each do |start_jd, era, base_year|
       if @jd >= start_jd
         era_year = year - base_year
-        if n == 0
+        if n <= 0
           return format('%s%02d.%02d.%02dT%02d:%02d:%02d%s',
                         era, era_year, month, day, hour, min, sec, zone)
         else
@@ -336,8 +336,8 @@ class DateTime < Date
   #    DateTime.parse('2001-02-03T04:05:06.123456789+07:00').iso8601(9)
   #				#=> "2001-02-03T04:05:06.123456789+07:00"
   def iso8601(n = 0)
-    n = n.to_i
-    if n == 0
+    n = _num_to_int(n)
+    if n <= 0
       strftime('%Y-%m-%dT%H:%M:%S%:z')
     else
       sf   = sec_fraction
@@ -976,6 +976,16 @@ class DateTime < Date
   # ---------------------------------------------------------------------------
 
   private
+
+  # Coerce n to an Integer the way the C extension's NUM2INT does: accept an
+  # Integer or anything with #to_int (e.g. Float, Rational), and otherwise
+  # raise TypeError rather than falling back to #to_i.
+  def _num_to_int(n)
+    return n if Integer === n
+    return n.to_int if n.respond_to?(:to_int)
+    raise TypeError, n.nil? ? "no implicit conversion from nil to integer" :
+                              "no implicit conversion of #{n.class} into Integer"
+  end
 
   def internal_hour
     @hour
