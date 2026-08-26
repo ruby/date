@@ -66,12 +66,12 @@ class Date
     def strptime(string = '-4712-01-01', format = '%F', start = ITALY)
       str = String === string ? string : string.to_str
       if format == '%F' || format == '%Y-%m-%d'
-        result = internalinternal_strptime_ymd_to_date(str, start)
+        result = internal_strptime_ymd_to_date(str, start)
         return result if result
         raise Error, 'invalid date'
       end
       if format == '%a %b %d %Y'
-        result = internalinternal_strptime_abdy_to_date(str, start)
+        result = internal_strptime_abdy_to_date(str, start)
         return result if result
         raise Error, 'invalid date'
       end
@@ -495,7 +495,7 @@ class Date
     STRPTIME_YMD_GENERAL_EXACT = /\A([+-]?\d+)-(\d{1,2})-(\d{1,2})\z/
     private_constant :STRPTIME_YMD_GENERAL_EXACT
 
-    def internalinternal_strptime_ymd_to_date(str, sg)
+    def internal_strptime_ymd_to_date(str, sg)
       slen = str.bytesize
 
       # Fast path for exactly "YYYY-MM-DD" (10 chars, positive 4-digit year)
@@ -564,7 +564,7 @@ class Date
 
     # Parse "%a %b %d %Y" and directly create Date object.
     # Uses single regex match to avoid StringScanner allocation.
-    def internalinternal_strptime_abdy_to_date(str, sg)
+    def internal_strptime_abdy_to_date(str, sg)
       m = STRPTIME_ABDY_PAT.match(str)
       return nil unless m
       return nil unless m.post_match.empty?

@@ -371,16 +371,16 @@ class DateTime < Date
     if keys
       if keys.size == 1
         case keys[0]
-        when :year         then { year: year }
-        when :month        then { month: month }
-        when :day          then { day: day }
-        when :wday         then { wday: wday }
-        when :yday         then { yday: yday }
-        when :hour         then { hour: hour }
-        when :min          then { min: min }
-        when :sec          then { sec: sec }
-        when :sec_fraction then { sec_fraction: sec_fraction }
-        when :zone         then { zone: zone }
+        when :year         then { year: }
+        when :month        then { month: }
+        when :day          then { day: }
+        when :wday         then { wday: }
+        when :yday         then { yday: }
+        when :hour         then { hour: }
+        when :min          then { min: }
+        when :sec          then { sec: }
+        when :sec_fraction then { sec_fraction: }
+        when :zone         then { zone: }
         else {}
         end
       else
@@ -402,8 +402,8 @@ class DateTime < Date
         h
       end
     else
-      { year: year, month: month, day: day, wday: wday, yday: yday,
-        hour: hour, min: min, sec: sec, sec_fraction: sec_fraction, zone: zone }
+      { year:, month:, day:, wday:, yday:,
+        hour:, min:, sec:, sec_fraction:, zone: }
     end
   end
 

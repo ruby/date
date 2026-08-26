@@ -57,9 +57,7 @@ class Date
     # See argument {start}[rdoc-ref:language/calendars.rdoc@Argument+start].
     #
     # Related: Date.jd.
-    def new(year = -4712, month = 1, day = 1, start = ITALY)
-      civil(year, month, day, start)
-    end
+    alias_method :new, :civil
 
     # call-seq:
     #   Date.valid_civil?(year, month, mday, start = Date::ITALY) -> true or false
@@ -105,8 +103,7 @@ class Date
     #
     # Related: Date.new.
     def jd(jd = 0, start = ITALY)
-      check_numeric(jd, "jd")
-      jd = Integer(jd)
+      jd = convert_numeric_to_int(jd, "jd")
       obj = allocate
       obj.__send__(:init_from_jd, jd, start)
       obj
@@ -196,10 +193,8 @@ class Date
           return new_from_jd(jd, start)
         end
       end
-      check_numeric(yday, "yday")
-      check_numeric(year, "year")
-      year = Integer(year)
-      yday = Integer(yday)
+      yday = convert_numeric_to_int(yday, "yday")
+      year = convert_numeric_to_int(year, "year")
       jd = internal_valid_ordinal?(year, yday, start)
       raise Date::Error, "invalid date" unless jd
       new_from_jd(jd, start)
@@ -273,12 +268,9 @@ class Date
         jd = commercial_to_jd(cwyear, cweek, cwday, start)
         return new_from_jd(jd, start) if jd < commercial_to_jd(cwyear + 1, 1, 1, start)
       end
-      check_numeric(cwday, "cwday")
-      check_numeric(cweek, "cweek")
-      check_numeric(cwyear, "year")
-      cwyear = Integer(cwyear)
-      cweek = Integer(cweek)
-      cwday = Integer(cwday)
+      cwday  = convert_numeric_to_int(cwday, "cwday")
+      cweek  = convert_numeric_to_int(cweek, "cweek")
+      cwyear = convert_numeric_to_int(cwyear, "year")
       jd = internal_valid_commercial?(cwyear, cweek, cwday, start)
       raise Date::Error, "invalid date" unless jd
       new_from_jd(jd, start)
@@ -328,22 +320,20 @@ class Date
 
     private
 
-    # Reject non-Numeric arguments up front. A bare Integer() conversion would
-    # coerce numeric-looking strings such as "0xa", so require a Numeric here
-    # and raise TypeError for anything else.
-    def check_numeric(obj, field)
+    # Convert a Numeric argument to an Integer. Rejects non-Numeric input up
+    # front: a bare Integer() conversion would coerce numeric-looking strings
+    # such as "0xa", so require a Numeric here and raise TypeError otherwise.
+    def convert_numeric_to_int(obj, field)
       unless Numeric === obj
         raise TypeError, "invalid #{field} (not numeric)"
       end
+      Integer(obj)
     end
 
     def civil_fallback(year, month, day, start)
-      check_numeric(day, "day")
-      check_numeric(month, "month")
-      check_numeric(year, "year")
-      year  = Integer(year)
-      month = Integer(month)
-      day   = Integer(day)
+      day   = convert_numeric_to_int(day, "day")
+      month = convert_numeric_to_int(month, "month")
+      year  = convert_numeric_to_int(year, "year")
       jd = internal_valid_civil?(year, month, day, start)
       raise Date::Error, "invalid date" unless jd
       new_from_jd(jd, start)
@@ -1522,11 +1512,11 @@ class Date
     if keys
       if keys.size == 1
         case keys[0]
-        when :year  then { year: year }
-        when :month then { month: month }
-        when :day   then { day: day }
-        when :wday  then { wday: wday }
-        when :yday  then { yday: yday }
+        when :year  then { year: }
+        when :month then { month: }
+        when :day   then { day: }
+        when :wday  then { wday: }
+        when :yday  then { yday: }
         else {}
         end
       else
@@ -1543,7 +1533,7 @@ class Date
         h
       end
     else
-      { year: year, month: month, day: day, wday: wday, yday: yday }
+      { year:, month:, day:, wday:, yday: }
     end
   end
 
@@ -1576,20 +1566,6 @@ class Date
     end
   end
   alias_method :ctime, :asctime
-
-  # call-seq:
-  #   iso8601    ->  string
-  #
-  # Equivalent to #strftime with argument <tt>'%Y-%m-%d'</tt>
-  # (or its {shorthand form}[rdoc-ref:language/strftime_formatting.rdoc@Shorthand+Conversion+Specifiers]
-  # <tt>'%F'</tt>);
-  #
-  #   Date.new(2001, 2, 3).iso8601 # => "2001-02-03"
-  #
-  def iso8601
-    to_s
-  end
-  alias_method :xmlschema, :iso8601
 
   # call-seq:
   #   rfc3339 -> string
@@ -1695,6 +1671,18 @@ class Date
       format('-%04d', -y) << suffix
     end
   end
+
+  # call-seq:
+  #   iso8601    ->  string
+  #
+  # Equivalent to #strftime with argument <tt>'%Y-%m-%d'</tt>
+  # (or its {shorthand form}[rdoc-ref:language/strftime_formatting.rdoc@Shorthand+Conversion+Specifiers]
+  # <tt>'%F'</tt>);
+  #
+  #   Date.new(2001, 2, 3).iso8601 # => "2001-02-03"
+  #
+  alias_method :iso8601, :to_s
+  alias_method :xmlschema, :iso8601
 
   # call-seq:
   #   inspect -> string
