@@ -27,7 +27,7 @@ class DateTime < Date
 
     # Validate argument types in the C extension's order (offset, then second
     # down to year) so the same field is reported first when several are bad.
-    of_sec = _str_offset_to_sec(offset)
+    of_sec = self.class.__send__(:_parse_of, offset)
     raise TypeError, "invalid second (not numeric)" unless second.is_a?(Numeric)
     raise TypeError, "invalid minute (not numeric)" unless minute.is_a?(Numeric)
     raise TypeError, "invalid hour (not numeric)" unless hour.is_a?(Numeric)
@@ -271,7 +271,7 @@ class DateTime < Date
   #				#=> #<DateTime: 2001-02-03T04:05:06-02:00 ...>
   #    d.new_offset('+09:00')	#=> #<DateTime: 2001-02-03T15:05:06+09:00 ...>
   def new_offset(of = 0)
-    of_sec = _str_offset_to_sec(of)
+    of_sec = self.class.__send__(:_parse_of, of)
     # Keep the same absolute instant, re-expressed in the new offset: shift the
     # locally stored wall-clock fields by the change in offset.
     total = @jd * 86400 + @hour * 3600 + @min * 60 + @sec_i + (of_sec - @of)
@@ -896,12 +896,22 @@ class DateTime < Date
       case offset
       when String
         Date.__send__(:offset_str_to_sec, offset)
-      when Rational
-        (offset * 86400).to_i
+      when Integer
+        # Only whole-day offsets of -1, 0, or 1 are valid; anything else is
+        # ignored (offset 0), matching the C extension.
+        (-1..1).cover?(offset) ? offset * 86400 : 0
+      when Float
+        # Valid only within +/- one day; out of range is ignored and a
+        # fractional second is rounded.
+        sec = offset * 86400
+        (sec < -86400 || sec > 86400) ? 0 : sec.round
       when Numeric
-        (offset * 86400).to_i
+        # Rational (and other numerics via to_r) are honored without a range limit.
+        r = offset.to_r
+        raise TypeError, "#{offset.class} can't be used as offset" unless r.is_a?(Rational)
+        (r * 86400).round
       else
-        0
+        raise TypeError, "expected numeric"
       end
     end
 
@@ -972,29 +982,6 @@ class DateTime < Date
       [s_i, s_r - s_i]
     else
       [Integer(second), 0r]
-    end
-  end
-
-  def _str_offset_to_sec(offset)
-    case offset
-    when String
-      self.class.__send__(:_parse_of, offset)
-    when Integer
-      # Only whole-day offsets of -1, 0, or 1 are valid; anything else is
-      # ignored (offset 0), matching the C extension.
-      (-1..1).cover?(offset) ? offset * 86400 : 0
-    when Float
-      # Valid only within +/- one day; out of range is ignored and a
-      # fractional second is rounded.
-      sec = offset * 86400
-      (sec < -86400 || sec > 86400) ? 0 : sec.round
-    when Numeric
-      # Rational (and other numerics via to_r) are honored without a range limit.
-      r = offset.to_r
-      raise TypeError, "#{offset.class} can't be used as offset" unless r.is_a?(Rational)
-      (r * 86400).round
-    else
-      raise TypeError, "expected numeric"
     end
   end
 
