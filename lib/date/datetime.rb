@@ -6,13 +6,25 @@ class DateTime < Date
   STRFTIME_DATETIME_DEFAULT_FMT = '%FT%T%:z'.encode(Encoding::US_ASCII)
   private_constant :STRFTIME_DATETIME_DEFAULT_FMT
 
+  # Sentinel marking an hour/minute/second argument that was not passed, so a
+  # trailing fraction can be rejected only when a smaller unit was actually given.
+  UNSET = Object.new
+  private_constant :UNSET
+
   # ---------------------------------------------------------------------------
   # Initializer
   # ---------------------------------------------------------------------------
 
   # call-seq:
   #   DateTime.new(year=-4712, month=1, day=1, hour=0, minute=0, second=0, offset=0, start=Date::ITALY) -> datetime
-  def initialize(year = -4712, month = 1, day = 1, hour = 0, minute = 0, second = 0, offset = 0, start = ITALY)
+  def initialize(year = -4712, month = 1, day = 1, hour = UNSET, minute = UNSET, second = UNSET, offset = 0, start = ITALY)
+    hour_given   = !UNSET.equal?(hour)
+    minute_given = !UNSET.equal?(minute)
+    second_given = !UNSET.equal?(second)
+    hour   = 0 if UNSET.equal?(hour)
+    minute = 0 if UNSET.equal?(minute)
+    second = 0 if UNSET.equal?(second)
+
     # Validate argument types in the C extension's order (offset, then second
     # down to year) so the same field is reported first when several are bad.
     of_sec = _str_offset_to_sec(offset)
@@ -25,21 +37,29 @@ class DateTime < Date
     raise TypeError, "invalid year (not numeric)" unless year.is_a?(Numeric)
     year  = Integer(year)
 
-    # Fractional day/hour/minute: propagate fraction to smaller units
+    # A fractional day/hour/minute is only allowed as the last argument given;
+    # if a smaller unit was also supplied, the C extension rejects the fraction.
+    # These checks run before the date-validity check, as in the C extension.
     day_r    = day.to_r
-    day_i    = day_r.floor
-    day_frac = day_r - day_i
-    day      = day_i
+    day_frac = day_r - day_r.floor
+    hour_r0  = hour.to_r
+    hour_f0  = hour_r0 - hour_r0.floor
+    minute_r0 = minute.to_r
+    minute_f0 = minute_r0 - minute_r0.floor
+    raise Date::Error, "invalid fraction" if day_frac  != 0 && (hour_given || minute_given || second_given)
+    raise Date::Error, "invalid fraction" if hour_f0   != 0 && (minute_given || second_given)
+    raise Date::Error, "invalid fraction" if minute_f0 != 0 && second_given
 
+    day = day_r.floor
     jd = self.class.__send__(:internal_valid_civil?, year, month, day, start)
     raise Date::Error, "invalid date" unless jd
 
     # Propagate fractions to smaller units
-    hour_r    = hour.to_r   + day_frac   * 24
+    hour_r    = hour_r0 + day_frac * 24
     hour_i    = hour_r.floor
     hour_frac = hour_r - hour_i
 
-    minute_r    = minute.to_r + hour_frac   * 60
+    minute_r    = minute_r0 + hour_frac * 60
     minute_i    = minute_r.floor
     minute_frac = minute_r - minute_i
 
@@ -536,9 +556,9 @@ class DateTime < Date
   # ---------------------------------------------------------------------------
 
   class << self
-    def new(year = -4712, month = 1, day = 1, hour = 0, minute = 0, second = 0, offset = 0, start = Date::ITALY)
+    def new(*args)
       instance = allocate
-      instance.__send__(:initialize, year, month, day, hour, minute, second, offset, start)
+      instance.__send__(:initialize, *args)
       instance
     end
     alias_method :civil, :new
