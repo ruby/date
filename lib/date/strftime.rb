@@ -151,6 +151,17 @@ class Date
         next
       end
 
+      # A locale modifier (%E / %O) is only valid for certain conversions.
+      # When it is not, the C extension emits the original text verbatim,
+      # including any width, colons, and flags, so restore and emit it here.
+      if locale_mod
+        valid = locale_mod == 69 ? STRFTIME_E_VALID_BYTES : STRFTIME_O_VALID_BYTES  # 69='E'
+        unless valid.include?(spec)
+          result << '%' << fmt[spec_start...sc.charpos]
+          next
+        end
+      end
+
       # Inline fast path: no flags, no width, no prec, no locale mod, no colons
       if flags == 0 && width.nil? && prec.nil? && locale_mod.nil? && colons == 0
         fast = fast_spec(spec)
@@ -160,7 +171,7 @@ class Date
         end
       end
 
-      result << format_spec_b(spec, flags, colons, width, prec, locale_mod)
+      result << format_spec_b(spec, flags, colons, width, prec)
     end
 
     result
@@ -282,16 +293,7 @@ class Date
   end
 
   # Full spec handling with bitmask flags (called when fast_spec returns nil or flags/width/prec present)
-  def format_spec_b(spec, flags, colons, width, prec, locale_mod)
-    # Handle %E/%O locale modifiers
-    if locale_mod
-      valid = locale_mod == 69 ? STRFTIME_E_VALID_BYTES : STRFTIME_O_VALID_BYTES  # 69='E'
-      unless valid.include?(spec)
-        mod_chr = locale_mod == 69 ? 'E' : 'O'
-        return "%#{mod_chr}#{spec&.chr}"
-      end
-    end
-
+  def format_spec_b(spec, flags, colons, width, prec)
     case spec
     when 89, 71  # 'Y', 'G'
       y = spec == 89 ? year : cwyear
