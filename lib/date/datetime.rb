@@ -13,11 +13,17 @@ class DateTime < Date
   # call-seq:
   #   DateTime.new(year=-4712, month=1, day=1, hour=0, minute=0, second=0, offset=0, start=Date::ITALY) -> datetime
   def initialize(year = -4712, month = 1, day = 1, hour = 0, minute = 0, second = 0, offset = 0, start = ITALY)
-    year   = Integer(year)
-    month  = Integer(month)
+    # Validate argument types in the C extension's order (offset, then second
+    # down to year) so the same field is reported first when several are bad.
     of_sec = _str_offset_to_sec(offset)
-
-    raise TypeError, "expected numeric" unless day.is_a?(Numeric)
+    raise TypeError, "invalid second (not numeric)" unless second.is_a?(Numeric)
+    raise TypeError, "invalid minute (not numeric)" unless minute.is_a?(Numeric)
+    raise TypeError, "invalid hour (not numeric)" unless hour.is_a?(Numeric)
+    raise TypeError, "invalid day (not numeric)" unless day.is_a?(Numeric)
+    raise TypeError, "invalid month (not numeric)" unless month.is_a?(Numeric)
+    month = Integer(month)
+    raise TypeError, "invalid year (not numeric)" unless year.is_a?(Numeric)
+    year  = Integer(year)
 
     # Fractional day/hour/minute: propagate fraction to smaller units
     day_r    = day.to_r
@@ -27,10 +33,6 @@ class DateTime < Date
 
     jd = self.class.__send__(:internal_valid_civil?, year, month, day, start)
     raise Date::Error, "invalid date" unless jd
-
-    raise TypeError, "expected numeric" unless hour.is_a?(Numeric)
-    raise TypeError, "expected numeric" unless minute.is_a?(Numeric)
-    raise TypeError, "expected numeric" unless second.is_a?(Numeric)
 
     # Propagate fractions to smaller units
     hour_r    = hour.to_r   + day_frac   * 24
@@ -964,7 +966,7 @@ class DateTime < Date
       raise TypeError, "#{offset.class} can't be used as offset" unless r.is_a?(Rational)
       (r * 86400).to_i
     else
-      0
+      raise TypeError, "expected numeric"
     end
   end
 
