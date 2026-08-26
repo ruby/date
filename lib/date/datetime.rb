@@ -617,35 +617,21 @@ class DateTime < Date
     #    DateTime.jd(2451945)	#=> #<DateTime: 2001-02-04T00:00:00+00:00 ...>
     #    DateTime.jd(Rational('0.5'))
     #				#=> #<DateTime: -4712-01-01T12:00:00+00:00 ...>
-    def jd(jd = 0, hour = 0, minute = 0, second = 0, offset = 0, start = Date::ITALY)
-      raise TypeError, "no implicit conversion of #{jd.class} into Integer" unless jd.is_a?(Numeric)
+    def jd(jd = 0, hour = UNSET, minute = UNSET, second = UNSET, offset = 0, start = Date::ITALY)
+      hour_given   = !UNSET.equal?(hour);   hour   = 0 if UNSET.equal?(hour)
+      minute_given = !UNSET.equal?(minute); minute = 0 if UNSET.equal?(minute)
+      second_given = !UNSET.equal?(second); second = 0 if UNSET.equal?(second)
+
+      # Validate in the C extension's order (offset, second, minute, hour, jd).
+      of_sec = _parse_of(offset)
+      _check_hms_types(hour, minute, second)
+      raise TypeError, "invalid jd (not numeric)" unless jd.is_a?(Numeric)
+
       jd_r = jd.to_r
       jd_i = jd_r.floor
-      h = Integer(hour)
-      m = Integer(minute)
-      of_sec = _parse_of(offset)
-      if jd_i != jd_r
-        # Fractional JD: convert fraction to extra seconds and handle overflow
-        frac_sec = (jd_r - jd_i) * 86400
-        second = second.to_r + frac_sec
-        sec_i, sec_f = _split_sec(second)
-        if sec_i >= 60
-          carry_m, sec_i = sec_i.divmod(60)
-          m += carry_m
-        end
-        if m >= 60
-          carry_h, m = m.divmod(60)
-          h += carry_h
-        end
-        if h >= 24
-          carry_d, h = h.divmod(24)
-          jd_i += carry_d
-        end
-      else
-        # Integer JD: pass raw values to _normalize_hms (non-cascading)
-        sec_i, sec_f = _split_sec(second)
-      end
-      _new_dt_from_jd_time(jd_i, h, m, sec_i, sec_f, of_sec, start)
+      _check_time_fractions(jd_r - jd_i, hour, minute, second,
+                            hour_given, minute_given, second_given)
+      _build_dt_folded(jd_i, jd_r - jd_i, hour, minute, second, of_sec, start)
     end
 
     # call-seq:
@@ -658,12 +644,24 @@ class DateTime < Date
     #				#=> #<DateTime: 2001-02-03T04:05:06+07:00 ...>
     #    DateTime.ordinal(2001,-332,-20,-55,-54,'+7')
     #				#=> #<DateTime: 2001-02-03T04:05:06+07:00 ...>
-    def ordinal(year = -4712, yday = 1, hour = 0, minute = 0, second = 0, offset = 0, start = Date::ITALY)
-      jd_v = internal_valid_ordinal?(Integer(year), Integer(yday), start)
-      raise Date::Error, "invalid date" unless jd_v
+    def ordinal(year = -4712, yday = 1, hour = UNSET, minute = UNSET, second = UNSET, offset = 0, start = Date::ITALY)
+      hour_given   = !UNSET.equal?(hour);   hour   = 0 if UNSET.equal?(hour)
+      minute_given = !UNSET.equal?(minute); minute = 0 if UNSET.equal?(minute)
+      second_given = !UNSET.equal?(second); second = 0 if UNSET.equal?(second)
+
+      # Validate in the C extension's order (offset, second, minute, hour, yday, year).
       of_sec = _parse_of(offset)
-      sec_i, sec_f = _split_sec(second)
-      _new_dt_from_jd_time(jd_v, Integer(hour), Integer(minute), sec_i, sec_f, of_sec, start)
+      _check_hms_types(hour, minute, second)
+      raise TypeError, "invalid yday (not numeric)" unless yday.is_a?(Numeric)
+      raise TypeError, "invalid year (not numeric)" unless year.is_a?(Numeric)
+
+      yday_r = yday.to_r
+      yday_i = yday_r.floor
+      _check_time_fractions(yday_r - yday_i, hour, minute, second,
+                            hour_given, minute_given, second_given)
+      jd_v = internal_valid_ordinal?(Integer(year), yday_i, start)
+      raise Date::Error, "invalid date" unless jd_v
+      _build_dt_folded(jd_v, yday_r - yday_i, hour, minute, second, of_sec, start)
     end
 
     # call-seq:
@@ -675,12 +673,26 @@ class DateTime < Date
     #    DateTime.commercial(2002)	#=> #<DateTime: 2001-12-31T00:00:00+00:00 ...>
     #    DateTime.commercial(2001,5,6,4,5,6,'+7')
     #				#=> #<DateTime: 2001-02-03T04:05:06+07:00 ...>
-    def commercial(cwyear = -4712, cweek = 1, cwday = 1, hour = 0, minute = 0, second = 0, offset = 0, start = Date::ITALY)
-      jd_v = internal_valid_commercial?(Integer(cwyear), Integer(cweek), Integer(cwday), start)
-      raise Date::Error, "invalid date" unless jd_v
+    def commercial(cwyear = -4712, cweek = 1, cwday = 1, hour = UNSET, minute = UNSET, second = UNSET, offset = 0, start = Date::ITALY)
+      hour_given   = !UNSET.equal?(hour);   hour   = 0 if UNSET.equal?(hour)
+      minute_given = !UNSET.equal?(minute); minute = 0 if UNSET.equal?(minute)
+      second_given = !UNSET.equal?(second); second = 0 if UNSET.equal?(second)
+
+      # Validate in the C extension's order (offset, second, minute, hour,
+      # cwday, cweek, cwyear).
       of_sec = _parse_of(offset)
-      sec_i, sec_f = _split_sec(second)
-      _new_dt_from_jd_time(jd_v, Integer(hour), Integer(minute), sec_i, sec_f, of_sec, start)
+      _check_hms_types(hour, minute, second)
+      raise TypeError, "invalid cwday (not numeric)" unless cwday.is_a?(Numeric)
+      raise TypeError, "invalid cweek (not numeric)" unless cweek.is_a?(Numeric)
+      raise TypeError, "invalid year (not numeric)"  unless cwyear.is_a?(Numeric)
+
+      cwday_r = cwday.to_r
+      cwday_i = cwday_r.floor
+      _check_time_fractions(cwday_r - cwday_i, hour, minute, second,
+                            hour_given, minute_given, second_given)
+      jd_v = internal_valid_commercial?(Integer(cwyear), Integer(cweek), cwday_i, start)
+      raise Date::Error, "invalid date" unless jd_v
+      _build_dt_folded(jd_v, cwday_r - cwday_i, hour, minute, second, of_sec, start)
     end
 
     # call-seq:
@@ -721,6 +733,38 @@ class DateTime < Date
         h = 0
       end
       [jd, h, m, s]
+    end
+
+    # Type-check the time-of-day arguments shared by jd/ordinal/commercial, in
+    # the C extension's order (second, then minute, then hour).
+    def _check_hms_types(hour, minute, second)
+      raise TypeError, "invalid second (not numeric)" unless second.is_a?(Numeric)
+      raise TypeError, "invalid minute (not numeric)" unless minute.is_a?(Numeric)
+      raise TypeError, "invalid hour (not numeric)"   unless hour.is_a?(Numeric)
+    end
+
+    # A fractional date field or hour/minute is only allowed as the last value
+    # given; if a smaller unit was also supplied, the C extension rejects it.
+    def _check_time_fractions(date_frac, hour, minute, second,
+                              hour_given, minute_given, second_given)
+      hr = hour.to_r
+      mr = minute.to_r
+      raise Date::Error, "invalid fraction" if date_frac != 0 && (hour_given || minute_given || second_given)
+      raise Date::Error, "invalid fraction" if (hr - hr.floor) != 0 && (minute_given || second_given)
+      raise Date::Error, "invalid fraction" if (mr - mr.floor) != 0 && second_given
+    end
+
+    # Fold the fractional date part and the hour/minute/second into normalized
+    # time fields (a fraction cascades into the next smaller unit) and build.
+    def _build_dt_folded(jd_i, date_frac, hour, minute, second, of_sec, start)
+      hour_r   = hour.to_r + date_frac * 24
+      h_i      = hour_r.floor
+      minute_r = minute.to_r + (hour_r - h_i) * 60
+      m_i      = minute_r.floor
+      second_r = second.to_r + (minute_r - m_i) * 60
+      sec_i    = second_r.floor
+      sec_f    = second_r - sec_i
+      _new_dt_from_jd_time(jd_i, h_i, m_i, sec_i, sec_f, of_sec, start)
     end
 
     # call-seq:
