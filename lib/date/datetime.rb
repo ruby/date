@@ -477,10 +477,13 @@ class DateTime < Date
 
   # :nodoc:
   def marshal_dump
-    # 6-element format: [nth, jd, df, sf, of, sg]
-    df = @hour * 3600 + @min * 60 + @sec_i
-    sf = (@sec_frac * 1_000_000_000).to_r  # nanoseconds as Rational
-    [0, @jd, df, sf, @of, @start]
+    # 6-element format: [nth, jd, df, sf, of, sg]. Like the C extension, jd and
+    # df hold the UTC instant (local time minus the offset), and sf is the
+    # sub-second part scaled to nanoseconds, kept as an Integer when whole.
+    jd_carry, df = (@hour * 3600 + @min * 60 + @sec_i - @of).divmod(86400)
+    sf = @sec_frac * 1_000_000_000
+    sf = sf.numerator if sf.denominator == 1
+    [0, @jd + jd_carry, df, sf, @of, @start]
   end
 
   # :nodoc:
@@ -507,10 +510,12 @@ class DateTime < Date
     when 6
       _nth, jd, df, sf, of, sg = array
       sg = normalize_start(sg)
-      h  = df / 3600
-      df -= h * 3600
-      m  = df / 60
-      s  = df % 60
+      # jd/df hold the UTC instant; shift by the offset to recover local time.
+      jd_carry, local_df = (df + of).divmod(86400)
+      jd += jd_carry
+      h  = local_df / 3600
+      m  = (local_df % 3600) / 60
+      s  = local_df % 60
       sf_r = sf.is_a?(Rational) ? (sf / 1_000_000_000) : Rational(sf.to_i, 1_000_000_000)
       _init_datetime(jd, h, m, s, sf_r, of, sg)
     else
