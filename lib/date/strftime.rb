@@ -133,6 +133,14 @@ class Date
       width = sc.scan(/\d+/)&.to_i
       raise Errno::ERANGE, "strftime" if width && width > STRFTIME_MAX_WIDTH
 
+      # Flags must precede the width. A flag appearing after the width makes
+      # the spec invalid, so emit what was scanned so far verbatim (as the C
+      # extension does) and resume scanning from the stray flag.
+      if sc.check(/[-_0^#]/)
+        result << '%' << fmt[spec_start...sc.charpos]
+        next
+      end
+
       # The C extension's strftime grammar has no precision field, so a '.'
       # here makes the spec invalid. Emit the text up to and including it
       # verbatim (as the C extension does) and resume scanning after it.
