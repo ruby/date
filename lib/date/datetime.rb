@@ -979,12 +979,20 @@ class DateTime < Date
     case offset
     when String
       self.class.__send__(:_parse_of, offset)
-    when Rational
-      (offset * 86400).to_i
+    when Integer
+      # Only whole-day offsets of -1, 0, or 1 are valid; anything else is
+      # ignored (offset 0), matching the C extension.
+      (-1..1).cover?(offset) ? offset * 86400 : 0
+    when Float
+      # Valid only within +/- one day; out of range is ignored and a
+      # fractional second is rounded.
+      sec = offset * 86400
+      (sec < -86400 || sec > 86400) ? 0 : sec.round
     when Numeric
+      # Rational (and other numerics via to_r) are honored without a range limit.
       r = offset.to_r
       raise TypeError, "#{offset.class} can't be used as offset" unless r.is_a?(Rational)
-      (r * 86400).to_i
+      (r * 86400).round
     else
       raise TypeError, "expected numeric"
     end
