@@ -566,20 +566,11 @@ class Date
 
     # Parse offset string like "+09:00", "-07:30", "Z" to seconds.
     def offset_str_to_sec(str)
-      case str
-      when 'Z', 'z', 'UTC', 'GMT'
-        0
-      when /\A([+-])(\d{1,2}):?(\d{2})(?::(\d{2}))?\z/
-        sign = $1 == '+' ? 1 : -1
-        h, m, s = $2.to_i, $3.to_i, ($4 || '0').to_i
-        sign * (h * 3600 + m * 60 + s)
-      when /\A([+-])(\d{2})(\d{2})\z/
-        sign = $1 == '+' ? 1 : -1
-        h, m = $2.to_i, $3.to_i
-        sign * (h * 3600 + m * 60)
-      else
-        0
-      end
+      # Use the full date_zone_to_diff port so named zones (JST, PST, ...),
+      # hour-only forms (+09, +9) and the out-of-range check are handled; an
+      # unrecognized or out-of-range zone yields 0, which the C extension
+      # treats as no offset.
+      sp_zone_to_diff(str) || 0
     end
 
   end
