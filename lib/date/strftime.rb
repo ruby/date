@@ -101,7 +101,7 @@ class Date
       end
 
       # Quick dispatch: if next char is a simple letter spec (A-Z excluding E/O,
-      # or a-z), skip flag/width/prec parsing entirely.
+      # or a-z), skip flag/width parsing entirely.
       if (quick = sc.scan(/[A-DFG-NP-Za-z]/))
         fast = fast_spec(quick.ord)
         if fast
@@ -131,8 +131,13 @@ class Date
       width = sc.scan(/\d+/)&.to_i
       raise Errno::ERANGE, "strftime" if width && width > STRFTIME_MAX_WIDTH
 
-      # Parse precision (after '.')
-      prec = sc.skip(/\./) ? (sc.scan(/\d+/)&.to_i || 0) : nil
+      # The C extension's strftime grammar has no precision field, so a '.'
+      # here makes the spec invalid. Emit the text up to and including it
+      # verbatim (as the C extension does) and resume scanning after it.
+      if sc.skip(/\./)
+        result << '%' << fmt[spec_start...sc.charpos]
+        next
+      end
 
       # Colons follow the flags and width, and are only meaningful for %z.
       colons = (c = sc.scan(/:+/)) ? c.length : 0
@@ -162,8 +167,8 @@ class Date
         end
       end
 
-      # Inline fast path: no flags, no width, no prec, no locale mod, no colons
-      if flags == 0 && width.nil? && prec.nil? && locale_mod.nil? && colons == 0
+      # Inline fast path: no flags, no width, no locale mod, no colons
+      if flags == 0 && width.nil? && locale_mod.nil? && colons == 0
         fast = fast_spec(spec)
         if fast
           result << fast
@@ -171,7 +176,7 @@ class Date
         end
       end
 
-      result << format_spec_b(spec, flags, colons, width, prec)
+      result << format_spec_b(spec, flags, colons, width)
     end
 
     result
@@ -191,7 +196,7 @@ class Date
     end
   end
 
-  # Inline fast path for common specs with default formatting (no flags/width/prec)
+  # Inline fast path for common specs with default formatting (no flags/width)
   def fast_spec(spec)
     case spec
     when 89  # 'Y'
@@ -292,12 +297,12 @@ class Date
     end
   end
 
-  # Full spec handling with bitmask flags (called when fast_spec returns nil or flags/width/prec present)
-  def format_spec_b(spec, flags, colons, width, prec)
+  # Full spec handling with bitmask flags (called when fast_spec returns nil or flags/width present)
+  def format_spec_b(spec, flags, colons, width)
     case spec
     when 89, 71  # 'Y', 'G'
       y = spec == 89 ? year : cwyear
-      fmt_year(y, width, prec, flags)
+      fmt_year(y, width, flags)
     when 67  # 'C'
       cent = year.div(100)
       pad_num(cent, width || 2, flags)
@@ -334,7 +339,7 @@ class Date
       ms = (sec_frac * (10**w)).floor
       ms.to_s.rjust(w, '0')
     when 78  # 'N'
-      w = width || prec || 9
+      w = width || 9
       ns = (sec_frac * (10**w)).floor
       ns.to_s.rjust(w, '0')
     when 115 # 's'
@@ -361,7 +366,7 @@ class Date
     when 90  # 'Z'
       fmt_str(zone_str, width, flags)
     when 122 # 'z'
-      fmt_z(colons, width, prec, flags)
+      fmt_z(colons, width, flags)
     when 117 # 'u'
       pad_num(cwday, width || 1, flags)
     when 119 # 'w'
@@ -389,12 +394,9 @@ class Date
     end
   end
 
-  # Format year (handles negative years, precision, and all flag variants)
-  def fmt_year(y, width, prec, flags)
-    if prec
-      s = y.abs.to_s.rjust(prec, '0')
-      s = (y < 0 ? '-' : '') + s
-    elsif flags & FL_LEFT != 0
+  # Format year (handles negative years and all flag variants)
+  def fmt_year(y, width, flags)
+    if flags & FL_LEFT != 0
       s = (y < 0 ? '-' : '') + y.abs.to_s
     else
       default_w = y < 0 ? 5 : 4
@@ -458,7 +460,7 @@ class Date
   end
 
   # Format %z with colons variant and GNU extension flag support
-  def fmt_z(colons, width, _prec, flags)
+  def fmt_z(colons, width, flags)
     of   = of_seconds
     sign = of < 0 ? '-' : '+'
     abs  = of.abs
