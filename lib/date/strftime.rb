@@ -120,8 +120,10 @@ class Date
       while (f = sc.scan(/[-_0^#]/))
         case f
         when '-' then flags |= FL_LEFT
-        when '_' then flags |= FL_SPACE
-        when '0' then flags |= FL_ZERO
+        # '_' (space) and '0' (zero) padding are mutually exclusive; whichever
+        # is specified last wins, matching the C extension.
+        when '_' then flags = (flags | FL_SPACE) & ~FL_ZERO
+        when '0' then flags = (flags | FL_ZERO) & ~FL_SPACE
         when '^' then flags |= FL_UPPER
         when '#' then flags |= FL_CHCASE
         end
