@@ -111,9 +111,12 @@ class Date
         sc.unscan
       end
 
+      # Record the position just after '%' so the original text can be
+      # restored verbatim if the spec turns out to be invalid.
+      spec_start = sc.charpos
+
       # Parse flags (bitmask)
       flags = 0
-      colons = 0
       while (f = sc.scan(/[-_0^#]/))
         case f
         when '-' then flags |= FL_LEFT
@@ -123,9 +126,6 @@ class Date
         when '#' then flags |= FL_CHCASE
         end
       end
-      if (c = sc.scan(/:+/))
-        colons = c.length
-      end
 
       # Parse width
       width = sc.scan(/\d+/)&.to_i
@@ -134,15 +134,22 @@ class Date
       # Parse precision (after '.')
       prec = sc.skip(/\./) ? (sc.scan(/\d+/)&.to_i || 0) : nil
 
-      # Post-width colons (for %8:z, %11::z etc.)
-      if (c = sc.scan(/:+/))
-        colons += c.length
-      end
+      # Colons follow the flags and width, and are only meaningful for %z.
+      colons = (c = sc.scan(/:+/)) ? c.length : 0
 
       # Locale modifier (%E or %O)
       locale_mod = sc.scan(/[EO]/)&.ord
 
       spec = sc.getch&.ord
+
+      # Colons are valid only for %z and at most three of them. Any other use
+      # (a colon before the width, a colon with a non-z spec, or four or more
+      # colons) is invalid, and the C extension emits the original text
+      # literally rather than formatting it.
+      if colons > 0 && (spec != 122 || colons > 3)
+        result << '%' << fmt[spec_start...sc.charpos]
+        next
+      end
 
       # Inline fast path: no flags, no width, no prec, no locale mod, no colons
       if flags == 0 && width.nil? && prec.nil? && locale_mod.nil? && colons == 0
