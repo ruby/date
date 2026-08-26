@@ -520,15 +520,16 @@ class Date
       end
     end
 
-    if width
-      if flags & FL_LEFT != 0
-        s
-      elsif flags & FL_SPACE != 0
-        s.rjust(width, ' ')
-      else
-        digits = s[1..]
-        sign + digits.rjust(width - 1, '0')
-      end
+    if flags & FL_SPACE != 0
+      # '_' pads with spaces. Without '-' it pads to at least the width the
+      # zero-padded form would occupy (the hour is the only field that loses
+      # its leading zero); '-' suppresses that automatic minimum width.
+      min_w = (flags & FL_LEFT != 0) ? 0 : s.length + (hh < 10 ? 1 : 0)
+      s.rjust([width || 0, min_w].max, ' ')
+    elsif width
+      # The default and '-' both zero-pad to the given width; for %z, '-' does
+      # not left-justify.
+      sign + s[1..].rjust(width - 1, '0')
     else
       s
     end
