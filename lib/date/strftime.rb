@@ -434,7 +434,9 @@ class Date
     if flags & FL_LEFT != 0
       sign + abs
     elsif flags & FL_SPACE != 0 || (flags & FL_ZERO == 0 && zero == false)
-      sign + abs.rjust(w - sign.length, ' ')
+      # Space padding right-justifies the sign together with the digits, so a
+      # negative value pads as "  -1", not "-  1" (matching the C extension).
+      (sign + abs).rjust(w, ' ')
     else
       pad = (flags & FL_ZERO != 0 || zero) ? '0' : ' '
       sign + abs.rjust([w - sign.length, abs.length].max, pad)
