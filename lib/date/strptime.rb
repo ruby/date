@@ -18,8 +18,8 @@ class Date
     #
     # Related: Date.strptime (returns a \Date object).
     def _strptime(string, format = '%F')
-      string = String === string ? string : string.to_str
-      format = String === format ? format : format.to_str
+      string = to_string_value(string)
+      format = to_string_value(format)
       if format == '%F' || format == '%Y-%m-%d'
         return internal_strptime_ymd(string)
       end
@@ -64,7 +64,7 @@ class Date
     #
     # Related: Date._strptime (returns a hash).
     def strptime(string = '-4712-01-01', format = '%F', start = ITALY)
-      str = String === string ? string : string.to_str
+      str = to_string_value(string)
       if format == '%F' || format == '%Y-%m-%d'
         result = internal_strptime_ymd_to_date(str, start)
         return result if result
@@ -89,6 +89,22 @@ class Date
 
 
     private
+
+    # Coerce an argument to a String the way the C extension's StringValue
+    # does: accept a String or anything with #to_str, otherwise raise a
+    # TypeError with the "no implicit conversion" message (using the special
+    # names nil/true/false, as the C error does).
+    def to_string_value(obj)
+      str = String.try_convert(obj)
+      return str if str
+      name = case obj
+             when nil   then 'nil'
+             when true  then 'true'
+             when false then 'false'
+             else obj.class.name
+             end
+      raise TypeError, "no implicit conversion of #{name} into String"
+    end
 
     # Pre-compiled regex constants for sp_run
     SP_WHITESPACE     = /[ \t\n\r\v\f]+/
