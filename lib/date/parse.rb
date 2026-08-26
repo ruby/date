@@ -38,7 +38,7 @@ class Date
         string = to_string_value(string)
       end
       return {} if string.empty?
-      raise ArgumentError, "string length (#{string.length}) exceeds the limit #{limit}" if limit && string.length > limit
+      parse_check_limit(string, limit)
 
       # Fast path: YYYY-MM-DDTHH:MM:SS+HH:MM (25 bytes) or YYYY-MM-DDTHH:MM:SSZ (20 bytes)
       len = string.length
@@ -104,7 +104,7 @@ class Date
         string = to_string_value(string)
       end
       return {} if string.empty?
-      raise ArgumentError, "string length (#{string.length}) exceeds the limit #{limit}" if limit && string.length > limit
+      parse_check_limit(string, limit)
 
       # Fast path for Type 1: "Dow, DD Mon YYYY HH:MM:SS GMT" (29 bytes)
       len = string.length
@@ -185,7 +185,7 @@ class Date
         string = to_string_value(string)
       end
       return {} if string.empty?
-      raise ArgumentError, "string length (#{string.length}) exceeds the limit #{limit}" if limit && string.length > limit
+      parse_check_limit(string, limit)
 
       # Fast path: "Dow, DD Mon YYYY HH:MM:SS +ZZZZ" (31 bytes, 2-digit day)
       len = string.length
@@ -265,7 +265,7 @@ class Date
         string = to_string_value(string)
       end
       return {} if string.empty?
-      raise ArgumentError, "string length (#{string.length}) exceeds the limit #{limit}" if limit && string.length > limit
+      parse_check_limit(string, limit)
 
       # Fast path: YYYY-MM-DD (exactly 10 bytes, all ASCII)
       if string.length == 10
@@ -326,7 +326,7 @@ class Date
         string = to_string_value(string)
       end
       return {} if string.empty?
-      raise ArgumentError, "string length (#{string.length}) exceeds the limit #{limit}" if limit && string.length > limit
+      parse_check_limit(string, limit)
 
       # Fast path: YYYY-MM-DD (exactly 10 bytes, all ASCII)
       if string.length == 10
@@ -381,7 +381,7 @@ class Date
         string = to_string_value(string)
       end
       return {} if string.empty?
-      raise ArgumentError, "string length (#{string.length}) exceeds the limit #{limit}" if limit && string.length > limit
+      parse_check_limit(string, limit)
 
       # Fast path: X##.##.## (9 bytes: era + YY.MM.DD)
       if string.length == 9
@@ -450,7 +450,7 @@ class Date
     def _parse(string, comp = true, limit: 128)
       string = to_string_value(string) unless String === string
       return {} if string.empty?
-      raise ArgumentError, "string length (#{string.length}) exceeds limit (#{limit})" if limit && string.length > limit
+      parse_check_limit(string, limit)
 
       # === Fast paths for common date formats ===
       len = string.length
@@ -803,7 +803,7 @@ class Date
     # ------------------------------------------------------------------
 
     def parse_check_limit(str, limit)
-      raise ArgumentError, "string length (#{str.length}) exceeds limit (#{limit})" if limit && str.length > limit
+      raise ArgumentError, "string length (#{str.length}) exceeds the limit #{limit}" if limit && str.length > limit
     end
 
     def parse_zone_and_offset(zone_str, hash)
