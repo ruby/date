@@ -305,7 +305,7 @@ class Date
       fmt_year(y, width, flags)
     when 67  # 'C'
       cent = year.div(100)
-      pad_num(cent, width || 2, flags)
+      pad_num(cent, width || 2, flags, zero: true)
     when 121 # 'y'
       pad_num(year % 100, width || 2, flags, zero: true)
     when 103 # 'g'
@@ -345,12 +345,12 @@ class Date
     when 115 # 's'
       unix = (@jd - 2440588) * 86400 - of_seconds +
              internal_hour * 3600 + internal_min * 60 + internal_sec
-      pad_num(unix, width || 1, flags)
+      pad_num(unix, width || 1, flags, zero: true)
     when 81  # 'Q'
       ms = ((@jd - 2440588) * 86400 - of_seconds +
             internal_hour * 3600 + internal_min * 60 + internal_sec) * 1000 +
            (sec_frac * 1000).floor
-      pad_num(ms, width || 1, flags)
+      pad_num(ms, width || 1, flags, zero: true)
     when 65  # 'A'
       fmt_str(DAYNAMES[wday], width, flags)
     when 97  # 'a'
@@ -368,9 +368,9 @@ class Date
     when 122 # 'z'
       fmt_z(colons, width, flags)
     when 117 # 'u'
-      pad_num(cwday, width || 1, flags)
+      pad_num(cwday, width || 1, flags, zero: true)
     when 119 # 'w'
-      pad_num(wday, width || 1, flags)
+      pad_num(wday, width || 1, flags, zero: true)
     when 85  # 'U'
       pad_num(week_number(0), width || 2, flags, zero: true)
     when 87  # 'W'
