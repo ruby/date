@@ -521,6 +521,7 @@ class DateTime < Date
     else
       raise TypeError, "invalid marshal data"
     end
+    self
   end
 
   # ---------------------------------------------------------------------------

@@ -1465,6 +1465,7 @@ class Date
     else
       raise TypeError, "invalid marshal data"
     end
+    self
   end
 
   #  call-seq:
