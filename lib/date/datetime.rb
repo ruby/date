@@ -965,16 +965,6 @@ class DateTime < Date
       end
     end
 
-    def _split_sec(second)
-      if second.is_a?(Rational) || second.is_a?(Float)
-        s_r = second.to_r
-        s_i = s_r.floor
-        [s_i, s_r - s_i]
-      else
-        [Integer(second), 0r]
-      end
-    end
-
   end
 
   # ---------------------------------------------------------------------------
