@@ -58,12 +58,6 @@ class Date
   MONTH_LOWER_STRS = MONTHNAMES.map { |n| n&.downcase&.freeze }.freeze
   private_constant :DAY_LOWER_STRS, :MONTH_LOWER_STRS
 
-
-  # Still referenced as a default argument by DateTime._strptime / .strptime,
-  # whose constant-resolution and defaults are addressed separately (A16).
-  JULIAN_EPOCH_DATETIME = '-4712-01-01T00:00:00+00:00'.freeze
-  private_constant :JULIAN_EPOCH_DATETIME
-
   # === Calendar computation (from core.rb) ===
 
   # Days in month for Gregorian calendar.

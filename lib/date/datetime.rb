@@ -578,7 +578,7 @@ class DateTime < Date
     # not support specification of flags and width unlike strftime.
     #
     # See also strptime(3) and #strftime.
-    def _strptime(string = JULIAN_EPOCH_DATETIME, format = '%FT%T%z')
+    def _strptime(string, format = '%FT%T%z')
       Date._strptime(string, format)
     end
 
@@ -607,7 +607,7 @@ class DateTime < Date
     #				#=> #<DateTime: 2001-02-03T16:00:00+07:00 ...>
     #
     # See also strptime(3) and #strftime.
-    def strptime(string = JULIAN_EPOCH_DATETIME, format = '%FT%T%z', start = Date::ITALY)
+    def strptime(string = '-4712-01-01T00:00:00+00:00', format = '%FT%T%z', start = Date::ITALY)
       hash = _strptime(string, format)
       _dt_new_by_frags(hash, start)
     end
