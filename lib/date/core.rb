@@ -321,13 +321,18 @@ class Date
     private
 
     # Convert a Numeric argument to an Integer. Rejects non-Numeric input up
-    # front: a bare Integer() conversion would coerce numeric-looking strings
-    # such as "0xa", so require a Numeric here and raise TypeError otherwise.
+    # front (a bare Integer() conversion would coerce numeric-looking strings
+    # such as "0xa", so require a Numeric here and raise TypeError otherwise),
+    # and rejects a fractional value: Date designates a whole day, so a
+    # fractional day is not supported (unlike DateTime).
     def convert_numeric_to_int(obj, field)
+      return obj if Integer === obj
       unless Numeric === obj
         raise TypeError, "invalid #{field} (not numeric)"
       end
-      Integer(obj)
+      r = obj.to_r
+      raise Date::Error, "invalid fraction" unless r.denominator == 1
+      r.numerator
     end
 
     def civil_fallback(year, month, day, start)
@@ -557,10 +562,10 @@ class Date
     # Internal object factory
     # ---------------------------------------------------------------------------
 
-    # Build a Date from a Julian Day Number (integer part), start, and optional day fraction.
-    def new_from_jd(jd, sg, df = nil)
+    # Build a Date from a Julian Day Number and start.
+    def new_from_jd(jd, sg)
       obj = allocate
-      obj.__send__(:init_from_jd, jd, sg, df)
+      obj.__send__(:init_from_jd, jd, sg)
       obj
     end
 
@@ -663,8 +668,8 @@ class Date
   #    DateTime.new(2001,2,3,4,5,6,'+7').ajd	#=> (11769328217/4800)
   #    DateTime.new(2001,2,2,14,5,6,'-7').ajd	#=> (11769328217/4800)
   def ajd
-    r = Rational(@jd * 2 - 1, 2)
-    r + day_fraction
+    # A Date is at midnight (no day fraction), so ajd is jd - 1/2.
+    Rational(@jd * 2 - 1, 2)
   end
 
   # call-seq:
@@ -769,16 +774,18 @@ class Date
   end
 
   # call-seq:
-  #   day_fraction -> rational
+  #   day_fraction -> 0
   #
-  # Returns the fractional part of the day in range (Rational(0, 1)...Rational(1, 1)):
+  # Returns +0+; a \Date has no fractional day component.
+  # (DateTime#day_fraction returns the fractional part of the day.)
   #
-  #   DateTime.new(2001,2,3,12).day_fraction # => (1/2)
+  #   Date.new(2001, 2, 3).day_fraction         # => 0
+  #   DateTime.new(2001, 2, 3, 12).day_fraction # => (1/2)
   #
   def day_fraction
-    # C returns Integer 0 (INT2FIX(0)) for a simple Date without a fraction,
-    # and a Rational only when a day fraction is present.
-    @day_fraction || 0
+    # Date designates a whole day and has no fractional component, so this is
+    # always 0 (an Integer). DateTime overrides this with its own value.
+    0
   end
 
   # call-seq:
@@ -1059,14 +1066,13 @@ class Date
   def +(other)
     case other
     when Integer
-      self.class.__send__(:new_from_jd, @jd + other, @start, @day_fraction)
+      self.class.__send__(:new_from_jd, @jd + other, @start)
     when Numeric
       r = other.to_r
       raise TypeError, "#{other.class} can't be coerced into Integer" unless r.is_a?(Rational)
-      total = r + day_fraction
-      days = total.floor
-      frac = total - days
-      self.class.__send__(:new_from_jd, @jd + days, @start, frac == 0 ? nil : frac)
+      # Date designates a whole day, so a fractional number of days is invalid.
+      raise Date::Error, "invalid fraction" unless r.denominator == 1
+      self.class.__send__(:new_from_jd, @jd + r.numerator, @start)
     else
       raise TypeError, "expected numeric"
     end
@@ -1094,14 +1100,13 @@ class Date
     when Date
       Rational(@jd - other.jd) + day_fraction - other.day_fraction
     when Integer
-      self.class.__send__(:new_from_jd, @jd - other, @start, @day_fraction)
+      self.class.__send__(:new_from_jd, @jd - other, @start)
     when Numeric
       r = other.to_r
       raise TypeError, "#{other.class} can't be coerced into Integer" unless r.is_a?(Rational)
-      total = day_fraction - r
-      days = total.floor
-      frac = total - days
-      self.class.__send__(:new_from_jd, @jd + days, @start, frac == 0 ? nil : frac)
+      # Date designates a whole day, so a fractional number of days is invalid.
+      raise Date::Error, "invalid fraction" unless r.denominator == 1
+      self.class.__send__(:new_from_jd, @jd - r.numerator, @start)
     else
       raise TypeError, "expected numeric"
     end
@@ -1416,7 +1421,6 @@ class Date
     # as freshly constructed instances (see init_from_jd).
     @jd            = other.instance_variable_get(:@jd)
     @start         = other.instance_variable_get(:@start)
-    @day_fraction  = other.instance_variable_get(:@day_fraction)
     @year          = other.instance_variable_get(:@year)
     @month         = other.instance_variable_get(:@month)
     @day           = other.instance_variable_get(:@day)
@@ -1424,16 +1428,9 @@ class Date
 
   # :nodoc:
   def marshal_dump
-    # 6-element format: [nth, jd, df, sf, of, sg]
-    # df = seconds into day (Integer), sf = sub-second fraction (Rational)
-    if @day_fraction
-      total_sec = @day_fraction * 86400
-      df_int = total_sec.floor
-      sf = total_sec - df_int
-      [0, @jd, df_int, sf, 0, @start]
-    else
-      [0, @jd, 0, 0, 0, @start]
-    end
+    # 6-element format: [nth, jd, df, sf, of, sg]. A Date has no day fraction,
+    # so df and sf are always 0.
+    [0, @jd, 0, 0, 0, @start]
   end
 
   # :nodoc:
@@ -1445,23 +1442,14 @@ class Date
       sg = sg_or_bool == true ? GREGORIAN : (sg_or_bool == false ? JULIAN : sg_or_bool.to_f)
       init_from_jd(jd_like.to_i, sg)
     when 3
-      # Format 1.8: [ajd, of, sg]
+      # Format 1.8: [ajd, of, sg]. A Date has no fraction, so take the whole day.
       ajd, _of, sg = array
       sg = normalize_start(sg)
-      raw_jd = ajd + 0.5r
-      jd = raw_jd.floor
-      df = raw_jd - jd
-      init_from_jd(jd, sg, df == 0 ? nil : df)
+      init_from_jd((ajd + 0.5r).floor, sg)
     when 6
-      # Current format: [nth, jd, df, sf, of, sg]
-      _nth, jd, df, sf, _of, sg = array
-      sg = normalize_start(sg)
-      if df != 0 || sf != 0
-        day_frac = (Rational(df) + sf) / 86400
-        init_from_jd(jd, sg, day_frac)
-      else
-        init_from_jd(jd, sg)
-      end
+      # Current format: [nth, jd, df, sf, of, sg]; a Date ignores df/sf.
+      _nth, jd, _df, _sf, _of, sg = array
+      init_from_jd(jd, normalize_start(sg))
     else
       raise TypeError, "invalid marshal data"
     end
@@ -1722,13 +1710,12 @@ class Date
     sg.is_a?(Infinity) ? sg.to_f : sg
   end
 
-  def init_from_jd(jd, sg, df = nil)
+  def init_from_jd(jd, sg)
     @jd            = jd
     # Store the cutover as a Float. Keeps #start, #hash and marshal output
     # consistent regardless of whether the caller passed an Integer (e.g. ITALY)
     # or a Float sentinel.
     @start         = sg.to_f
-    @day_fraction  = df
     # Initialize the lazily-computed civil ivars up front so every Date
     # instance shares a single object shape regardless of which accessors
     # are called. (yday/cweek/cwyear are not cached; see #yday/#cweek.)

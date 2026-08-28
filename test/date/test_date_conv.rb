@@ -111,10 +111,12 @@ class TestDateConv < Test::Unit::TestCase
   end
 
   def test_to_date__from_date
-    d = Date.new(2004, 9, 19) + 1.to_r/2
+    d = Date.new(2004, 9, 19)
     d2 = d.to_date
-    assert_equal([2004, 9, 19, 1.to_r/2],
+    assert_equal([2004, 9, 19, 0],
 		 [d2.year, d2.mon, d2.mday, d2.day_fraction])
+    # Date no longer supports a fractional day.
+    assert_raise(Date::Error) { Date.new(2004, 9, 19) + 1.to_r/2 }
   end
 
   def test_to_date__from_datetime
@@ -159,7 +161,7 @@ class TestDateConv < Test::Unit::TestCase
   end
 
   def test_to_datetime__from_date
-    d = Date.new(2004, 9, 19) + 1.to_r/2
+    d = Date.new(2004, 9, 19)
     d2 = d.to_datetime
     assert_equal([2004, 9, 19, 0, 0, 0, 0, 0],
 		 [d2.year, d2.mon, d2.mday, d2.hour, d2.min, d2.sec,

@@ -40,12 +40,15 @@ class TestDateMarshal < Test::Unit::TestCase
     expected_error = defined?(FrozenError) ? FrozenError : RuntimeError
     assert_raise(expected_error){d.marshal_load(a)}
 
-    d = Date.new + 1/2r + 2304/65437r/86400
+    d = Date.new(2001, 2, 3)
     m = Marshal.dump(d)
     d2 = Marshal.load(m)
     assert_equal(d, d2)
     assert_equal(d.start, d2.start)
     assert_instance_of(String, d2.to_s)
+
+    # Date no longer supports a fractional day.
+    assert_raise(Date::Error) { Date.new + 1/2r }
   end
 
   def test_memsize

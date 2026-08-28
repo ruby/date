@@ -23,8 +23,8 @@ class TestSH < Test::Unit::TestCase
 
     d = Date.new(2001, 2, 3)
     assert_equal([2001, 2, 3], [d.year, d.mon, d.mday])
-    d = Date.new(2001, 2, Rational('3.5'))
-    assert_equal([2001, 2, 3], [d.year, d.mon, d.mday])
+    # Date no longer supports a fractional day (only DateTime does).
+    assert_raise(Date::Error) { Date.new(2001, 2, Rational('3.5')) }
     d = Date.new(2001,2, 3, Date::JULIAN)
     assert_equal([2001, 2, 3], [d.year, d.mon, d.mday])
     d = Date.new(2001,2, 3, Date::GREGORIAN)
@@ -187,33 +187,53 @@ class TestSH < Test::Unit::TestCase
   end
 
   def test_fractional
+    # Date designates a whole day: a whole-valued jd (Integer, or Float/Rational
+    # with no fraction) is accepted; a fractional jd raises Date::Error.
     d = Date.jd(2451944.0)
     assert_equal(2451944, d.jd)
     d = Date.jd(Rational(2451944))
     assert_equal(2451944, d.jd)
-    d = Date.jd(2451944.5)
-    assert_equal(2451944, d.jd)
-    d = Date.jd(Rational('2451944.5'))
-    assert_equal(2451944, d.jd)
+    assert_raise(Date::Error) { Date.jd(2451944.5) }
+    assert_raise(Date::Error) { Date.jd(Rational('2451944.5')) }
 
     d = Date.civil(2001, 2, 3.0)
     assert_equal([2001, 2, 3], [d.year, d.mon, d.mday])
     d = Date.civil(2001, 2, Rational(3))
     assert_equal([2001, 2, 3], [d.year, d.mon, d.mday])
-    d = Date.civil(2001, 2, 3.5)
-    assert_equal([2001, 2, 3], [d.year, d.mon, d.mday])
-    d = Date.civil(2001, 2, Rational('3.5'))
-    assert_equal([2001, 2, 3], [d.year, d.mon, d.mday])
+    assert_raise(Date::Error) { Date.civil(2001, 2, 3.5) }
+    assert_raise(Date::Error) { Date.civil(2001, 2, Rational('3.5')) }
 
     d = Date.ordinal(2001, 2.0)
     assert_equal([2001, 2], [d.year, d.yday])
     d = Date.ordinal(2001, Rational(2))
     assert_equal([2001, 2], [d.year, d.yday])
+    assert_raise(Date::Error) { Date.ordinal(2001, 2.5) }
+    assert_raise(Date::Error) { Date.ordinal(2001, Rational('2.5')) }
 
     d = Date.commercial(2001, 2, 3.0)
     assert_equal([2001, 2, 3], [d.cwyear, d.cweek, d.cwday])
     d = Date.commercial(2001, 2, Rational(3))
     assert_equal([2001, 2, 3], [d.cwyear, d.cweek, d.cwday])
+    assert_raise(Date::Error) { Date.commercial(2001, 2, 3.5) }
+    assert_raise(Date::Error) { Date.commercial(2001, 2, Rational('3.5')) }
+
+    # Date#day_fraction is always Integer 0, and #ajd is jd - 1/2.
+    d = Date.new(2001, 2, 3)
+    assert_equal(0, d.day_fraction)
+    assert_instance_of(Integer, d.day_fraction)
+    assert_equal(4903887r/2, d.ajd)
+
+    # Date arithmetic accepts a whole number of days and rejects a fraction.
+    assert_equal(Date.new(2001, 2, 5), d + 2)
+    assert_equal(Date.new(2001, 2, 5), d + 2.0)
+    assert_equal(Date.new(2001, 2, 5), d + Rational(2))
+    assert_equal(Date.new(2001, 2, 1), d - 2)
+    assert_equal(33r, Date.new(2001, 2, 3) - Date.new(2001, 1, 1))
+    assert_raise(Date::Error) { d + Rational(1, 2) }
+    assert_raise(Date::Error) { d + Rational(3, 2) }
+    assert_raise(Date::Error) { d + 0.5 }
+    assert_raise(Date::Error) { d - Rational(1, 2) }
+    assert_raise(Date::Error) { d - 0.5 }
 
     d = DateTime.jd(2451944.0)
     assert_equal(2451944, d.jd)
