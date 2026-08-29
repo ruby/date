@@ -130,6 +130,13 @@ class Date
                      :SP_DIGITS_1, :SP_DIGITS_2, :SP_DIGITS_3, :SP_DIGITS_4,
                      :SP_DIGITS_9, :SP_DIGITS_MAX
 
+    # Scan an optional leading sign, returning -1 for '-' and 1 otherwise
+    # (a '+' or no sign at all). When no sign is present the scanner is left
+    # untouched, since SP_SIGN does not match and #scan does not advance.
+    def sp_scan_sign(sc)
+      sc.scan(SP_SIGN) == '-' ? -1 : 1
+    end
+
     # Core scanner: walks format string and string simultaneously using StringScanner.
     # Returns new string position on success; throws :sp_fail on failure.
     def sp_run(str, si, fmt, hash)
@@ -211,11 +218,7 @@ class Date
 
         when 67 # 'C'
           num_next = !fmt_sc.eos? && fmt_sc.check(SP_NUM_CHECK)
-          if str_sc.scan(SP_SIGN)
-            sign = str_sc.matched == '-' ? -1 : 1
-          else
-            sign = 1
-          end
+          sign = sp_scan_sign(str_sc)
           s = str_sc.scan(num_next ? SP_DIGITS_2 : SP_DIGITS_MAX)
           throw(:sp_fail) unless s
           hash[:_cent] = sign * s.to_i
@@ -237,11 +240,7 @@ class Date
           str_sc.pos = sp_run(str, str_sc.pos, '%Y-%m-%d', hash)
 
         when 71 # 'G'
-          if str_sc.scan(SP_SIGN)
-            sign = str_sc.matched == '-' ? -1 : 1
-          else
-            sign = 1
-          end
+          sign = sp_scan_sign(str_sc)
           num_next = !fmt_sc.eos? && fmt_sc.check(SP_NUM_CHECK)
           s = str_sc.scan(num_next ? SP_DIGITS_4 : SP_DIGITS_MAX)
           throw(:sp_fail) unless s
@@ -277,11 +276,7 @@ class Date
           hash[:yday] = n
 
         when 76 # 'L'
-          if str_sc.scan(SP_SIGN)
-            sign = str_sc.matched == '-' ? -1 : 1
-          else
-            sign = 1
-          end
+          sign = sp_scan_sign(str_sc)
           osi = str_sc.pos
           num_next = !fmt_sc.eos? && fmt_sc.check(SP_NUM_CHECK)
           s = str_sc.scan(num_next ? SP_DIGITS_3 : SP_DIGITS_MAX)
@@ -305,11 +300,7 @@ class Date
           hash[:mon] = n
 
         when 78 # 'N'
-          if str_sc.scan(SP_SIGN)
-            sign = str_sc.matched == '-' ? -1 : 1
-          else
-            sign = 1
-          end
+          sign = sp_scan_sign(str_sc)
           osi = str_sc.pos
           num_next = !fmt_sc.eos? && fmt_sc.check(SP_NUM_CHECK)
           s = str_sc.scan(num_next ? SP_DIGITS_9 : SP_DIGITS_MAX)
@@ -419,11 +410,7 @@ class Date
           str_sc.pos = sp_run(str, str_sc.pos, '%m/%d/%y', hash)
 
         when 89 # 'Y'
-          if str_sc.scan(SP_SIGN)
-            sign = str_sc.matched == '-' ? -1 : 1
-          else
-            sign = 1
-          end
+          sign = sp_scan_sign(str_sc)
           num_next = !fmt_sc.eos? && fmt_sc.check(SP_NUM_CHECK)
           s = str_sc.scan(num_next ? SP_DIGITS_4 : SP_DIGITS_MAX)
           throw(:sp_fail) unless s
