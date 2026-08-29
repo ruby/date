@@ -1010,7 +1010,7 @@ class DateTime < Date
   def _init_datetime(jd, h, m, s, sf, of, sg)
     @jd            = jd
     # Store the cutover as a Float so #start/#hash/marshal stay consistent
-    # (see init_from_jd).
+    # (see Date#initialize).
     @start         = sg.to_f
     @day_fraction  = nil
     @hour          = h

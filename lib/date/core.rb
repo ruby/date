@@ -25,10 +25,12 @@ class Date
         a = yy / 100
         gjd = gjd_base - 1524 + 2 - a + a / 4
         if gjd >= start
-          return new_from_jd(gjd, start)
+          # month/day are in the 1..12 / 1..28 fast-path range, so year, month
+          # and day are already the final civil fields; cache them directly.
+          return new_from_jd(gjd, start, year, month, day)
         else
           jjd = gjd_base - 1524
-          return new_from_jd(jjd, start) if jjd < start
+          return new_from_jd(jjd, start, year, month, day) if jjd < start
           # gjd < start <= jjd: date falls in the reform gap; fall through to
           # civil_fallback, which raises "invalid date".
         end
@@ -105,7 +107,7 @@ class Date
     def jd(jd = 0, start = ITALY)
       jd = convert_numeric_to_int(jd, "jd")
       obj = allocate
-      obj.__send__(:init_from_jd, jd, start)
+      obj.__send__(:initialize, jd, start)
       obj
     end
 
@@ -562,10 +564,12 @@ class Date
     # Internal object factory
     # ---------------------------------------------------------------------------
 
-    # Build a Date from a Julian Day Number and start.
-    def new_from_jd(jd, sg)
+    # Build a Date from a Julian Day Number and start. When the civil fields
+    # are already known (e.g. the Date.new fast path), pass them so the new
+    # instance can cache them instead of recomputing from the Julian Day.
+    def new_from_jd(jd, sg, year = nil, month = nil, day = nil)
       obj = allocate
-      obj.__send__(:init_from_jd, jd, sg)
+      obj.__send__(:initialize, jd, sg, year, month, day)
       obj
     end
 
@@ -847,7 +851,7 @@ class Date
     obj = self.class.allocate
     obj.instance_variable_set(:@jd, @jd)
     # Store the cutover as a Float so #start/#hash/marshal stay consistent
-    # (see init_from_jd).
+    # (see #initialize).
     obj.instance_variable_set(:@start, start.to_f)
     obj
   end
@@ -1418,7 +1422,10 @@ class Date
   # :nodoc:
   def initialize_copy(other)
     # Assign every ivar in the canonical order so copies share the same shape
-    # as freshly constructed instances (see init_from_jd).
+    # as freshly constructed instances (see #initialize). This stays an explicit
+    # copy rather than delegating to #initialize: DateTime overrides #initialize
+    # with an incompatible (year, month, day, ...) signature, so a shared
+    # initialize_copy must not dispatch through it.
     @jd            = other.instance_variable_get(:@jd)
     @start         = other.instance_variable_get(:@start)
     @year          = other.instance_variable_get(:@year)
@@ -1440,16 +1447,16 @@ class Date
       # Format 1.4/1.6: [jd_like, sg_or_bool]
       jd_like, sg_or_bool = array
       sg = sg_or_bool == true ? GREGORIAN : (sg_or_bool == false ? JULIAN : sg_or_bool.to_f)
-      init_from_jd(jd_like.to_i, sg)
+      initialize(jd_like.to_i, sg)
     when 3
       # Format 1.8: [ajd, of, sg]. A Date has no fraction, so take the whole day.
       ajd, _of, sg = array
       sg = normalize_start(sg)
-      init_from_jd((ajd + 0.5r).floor, sg)
+      initialize((ajd + 0.5r).floor, sg)
     when 6
       # Current format: [nth, jd, df, sf, of, sg]; a Date ignores df/sf.
       _nth, jd, _df, _sf, _of, sg = array
-      init_from_jd(jd, normalize_start(sg))
+      initialize(jd, normalize_start(sg))
     else
       raise TypeError, "invalid marshal data"
     end
@@ -1710,18 +1717,21 @@ class Date
     sg.is_a?(Infinity) ? sg.to_f : sg
   end
 
-  def init_from_jd(jd, sg)
+  def initialize(jd, sg, year = nil, month = nil, day = nil)
     @jd            = jd
     # Store the cutover as a Float. Keeps #start, #hash and marshal output
     # consistent regardless of whether the caller passed an Integer (e.g. ITALY)
     # or a Float sentinel.
     @start         = sg.to_f
-    # Initialize the lazily-computed civil ivars up front so every Date
-    # instance shares a single object shape regardless of which accessors
-    # are called. (yday/cweek/cwyear are not cached; see #yday/#cweek.)
-    @year          = nil
-    @month         = nil
-    @day           = nil
+    # Cache the civil fields when the caller already knows them (Date.new via
+    # the fast path passes them), so #year/#month/#day need not recompute them.
+    # When unknown they stay nil and are computed lazily by #internal_civil.
+    # Every instance assigns all three here, so the object shape is stable
+    # regardless of which path constructed it. (yday/cweek/cwyear are not
+    # cached; see #yday/#cweek.)
+    @year          = year
+    @month         = month
+    @day           = day
   end
 
   def internal_civil
