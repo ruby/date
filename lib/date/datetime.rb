@@ -1030,8 +1030,8 @@ class DateTime < Date
     @day_fraction  = nil
     @hour          = h
     @min           = m
-    @sec         = s
-    @sec_fraction      = sf.is_a?(Rational) ? sf : Rational(sf)
+    @sec           = s
+    @sec_fraction  = sf.is_a?(Rational) ? sf : Rational(sf)
     @of            = of.to_i
     # Initialize lazily-computed (inherited from Date) civil ivars up front so
     # every DateTime instance shares a single object shape.
