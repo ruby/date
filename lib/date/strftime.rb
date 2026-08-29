@@ -371,11 +371,8 @@ class Date
       pad_num(cweek, width || 2, flags, zero: true)
     when 37  # '%'
       fmt_str('%', width, flags)
-    when 43  # '+'
-      s = internal_strftime('%a %b %e %H:%M:%S %Z %Y')
-      fmt_str(s, width, flags)
     else
-      # Try composite
+      # Try composite (includes '+', see STRFTIME_COMPOSITE_BYTE)
       expansion = STRFTIME_COMPOSITE_BYTE[spec]
       if expansion
         s = internal_strftime(expansion)

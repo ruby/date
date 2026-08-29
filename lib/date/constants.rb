@@ -122,6 +122,7 @@ class Date
 
   # Map composite spec bytes to their expansion strings
   STRFTIME_COMPOSITE_BYTE = {
+    43  => '%a %b %e %H:%M:%S %Z %Y',  # '+'
     99  => '%a %b %e %H:%M:%S %Y',  # 'c'
     68  => '%m/%d/%y',               # 'D'
     70  => '%Y-%m-%d',               # 'F'
