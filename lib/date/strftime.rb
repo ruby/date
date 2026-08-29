@@ -423,20 +423,19 @@ class Date
   end
 
   def fmt_str(s, width, flags)
-    s = s.dup
     if flags & FL_CHCASE != 0
       s = (s == s.upcase) ? s.downcase : s.upcase
     elsif flags & FL_UPPER != 0
       s = s.upcase
     end
-    if flags & FL_LEFT != 0
-      s
-    elsif width
+    # Padding applies only when not left-justified and a width is given; the
+    # case conversions above already return fresh strings, so no defensive dup
+    # is needed for the paths that return s unchanged.
+    if flags & FL_LEFT == 0 && width
       pad = flags & FL_ZERO != 0 ? '0' : ' '
-      s.rjust(width, pad)
-    else
-      s
+      s = s.rjust(width, pad)
     end
+    s
   end
 
   # Week number (0=first partial week)
@@ -461,45 +460,31 @@ class Date
 
     no_lead = flags & (FL_LEFT | FL_SPACE) != 0
 
-    if no_lead
-      case colons
-      when 0
-        s = format('%s%d%02d', sign, hh, mm)
-      when 1
-        s = format('%s%d:%02d', sign, hh, mm)
-      when 2
-        s = format('%s%d:%02d:%02d', sign, hh, mm, ss)
-      when 3
-        if ss != 0
-          s = format('%s%d:%02d:%02d', sign, hh, mm, ss)
-        elsif mm != 0
-          s = format('%s%d:%02d', sign, hh, mm)
+    # The colons variants differ between the leading-zero and no-leading-zero
+    # forms only in how the hour is padded ('%02d' vs '%d'); the minutes and
+    # seconds are always two digits, so decide the hour rendering once here.
+    hh_s = (no_lead || hh >= 10) ? hh.to_s : "0#{hh}"
+    mm_s = mm < 10 ? "0#{mm}" : mm.to_s
+    ss_s = ss < 10 ? "0#{ss}" : ss.to_s
+
+    s = case colons
+        when 1
+          "#{sign}#{hh_s}:#{mm_s}"
+        when 2
+          "#{sign}#{hh_s}:#{mm_s}:#{ss_s}"
+        when 3
+          if ss != 0
+            "#{sign}#{hh_s}:#{mm_s}:#{ss_s}"
+          elsif mm != 0
+            "#{sign}#{hh_s}:#{mm_s}"
+          else
+            "#{sign}#{hh_s}"
+          end
+        when 0
+          "#{sign}#{hh_s}#{mm_s}"
         else
-          s = format('%s%d', sign, hh)
+          "#{sign}#{hh_s}:#{mm_s}"
         end
-      else
-        s = format('%s%d:%02d', sign, hh, mm)
-      end
-    else
-      case colons
-      when 0
-        s = format('%s%02d%02d', sign, hh, mm)
-      when 1
-        s = format('%s%02d:%02d', sign, hh, mm)
-      when 2
-        s = format('%s%02d:%02d:%02d', sign, hh, mm, ss)
-      when 3
-        if ss != 0
-          s = format('%s%02d:%02d:%02d', sign, hh, mm, ss)
-        elsif mm != 0
-          s = format('%s%02d:%02d', sign, hh, mm)
-        else
-          s = format('%s%02d', sign, hh)
-        end
-      else
-        s = format('%s%02d:%02d', sign, hh, mm)
-      end
-    end
 
     if flags & FL_SPACE != 0
       # '_' pads with spaces. Without '-' it pads to at least the width the
