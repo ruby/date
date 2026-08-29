@@ -81,9 +81,7 @@ class DateTime < Date
   # Returns the hour in range (0..23):
   #
   #   DateTime.new(2001, 2, 3, 4, 5, 6).hour # => 4
-  def hour
-    @hour
-  end
+  attr_reader :hour
 
   # call-seq:
   #   min -> integer
@@ -91,9 +89,7 @@ class DateTime < Date
   # Returns the minute in range (0..59):
   #
   #   DateTime.new(2001, 2, 3, 4, 5, 6).min # => 5
-  def min
-    @min
-  end
+  attr_reader :min
   alias minute min
 
   # call-seq:
@@ -102,9 +98,7 @@ class DateTime < Date
   # Returns the second in range (0..59):
   #
   #   DateTime.new(2001, 2, 3, 4, 5, 6).sec # => 6
-  def sec
-    @sec_i
-  end
+  attr_reader :sec
   alias second sec
 
   # call-seq:
@@ -114,9 +108,7 @@ class DateTime < Date
   # (Rational(0, 1)...Rational(1, 1)):
   #
   #   DateTime.new(2001, 2, 3, 4, 5, 6.5).sec_fraction # => (1/2)
-  def sec_fraction
-    @sec_frac
-  end
+  attr_reader :sec_fraction
   alias second_fraction sec_fraction
 
   # call-seq:
@@ -146,8 +138,8 @@ class DateTime < Date
   #
   #   DateTime.new(2001,2,3,12).day_fraction # => (1/2)
   def day_fraction
-    Rational(@hour * 3600 + @min * 60 + @sec_i, 86400) +
-      Rational(@sec_frac.numerator, @sec_frac.denominator * 86400)
+    Rational(@hour * 3600 + @min * 60 + @sec, 86400) +
+      Rational(@sec_fraction.numerator, @sec_fraction.denominator * 86400)
   end
 
   # call-seq:
@@ -160,8 +152,8 @@ class DateTime < Date
   #    DateTime.new(2001,2,2,14,5,6,'-7').ajd	#=> (11769328217/4800)
   def ajd
     jd_r = Rational(@jd)
-    time_r = Rational(@hour * 3600 + @min * 60 + @sec_i, 86400) +
-             Rational(@sec_frac.numerator, @sec_frac.denominator * 86400)
+    time_r = Rational(@hour * 3600 + @min * 60 + @sec, 86400) +
+             Rational(@sec_fraction.numerator, @sec_fraction.denominator * 86400)
     of_r = Rational(@of, 86400)
     jd_r + time_r - of_r - 0.5r
   end
@@ -187,17 +179,17 @@ class DateTime < Date
   def +(other)
     case other
     when Integer
-      self.class.__send__(:_new_dt_from_jd_time,@jd + other, @hour, @min, @sec_i, @sec_frac, @of, @start)
+      self.class.__send__(:_new_dt_from_jd_time,@jd + other, @hour, @min, @sec, @sec_fraction, @of, @start)
     when Rational, Float
       # other is days (may be fractional) - add as seconds
       extra_sec = other.to_r * 86400
-      total_r   = Rational(@jd) * 86400 + @hour * 3600 + @min * 60 + @sec_i + @sec_frac + extra_sec
+      total_r   = Rational(@jd) * 86400 + @hour * 3600 + @min * 60 + @sec + @sec_fraction + extra_sec
       _from_total_sec_r(total_r)
     when Numeric
       r = other.to_r
       raise TypeError, "#{other.class} can't be coerced into Integer" unless r.is_a?(Rational)
       extra_sec = r * 86400
-      total_r   = Rational(@jd) * 86400 + @hour * 3600 + @min * 60 + @sec_i + @sec_frac + extra_sec
+      total_r   = Rational(@jd) * 86400 + @hour * 3600 + @min * 60 + @sec + @sec_fraction + extra_sec
       _from_total_sec_r(total_r)
     else
       raise TypeError, "expected numeric"
@@ -226,7 +218,7 @@ class DateTime < Date
     when Date
       ajd - other.ajd
     when Integer
-      self.class.__send__(:_new_dt_from_jd_time,@jd - other, @hour, @min, @sec_i, @sec_frac, @of, @start)
+      self.class.__send__(:_new_dt_from_jd_time,@jd - other, @hour, @min, @sec, @sec_fraction, @of, @start)
     when Rational, Float
       self + (-other)
     when Numeric
@@ -244,7 +236,7 @@ class DateTime < Date
   # Returns a new DateTime object representing the time +n+ months later;
   # the time of day and offset are preserved. (Date#<< delegates to this.)
   def >>(n)
-    self.class.__send__(:_new_dt_from_jd_time, month_shifted_jd(n), @hour, @min, @sec_i, @sec_frac, @of, @start)
+    self.class.__send__(:_new_dt_from_jd_time, month_shifted_jd(n), @hour, @min, @sec, @sec_fraction, @of, @start)
   end
 
   # call-seq:
@@ -259,7 +251,7 @@ class DateTime < Date
   #
   # See argument {start}[rdoc-ref:language/calendars.rdoc@Argument+start].
   def new_start(start = Date::ITALY)
-    self.class.__send__(:_new_dt_from_jd_time, @jd, @hour, @min, @sec_i, @sec_frac, @of, start)
+    self.class.__send__(:_new_dt_from_jd_time, @jd, @hour, @min, @sec, @sec_fraction, @of, start)
   end
 
   # call-seq:
@@ -274,11 +266,11 @@ class DateTime < Date
     of_sec = self.class.__send__(:_parse_of, of)
     # Keep the same absolute instant, re-expressed in the new offset: shift the
     # locally stored wall-clock fields by the change in offset.
-    total = @jd * 86400 + @hour * 3600 + @min * 60 + @sec_i + (of_sec - @of)
+    total = @jd * 86400 + @hour * 3600 + @min * 60 + @sec + (of_sec - @of)
     jd2, rem = total.divmod(86400)
     h, rem = rem.divmod(3600)
     m, s = rem.divmod(60)
-    self.class.__send__(:_new_dt_from_jd_time, jd2, h, m, s, @sec_frac, of_sec, @start)
+    self.class.__send__(:_new_dt_from_jd_time, jd2, h, m, s, @sec_fraction, of_sec, @start)
   end
 
   # ---------------------------------------------------------------------------
@@ -455,19 +447,19 @@ class DateTime < Date
   # The Julian Day number and seconds are given in UTC; the offset and start
   # (cutover) follow.
   def inspect
-    utc_total = @jd * 86400 + @hour * 3600 + @min * 60 + @sec_i - @of
+    utc_total = @jd * 86400 + @hour * 3600 + @min * 60 + @sec - @of
     utc_jd, utc_sec = utc_total.divmod(86400)
-    nano = @sec_frac * 1_000_000_000
+    nano = @sec_fraction * 1_000_000_000
     nano_s = nano.denominator == 1 ? nano.numerator.to_s : "(#{nano.numerator}/#{nano.denominator})"
     of_s = @of < 0 ? "-#{-@of}" : "+#{@of}"
     "#<DateTime: #{to_s} ((#{utc_jd}j,#{utc_sec}s,#{nano_s}n),#{of_s}s,#{inspect_sg}j)>"
   end
 
   def hash
-    if @hour == 0 && @min == 0 && @sec_i == 0
+    if @hour == 0 && @min == 0 && @sec == 0
       [@jd, @start].hash
     else
-      [@jd, @hour, @min, @sec_i, @start].hash
+      [@jd, @hour, @min, @sec, @start].hash
     end
   end
 
@@ -480,8 +472,8 @@ class DateTime < Date
     # 6-element format: [nth, jd, df, sf, of, sg]. Like the C extension, jd and
     # df hold the UTC instant (local time minus the offset), and sf is the
     # sub-second part scaled to nanoseconds, kept as an Integer when whole.
-    jd_carry, df = (@hour * 3600 + @min * 60 + @sec_i - @of).divmod(86400)
-    sf = @sec_frac * 1_000_000_000
+    jd_carry, df = (@hour * 3600 + @min * 60 + @sec - @of).divmod(86400)
+    sf = @sec_fraction * 1_000_000_000
     sf = sf.numerator if sf.denominator == 1
     [0, @jd + jd_carry, df, sf, @of, @start]
   end
@@ -551,9 +543,9 @@ class DateTime < Date
   def to_time
     y, m, d = self.class.__send__(:jd_to_gregorian, @jd)
     if @of == 0
-      Time.utc(y, m, d, @hour, @min, @sec_i + @sec_frac)
+      Time.utc(y, m, d, @hour, @min, @sec + @sec_fraction)
     else
-      Time.new(y, m, d, @hour, @min, @sec_i + @sec_frac, @of)
+      Time.new(y, m, d, @hour, @min, @sec + @sec_fraction, @of)
     end
   end
 
@@ -992,11 +984,11 @@ class DateTime < Date
   end
 
   def internal_sec
-    @sec_i
+    @sec
   end
 
   def sec_frac
-    @sec_frac
+    @sec_fraction
   end
 
   def of_seconds
@@ -1010,7 +1002,7 @@ class DateTime < Date
   # Overrides of the Date strftime time-part helpers (see Date#strftime_hms):
   # a DateTime renders its actual time instead of the Date literals.
   def strftime_hms
-    "#{PAD2[@hour]}:#{PAD2[@min]}:#{PAD2[@sec_i]}"
+    "#{PAD2[@hour]}:#{PAD2[@min]}:#{PAD2[@sec]}"
   end
 
   def strftime_hm
@@ -1020,7 +1012,7 @@ class DateTime < Date
   def strftime_r12
     h = @hour % 12
     h = 12 if h == 0
-    "#{PAD2[h]}:#{PAD2[@min]}:#{PAD2[@sec_i]} #{@hour < 12 ? 'AM' : 'PM'}"
+    "#{PAD2[h]}:#{PAD2[@min]}:#{PAD2[@sec]} #{@hour < 12 ? 'AM' : 'PM'}"
   end
 
   def strftime_zoff
@@ -1038,8 +1030,8 @@ class DateTime < Date
     @day_fraction  = nil
     @hour          = h
     @min           = m
-    @sec_i         = s
-    @sec_frac      = sf.is_a?(Rational) ? sf : Rational(sf)
+    @sec         = s
+    @sec_fraction      = sf.is_a?(Rational) ? sf : Rational(sf)
     @of            = of.to_i
     # Initialize lazily-computed (inherited from Date) civil ivars up front so
     # every DateTime instance shares a single object shape.
