@@ -3,15 +3,6 @@
 require_relative "zonetab"
 
 class Date
-  # Character class flags used by _parse
-  HAVE_ALPHA = 1
-  HAVE_DIGIT = 2
-  HAVE_DASH  = 4
-  HAVE_DOT   = 8
-  HAVE_SLASH = 16
-  HAVE_COLON = 32
-  private_constant :HAVE_ALPHA, :HAVE_DIGIT, :HAVE_DASH, :HAVE_DOT, :HAVE_SLASH, :HAVE_COLON
-
   class << self
 
     # ------------------------------------------------------------------
@@ -501,95 +492,97 @@ class Date
       str = string.dup
       str.gsub!(/[^-+',.\/:\@\[\][:alnum:]]+/, ' ')
 
-      # check_class (byte-level for speed)
-      cc = 0
+      # check_class (byte-level for speed): record which character classes the
+      # string contains, so each parser below runs only when the classes it
+      # needs are present.
+      have_alpha = have_digit = have_dash = have_dot = have_slash = have_colon = false
       str.each_byte do |b|
         if b >= 65 && b <= 90 || b >= 97 && b <= 122 || b > 127
-          cc |= HAVE_ALPHA
+          have_alpha = true
         elsif b >= 48 && b <= 57
-          cc |= HAVE_DIGIT
+          have_digit = true
         elsif b == 45
-          cc |= HAVE_DASH
+          have_dash = true
         elsif b == 46
-          cc |= HAVE_DOT
+          have_dot = true
         elsif b == 47
-          cc |= HAVE_SLASH
+          have_slash = true
         elsif b == 58
-          cc |= HAVE_COLON
+          have_colon = true
         end
       end
 
       h = {}
 
       # parse_day (always runs)
-      if (cc & HAVE_ALPHA) != 0
+      if have_alpha
         parse_day(str, h)
       end
 
       # parse_time (needs colon or alpha for h/am/pm patterns)
-      if (cc & HAVE_DIGIT) != 0 && (cc & (HAVE_COLON | HAVE_ALPHA)) != 0
+      if have_digit && (have_colon || have_alpha)
         parse_time(str, h)
       end
 
       # Date parsers: first match wins (goto ok)
       matched = false
 
-      if !matched && (cc & (HAVE_ALPHA | HAVE_DIGIT)) == (HAVE_ALPHA | HAVE_DIGIT)
+      if !matched && have_alpha && have_digit
         matched = parse_eu(str, h)
       end
 
-      if !matched && (cc & (HAVE_ALPHA | HAVE_DIGIT)) == (HAVE_ALPHA | HAVE_DIGIT)
+      if !matched && have_alpha && have_digit
         matched = parse_us(str, h)
       end
 
-      if !matched && (cc & (HAVE_DIGIT | HAVE_DASH)) == (HAVE_DIGIT | HAVE_DASH)
+      if !matched && have_digit && have_dash
         matched = parse_iso(str, h)
       end
 
-      if !matched && (cc & (HAVE_DIGIT | HAVE_DOT)) == (HAVE_DIGIT | HAVE_DOT)
+      if !matched && have_digit && have_dot
         matched = parse_jis(str, h)
       end
 
-      if !matched && (cc & (HAVE_ALPHA | HAVE_DIGIT | HAVE_DASH)) == (HAVE_ALPHA | HAVE_DIGIT | HAVE_DASH)
+      if !matched && have_alpha && have_digit && have_dash
         matched = parse_vms(str, h)
       end
 
-      if !matched && (cc & (HAVE_DIGIT | HAVE_SLASH)) == (HAVE_DIGIT | HAVE_SLASH)
+      if !matched && have_digit && have_slash
         matched = parse_sla(str, h)
       end
 
-      if !matched && (cc & (HAVE_DIGIT | HAVE_DOT)) == (HAVE_DIGIT | HAVE_DOT)
+      if !matched && have_digit && have_dot
         matched = parse_dot(str, h)
       end
 
-      if !matched && (cc & HAVE_DIGIT) != 0
+      if !matched && have_digit
         matched = parse_iso2(str, h)
       end
 
-      if !matched && (cc & HAVE_DIGIT) != 0
+      if !matched && have_digit
         matched = parse_year(str, h)
       end
 
-      if !matched && (cc & HAVE_ALPHA) != 0
+      if !matched && have_alpha
         matched = parse_mon(str, h)
       end
 
-      if !matched && (cc & HAVE_DIGIT) != 0
+      if !matched && have_digit
         matched = parse_mday(str, h)
       end
 
-      if !matched && (cc & HAVE_DIGIT) != 0
+      if !matched && have_digit
         parse_ddd(str, h)
       end
 
       # Post-processing (always runs after ok label)
       # parse_bc
-      if (cc & HAVE_ALPHA) != 0
+      if have_alpha
         parse_bc_post(str, h)
       end
 
       # parse_frag
-      if (cc & HAVE_DIGIT) != 0
+      if have_digit
         parse_frag(str, h)
       end
 
