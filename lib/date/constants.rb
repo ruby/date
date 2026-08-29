@@ -162,10 +162,11 @@ class Date
   private_constant :HTTPDATE_TYPE1_RE, :HTTPDATE_TYPE2_RE, :HTTPDATE_TYPE3_RE,
                    :FAST_HTTPDATE_TYPE1_RE
 
-  # Wday lookup from abbreviated day name (3-char lowercase key)
-  HTTPDATE_WDAY = {'sun'=>0,'mon'=>1,'tue'=>2,'wed'=>3,'thu'=>4,'fri'=>5,'sat'=>6}.freeze
-  HTTPDATE_FULL_WDAY = {'sunday'=>0,'monday'=>1,'tuesday'=>2,'wednesday'=>3,'thursday'=>4,'friday'=>5,'saturday'=>6}.freeze
-  private_constant :HTTPDATE_WDAY, :HTTPDATE_FULL_WDAY
+  # Wday lookup from full day name (lowercase key). The abbreviated-name
+  # lookup reuses ABBR_DAY_NUM, which is the identical table; both maps are
+  # derived from the canonical name lists so they cannot drift out of sync.
+  HTTPDATE_FULL_WDAY = DAYNAMES.each_with_index.to_h { |n, i| [n.downcase, i] }.freeze
+  private_constant :HTTPDATE_FULL_WDAY
 
   RFC2822_RE = /\A\s*(?:(sun|mon|tue|wed|thu|fri|sat)\s*,\s+)?(\d{1,2})\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s+(-?\d{2,})\s+(\d{2}):(\d{2})(?::(\d{2}))?\s*([-+]\d{4}|ut|gmt|e[sd]t|c[sd]t|m[sd]t|p[sd]t|[a-ik-z])\s*\z/i
   private_constant :RFC2822_RE

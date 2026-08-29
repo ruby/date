@@ -120,7 +120,7 @@ class Date
 
       h = {}
       if (m = HTTPDATE_TYPE1_RE.match(string))
-        h[:wday]   = HTTPDATE_WDAY[m[1].downcase]
+        h[:wday]   = ABBR_DAY_NUM[m[1].downcase]
         h[:mday]   = m[2].to_i
         h[:mon]    = ABBR_MONTH_NUM[m[3].downcase]
         h[:year]   = m[4].to_i
@@ -141,7 +141,7 @@ class Date
         h[:zone]   = m[8]
         h[:offset] = 0
       elsif (m = HTTPDATE_TYPE3_RE.match(string))
-        h[:wday]   = HTTPDATE_WDAY[m[1].downcase]
+        h[:wday]   = ABBR_DAY_NUM[m[1].downcase]
         h[:mon]    = ABBR_MONTH_NUM[m[2].downcase]
         h[:mday]   = m[3].to_i
         h[:hour]   = m[4].to_i
@@ -208,7 +208,7 @@ class Date
           string.gsub(/[\r\n\0]+/, ' ') : string
       h = {}
       if (m = RFC2822_RE.match(s))
-        h[:wday]   = HTTPDATE_WDAY[m[1].downcase] if m[1]
+        h[:wday]   = ABBR_DAY_NUM[m[1].downcase] if m[1]
         h[:mday]   = m[2].to_i
         h[:mon]    = ABBR_MONTH_NUM[m[3].downcase]
         y_s = m[4]
