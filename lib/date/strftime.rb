@@ -54,20 +54,15 @@ class Date
       internal_civil unless @year
       return fast_ymd
     when '%H:%M:%S', '%T', '%X'
-      return instance_of?(Date) ? +'00:00:00' : "#{PAD2[internal_hour]}:#{PAD2[internal_min]}:#{PAD2[internal_sec]}"
+      # +: this becomes the result string, which #strftime force_encodes in
+      # place, so it must be mutable (strftime_hms may be a frozen literal).
+      return +strftime_hms
     when '%m/%d/%y', '%D', '%x'
       internal_civil unless @year
       return "#{PAD2[@month]}/#{PAD2[@day]}/#{PAD2[@year % 100]}"
     when '%Y-%m-%dT%H:%M:%S%z'
       internal_civil unless @year
-      if instance_of?(Date)
-        return fast_ymd << 'T00:00:00+0000'
-      else
-        of = of_seconds
-        sign = of < 0 ? '-' : '+'
-        abs = of.abs
-        return "#{fast_ymd}T#{PAD2[internal_hour]}:#{PAD2[internal_min]}:#{PAD2[internal_sec]}#{sign}#{PAD2[abs / 3600]}#{PAD2[(abs % 3600) / 60]}"
-      end
+      return "#{fast_ymd}T#{strftime_hms}#{strftime_zoff}"
     when '%a %b %e %H:%M:%S %Y', '%c'
       internal_civil unless @year
       return fmt_asctime_str
@@ -199,11 +194,7 @@ class Date
     d_s = d < 10 ? " #{d}" : d.to_s
     y = @year
     y_s = y >= 1000 ? y.to_s : (y >= 0 ? format('%04d', y) : format('-%04d', -y))
-    if instance_of?(Date)
-      "#{ASCTIME_PREFIX[w][@month]}#{d_s} 00:00:00 #{y_s}"
-    else
-      "#{ASCTIME_PREFIX[w][@month]}#{d_s} #{PAD2[internal_hour]}:#{PAD2[internal_min]}:#{PAD2[internal_sec]} #{y_s}"
-    end
+    "#{ASCTIME_PREFIX[w][@month]}#{d_s} #{strftime_hms} #{y_s}"
   end
 
   # Inline fast path for common specs with default formatting (no flags/width)
@@ -274,10 +265,7 @@ class Date
     when 90  # 'Z'
       zone_str
     when 122 # 'z'
-      of = of_seconds
-      sign = of < 0 ? '-' : '+'
-      abs = of.abs
-      "#{sign}#{PAD2[abs / 3600]}#{PAD2[(abs % 3600) / 60]}"
+      strftime_zoff
     when 115 # 's'
       ((@jd - 2440588) * 86400 - of_seconds + internal_hour * 3600 + internal_min * 60 + internal_sec).to_s
     # Composite specs — inline expansion
@@ -288,20 +276,14 @@ class Date
       internal_civil unless @year
       fast_ymd
     when 84, 88  # 'T', 'X'
-      instance_of?(Date) ? '00:00:00' : "#{PAD2[internal_hour]}:#{PAD2[internal_min]}:#{PAD2[internal_sec]}"
+      strftime_hms
     when 68, 120  # 'D', 'x'
       internal_civil unless @year
       "#{PAD2[@month]}/#{PAD2[@day]}/#{PAD2[@year % 100]}"
     when 82  # 'R'
-      instance_of?(Date) ? '00:00' : "#{PAD2[internal_hour]}:#{PAD2[internal_min]}"
+      strftime_hm
     when 114  # 'r'
-      if instance_of?(Date)
-        '12:00:00 AM'
-      else
-        h = internal_hour % 12
-        h = 12 if h == 0
-        "#{PAD2[h]}:#{PAD2[internal_min]}:#{PAD2[internal_sec]} #{internal_hour < 12 ? 'AM' : 'PM'}"
-      end
+      strftime_r12
     else
       nil  # fall through to format_spec_b
     end
@@ -573,6 +555,26 @@ class Date
 
   def zone_str
     '+00:00'
+  end
+
+  # Time-component strings for the strftime fast paths. A Date has no time, so
+  # each is a fixed literal here; DateTime overrides them with the computed
+  # values. Keeping them as (overridable) methods lets each class supply its
+  # own without a per-call instance_of? test inside the formatter.
+  def strftime_hms   # %T, %X, %H:%M:%S
+    '00:00:00'
+  end
+
+  def strftime_hm    # %R
+    '00:00'
+  end
+
+  def strftime_r12   # %r
+    '12:00:00 AM'
+  end
+
+  def strftime_zoff  # %z (numeric +HHMM offset)
+    '+0000'
   end
 
 end

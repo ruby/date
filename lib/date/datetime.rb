@@ -1007,6 +1007,29 @@ class DateTime < Date
     _of2str(@of)
   end
 
+  # Overrides of the Date strftime time-part helpers (see Date#strftime_hms):
+  # a DateTime renders its actual time instead of the Date literals.
+  def strftime_hms
+    "#{PAD2[@hour]}:#{PAD2[@min]}:#{PAD2[@sec_i]}"
+  end
+
+  def strftime_hm
+    "#{PAD2[@hour]}:#{PAD2[@min]}"
+  end
+
+  def strftime_r12
+    h = @hour % 12
+    h = 12 if h == 0
+    "#{PAD2[h]}:#{PAD2[@min]}:#{PAD2[@sec_i]} #{@hour < 12 ? 'AM' : 'PM'}"
+  end
+
+  def strftime_zoff
+    of = @of
+    sign = of < 0 ? '-' : '+'
+    abs = of.abs
+    "#{sign}#{PAD2[abs / 3600]}#{PAD2[(abs % 3600) / 60]}"
+  end
+
   def _init_datetime(jd, h, m, s, sf, of, sg)
     @jd            = jd
     # Store the cutover as a Float so #start/#hash/marshal stay consistent
