@@ -192,7 +192,6 @@ class Date
               zone = sc[8]
               sign = zone[0] == '-' ? -1 : 1
               offset_val = sign * (zone[1, 2].to_i * 3600 + zone[3, 2].to_i * 60)
-              zone = '+0000' if zone == '+0000'
               return {
                 wday: wday_info[0], mday: sc[2].to_i, mon: mon_info[0],
                 year: sc[4].to_i, hour: sc[5].to_i, min: sc[6].to_i, sec: sc[7].to_i,
