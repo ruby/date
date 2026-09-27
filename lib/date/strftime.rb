@@ -385,23 +385,18 @@ class Date
 
   # Format year (handles negative years and all flag variants)
   def fmt_year(y, width, flags)
+    # The result is always numeric (digits with an optional leading '-'), so the
+    # upper/chcase flags are no-ops and need no handling here.
+    sign = y < 0 ? '-' : ''
     if flags & FL_LEFT != 0
-      s = (y < 0 ? '-' : '') + y.abs.to_s
+      sign + y.abs.to_s
     else
-      default_w = y < 0 ? 5 : 4
-      w = width || default_w
+      w = width || (y < 0 ? 5 : 4)
       if flags & FL_SPACE != 0
-        raw = (y < 0 ? '-' : '') + y.abs.to_s
-        s = raw.rjust(w, ' ')
+        (sign + y.abs.to_s).rjust(w, ' ')
       else
-        s = y.abs.to_s.rjust(w - (y < 0 ? 1 : 0), '0')
-        s = (y < 0 ? '-' : '') + s
+        sign + y.abs.to_s.rjust(w - sign.length, '0')
       end
-    end
-    if flags & (FL_UPPER | FL_CHCASE) != 0
-      s.upcase
-    else
-      s
     end
   end
 
