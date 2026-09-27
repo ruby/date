@@ -1282,27 +1282,24 @@ class Date
           if zone.start_with?('[')
             zone = zone[1...-1] # strip brackets
             # Format: [offset:zonename] or [offset zonename] or [offset] or [zonename]
+            off_s = nil
             if (zm = zone.match(/\A([-+]?\d+(?:[,.]\d+)?):(.+)/))
               # +9:JST, -5:EST, +12:XXX YYY ZZZ
               h[:zone] = zm[2].strip
               off_s = zm[1]
-              off_s = "+#{off_s}" unless off_s.start_with?('+') || off_s.start_with?('-')
-              h[:offset] = fast_zone_offset(off_s)
             elsif (zm = zone.match(/\A([-+]?\d+(?:[,.]\d+)?)\s+(\S.+)/))
               # Number followed by space and non-empty name
               h[:zone] = zm[2]
               off_s = zm[1]
-              off_s = "+#{off_s}" unless off_s.start_with?('+') || off_s.start_with?('-')
-              h[:offset] = fast_zone_offset(off_s)
             else
               # Could be just a number with optional trailing space: [9], [-9], [9 ]
               h[:zone] = zone
               stripped = zone.strip
-              if stripped =~ /\A([-+]?\d+(?:[,.]\d+)?)\z/
-                off_s = $1
-                off_s = "+#{off_s}" unless off_s.start_with?('+') || off_s.start_with?('-')
-                h[:offset] = fast_zone_offset(off_s)
-              end
+              off_s = $1 if stripped =~ /\A([-+]?\d+(?:[,.]\d+)?)\z/
+            end
+            if off_s
+              off_s = "+#{off_s}" unless off_s.start_with?('+') || off_s.start_with?('-')
+              h[:offset] = fast_zone_offset(off_s)
             end
           else
             h[:zone] = zone
@@ -1361,9 +1358,7 @@ class Date
 
       # Step 2: If y is nil but d is present, check if d looks like a year
       if y.nil? && d
-        ds = d.to_s
-        digits = ds.sub(/\A'?-?/, '').sub(/(?:st|nd|rd|th)\z/i, '')
-        if digits.length > 2 || ds.start_with?("'")
+        if s3e_year_like?(d.to_s)
           y = d
           d = nil
         end
@@ -1381,7 +1376,7 @@ class Date
           # Match digits (with optional leading sign), check for trailing non-digit
           if ys_raw =~ /\A[^-+\d]*([-+]?\d+)/
             num_s = $1
-            rest = ys_raw[$~.end(0)..]
+            rest = $'
             if rest && !rest.empty? && rest =~ /[^\d]/
               # trailing non-digit (like "st" in "1st"): this y becomes d, old d becomes y
               old_d = d
@@ -1396,9 +1391,7 @@ class Date
               end
             else
               year_val = num_s.to_i
-              if num_s.start_with?('-') || num_s.start_with?('+') || num_s.sub(/\A[-+]/, '').length > 2
-                comp_flag = false
-              end
+              comp_flag = false if s3e_full_year?(num_s)
             end
           end
         end
@@ -1406,8 +1399,7 @@ class Date
 
       # Step 4: Check m - if it looks like a year (apostrophe or > 2 digits), swap US→BE
       if m.is_a?(String)
-        ms_digits = m.sub(/\A'?-?/, '').sub(/(?:st|nd|rd|th)\z/i, '')
-        if m.start_with?("'") || ms_digits.length > 2
+        if s3e_year_like?(m)
           # Rotate: old_y=y, y=m, m=d, d=old_y_string
           old_y = y
           y = m
@@ -1422,15 +1414,14 @@ class Date
           elsif ys =~ /([-+]?\d+)/
             num_s = $1
             year_val = num_s.to_i
-            comp_flag = (num_s.start_with?('-') || num_s.start_with?('+') || num_s.sub(/\A[-+]/, '').length > 2) ? false : nil
+            comp_flag = s3e_full_year?(num_s) ? false : nil
           end
         end
       end
 
       # Step 5: Check d - if it looks like a year, swap with y
       if d.is_a?(String)
-        ds_digits = d.sub(/\A'?-?/, '').sub(/(?:st|nd|rd|th)\z/i, '')
-        if d.start_with?("'") || ds_digits.length > 2
+        if s3e_year_like?(d)
           old_y = y
           # d becomes year
           ys = d.sub(/(?:st|nd|rd|th)\z/i, '')
@@ -1440,7 +1431,7 @@ class Date
           elsif ys =~ /([-+]?\d+)/
             num_s = $1
             year_val = num_s.to_i
-            comp_flag = (num_s.start_with?('-') || num_s.start_with?('+') || num_s.sub(/\A[-+]/, '').length > 2) ? false : nil
+            comp_flag = s3e_full_year?(num_s) ? false : nil
           end
           d = old_y
         end
@@ -1478,9 +1469,23 @@ class Date
         [s[1..].to_i, true]
       elsif s =~ /\A[^-+\d]*([-+]?\d+)/
         num_s = $1
-        cf = (num_s.start_with?('-') || num_s.start_with?('+') || num_s.sub(/\A[-+]/, '').length > 2) ? false : nil
+        cf = s3e_full_year?(num_s) ? false : nil
         [num_s.to_i, cf]
       end
+    end
+
+    # Helper: does token +s+ look like a year? True when it is apostrophe-prefixed
+    # or has more than two significant digits after stripping a leading sign or
+    # apostrophe and any ordinal suffix. Used by s3e to decide year/day swaps.
+    def s3e_year_like?(s)
+      digits = s.sub(/\A'?-?/, '').sub(/(?:st|nd|rd|th)\z/i, '')
+      digits.length > 2 || s.start_with?("'")
+    end
+
+    # Helper: is the numeric year string +num_s+ an explicit (non-abbreviated)
+    # year, i.e. signed or with more than two digits? Determines the _comp flag.
+    def s3e_full_year?(num_s)
+      num_s.start_with?('-') || num_s.start_with?('+') || num_s.sub(/\A[-+]/, '').length > 2
     end
 
     # ------------------------------------------------------------------
