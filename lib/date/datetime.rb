@@ -941,17 +941,38 @@ class DateTime < Date
       when Integer
         # Only whole-day offsets of -1, 0, or 1 are valid; anything else is
         # ignored (offset 0), matching the C extension.
-        (-1..1).cover?(offset) ? offset * 86400 : 0
+        return offset * 86400 if offset == -1 || offset == 0 || offset == 1
+        warn("invalid offset is ignored", uplevel: 0) if $VERBOSE
+        0
       when Float
-        # Valid only within +/- one day; out of range is ignored and a
-        # fractional second is rounded.
+        # Valid only within +/- one day; out of range is ignored. A fractional
+        # second is rounded (with a warning), matching the C extension.
         sec = offset * 86400
-        (sec < -86400 || sec > 86400) ? 0 : sec.round
+        if sec < -86400 || sec > 86400
+          warn("invalid offset is ignored", uplevel: 0) if $VERBOSE
+          return 0
+        end
+        n = sec.round
+        warn("fraction of offset is ignored", uplevel: 0) if $VERBOSE && n != sec
+        n
       when Numeric
-        # Rational (and other numerics via to_r) are honored without a range limit.
+        # Rational (and other numerics via to_r). Convert to seconds, round a
+        # fractional value (with a warning), then range-check against +/- one
+        # day; out of range is ignored, matching the C extension.
         r = offset.to_r
         raise TypeError, "#{offset.class} can't be used as offset" unless r.is_a?(Rational)
-        (r * 86400).round
+        sec = r * 86400
+        if sec.denominator == 1
+          n = sec.numerator
+        else
+          n = sec.round
+          warn("fraction of offset is ignored", uplevel: 0) if $VERBOSE
+        end
+        if n < -86400 || n > 86400
+          warn("invalid offset is ignored", uplevel: 0) if $VERBOSE
+          return 0
+        end
+        n
       else
         raise TypeError, "expected numeric"
       end
