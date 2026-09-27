@@ -125,7 +125,11 @@ class DateTime < Date
   #
   #    DateTime.parse('04pm+0730').zone		#=> "+07:30"
   def zone
-    _of2str(@of)
+    sign = @of < 0 ? '-' : '+'
+    abs  = @of.abs
+    h    = abs / 3600
+    m    = (abs % 3600) / 60
+    format('%s%02d:%02d'.encode(Encoding::US_ASCII), sign, h, m)
   end
 
   # call-seq:
@@ -148,11 +152,7 @@ class DateTime < Date
   #    DateTime.new(2001,2,3,4,5,6,'+7').ajd	#=> (11769328217/4800)
   #    DateTime.new(2001,2,2,14,5,6,'-7').ajd	#=> (11769328217/4800)
   def ajd
-    jd_r = Rational(@jd)
-    time_r = Rational(@hour * 3600 + @min * 60 + @sec, 86400) +
-             Rational(@sec_fraction.numerator, @sec_fraction.denominator * 86400)
-    of_r = Rational(@of, 86400)
-    jd_r + time_r - of_r - 0.5r
+    Rational(@jd) + day_fraction - offset - 0.5r
   end
 
   # ---------------------------------------------------------------------------
@@ -1011,7 +1011,7 @@ class DateTime < Date
   end
 
   def zone_str
-    _of2str(@of)
+    zone
   end
 
   # Overrides of the Date strftime time-part helpers (see Date#strftime_hms):
@@ -1063,14 +1063,6 @@ class DateTime < Date
     else
       [Integer(second), 0r]
     end
-  end
-
-  def _of2str(of)
-    sign = of < 0 ? '-' : '+'
-    abs  = of.abs
-    h    = abs / 3600
-    m    = (abs % 3600) / 60
-    format('%s%02d:%02d'.encode(Encoding::US_ASCII), sign, h, m)
   end
 
   def _from_total_sec_r(total_r)
