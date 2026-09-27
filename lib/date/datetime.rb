@@ -185,9 +185,7 @@ class DateTime < Date
     when Numeric
       r = other.to_r
       raise TypeError, "#{other.class} can't be coerced into Integer" unless r.is_a?(Rational)
-      extra_sec = r * 86400
-      total_r   = Rational(@jd) * 86400 + @hour * 3600 + @min * 60 + @sec + @sec_fraction + extra_sec
-      _from_total_sec_r(total_r)
+      self + r
     else
       raise TypeError, "expected numeric"
     end
@@ -214,9 +212,7 @@ class DateTime < Date
     case other
     when Date
       ajd - other.ajd
-    when Integer
-      self.class.__send__(:_new_dt_from_jd_time,@jd - other, @hour, @min, @sec, @sec_fraction, @of, @start)
-    when Rational, Float
+    when Integer, Rational, Float
       self + (-other)
     when Numeric
       r = other.to_r
