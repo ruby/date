@@ -3,9 +3,6 @@
 
 class DateTime < Date
 
-  STRFTIME_DATETIME_DEFAULT_FMT = '%FT%T%:z'.encode(Encoding::US_ASCII)
-  private_constant :STRFTIME_DATETIME_DEFAULT_FMT
-
   # Sentinel marking an hour/minute/second argument that was not passed, so a
   # trailing fraction can be rejected only when a smaller unit was actually given.
   UNSET = Object.new
@@ -287,7 +284,7 @@ class DateTime < Date
   #
   # For other formats,
   # see {Formats for Dates and Times}[rdoc-ref:language/strftime_formatting.rdoc]:
-  def strftime(format = STRFTIME_DATETIME_DEFAULT_FMT)
+  def strftime(format = '%FT%T%:z'.encode(Encoding::US_ASCII))
     super(format)
   end
 
@@ -421,9 +418,6 @@ class DateTime < Date
     end
   end
 
-  DATETIME_TO_S_FMT = '%Y-%m-%dT%H:%M:%S%:z'.encode(Encoding::US_ASCII).freeze
-  private_constant :DATETIME_TO_S_FMT
-
   # call-seq:
   #    dt.to_s  ->  string
   #
@@ -433,7 +427,7 @@ class DateTime < Date
   #     DateTime.new(2001,2,3,4,5,6,'-7').to_s
   #				#=> "2001-02-03T04:05:06-07:00"
   def to_s
-    strftime(DATETIME_TO_S_FMT)
+    strftime('%Y-%m-%dT%H:%M:%S%:z'.encode(Encoding::US_ASCII))
   end
 
   # call-seq:
