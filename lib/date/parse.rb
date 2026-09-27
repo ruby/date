@@ -799,6 +799,14 @@ class Date
       raise ArgumentError, "string length (#{str.length}) exceeds the limit #{limit}" if limit && str.length > limit
     end
 
+    # Blank out the span matched by +m+ in +str+, replacing it with spaces of
+    # equal length. Avoids allocating a Range for the assignment.
+    def blank_match!(str, m)
+      b = m.begin(0)
+      size = m.end(0) - b
+      str[b, size] = ' ' * size
+    end
+
     def parse_zone_and_offset(zone_str, hash)
       return unless zone_str
       hash[:zone] = zone_str
@@ -934,7 +942,7 @@ class Date
     def parse_day(str, h)
       if (m = PARSE_DAYS_RE.match(str))
         h[:wday] = ABBR_DAY_NUM[m[1].downcase]
-        str[m.begin(0)...m.end(0)] = ' ' * (m.end(0) - m.begin(0))
+        blank_match!(str, m)
       end
     end
 
@@ -942,7 +950,7 @@ class Date
       if (m = PARSE_TIME_RE.match(str))
         time_part = m[1]
         zone_part = m[2]
-        str[m.begin(0)...m.end(0)] = ' ' * (m.end(0) - m.begin(0))
+        blank_match!(str, m)
 
         if (tm = PARSE_TIME_CB_RE.match(time_part))
           hour = tm[1].to_i
@@ -972,7 +980,7 @@ class Date
         return false unless mon
         bc = m[3] && m[3] =~ /\Ab/i ? true : false
         s3e(h, m[4], mon, m[1], bc)
-        str[m.begin(0)...m.end(0)] = ' ' * (m.end(0) - m.begin(0))
+        blank_match!(str, m)
         true
       else
         false
@@ -985,7 +993,7 @@ class Date
         return false unless mon
         bc = m[3] && m[3] =~ /\Ab/i ? true : false
         s3e(h, m[4], mon, m[2], bc)
-        str[m.begin(0)...m.end(0)] = ' ' * (m.end(0) - m.begin(0))
+        blank_match!(str, m)
         true
       else
         false
@@ -1006,7 +1014,7 @@ class Date
         else
           s3e(h, y_s, m_s, d_s, false)
         end
-        str[m.begin(0)...m.end(0)] = ' ' * (m.end(0) - m.begin(0))
+        blank_match!(str, m)
         true
       else
         false
@@ -1021,7 +1029,7 @@ class Date
         h[:year] = m[2].to_i + era_offset
         h[:mon]  = m[3].to_i
         h[:mday] = m[4].to_i
-        str[m.begin(0)...m.end(0)] = ' ' * (m.end(0) - m.begin(0))
+        blank_match!(str, m)
         true
       else
         false
@@ -1033,13 +1041,13 @@ class Date
         mon = ABBR_MONTH_NUM[m[2].downcase]
         return false unless mon
         s3e(h, m[3], mon, m[1], false)
-        str[m.begin(0)...m.end(0)] = ' ' * (m.end(0) - m.begin(0))
+        blank_match!(str, m)
         true
       elsif (m = PARSE_VMS12_RE.match(str))
         mon = ABBR_MONTH_NUM[m[1].downcase]
         return false unless mon
         s3e(h, m[3], mon, m[2], false)
-        str[m.begin(0)...m.end(0)] = ' ' * (m.end(0) - m.begin(0))
+        blank_match!(str, m)
         true
       else
         false
@@ -1049,7 +1057,7 @@ class Date
     def parse_sla(str, h)
       if (m = PARSE_SLA_RE.match(str))
         s3e(h, m[1], m[2], m[3], false)
-        str[m.begin(0)...m.end(0)] = ' ' * (m.end(0) - m.begin(0))
+        blank_match!(str, m)
         true
       else
         false
@@ -1059,7 +1067,7 @@ class Date
     def parse_dot(str, h)
       if (m = PARSE_DOT_RE.match(str))
         s3e(h, m[1], m[2], m[3], false)
-        str[m.begin(0)...m.end(0)] = ' ' * (m.end(0) - m.begin(0))
+        blank_match!(str, m)
         true
       else
         false
@@ -1075,14 +1083,14 @@ class Date
         end
         h[:cweek] = m[2].to_i
         h[:cwday] = m[3].to_i if m[3]
-        str[m.begin(0)...m.end(0)] = ' ' * (m.end(0) - m.begin(0))
+        blank_match!(str, m)
         return true
       end
 
       # iso22: -w-D
       if (m = PARSE_ISO22_RE.match(str))
         h[:cwday] = m[1].to_i
-        str[m.begin(0)...m.end(0)] = ' ' * (m.end(0) - m.begin(0))
+        blank_match!(str, m)
         return true
       end
 
@@ -1090,7 +1098,7 @@ class Date
       if (m = PARSE_ISO23_RE.match(str))
         h[:mon]  = m[1].to_i if m[1]
         h[:mday] = m[2].to_i
-        str[m.begin(0)...m.end(0)] = ' ' * (m.end(0) - m.begin(0))
+        blank_match!(str, m)
         return true
       end
 
@@ -1098,7 +1106,7 @@ class Date
       if (m = PARSE_ISO24_RE.match(str))
         h[:mon]  = m[1].to_i
         h[:mday] = m[2].to_i if m[2]
-        str[m.begin(0)...m.end(0)] = ' ' * (m.end(0) - m.begin(0))
+        blank_match!(str, m)
         return true
       end
 
@@ -1107,7 +1115,7 @@ class Date
         if (m = PARSE_ISO25_RE.match(str))
           h[:year] = m[1].to_i
           h[:yday] = m[2].to_i
-          str[m.begin(0)...m.end(0)] = ' ' * (m.end(0) - m.begin(0))
+          blank_match!(str, m)
           return true
         end
       end
@@ -1116,7 +1124,7 @@ class Date
       unless str =~ /\d-\d{3}\b/
         if (m = PARSE_ISO26_RE.match(str))
           h[:yday] = m[1].to_i
-          str[m.begin(0)...m.end(0)] = ' ' * (m.end(0) - m.begin(0))
+          blank_match!(str, m)
           return true
         end
       end
@@ -1127,7 +1135,7 @@ class Date
     def parse_year(str, h)
       if (m = PARSE_YEAR_RE.match(str))
         h[:year] = m[1].to_i
-        str[m.begin(0)...m.end(0)] = ' ' * (m.end(0) - m.begin(0))
+        blank_match!(str, m)
         true
       else
         false
@@ -1139,7 +1147,7 @@ class Date
         mon = ABBR_MONTH_NUM[m[1].downcase]
         if mon
           h[:mon] = mon
-          str[m.begin(0)...m.end(0)] = ' ' * (m.end(0) - m.begin(0))
+          blank_match!(str, m)
           return true
         end
       end
@@ -1149,7 +1157,7 @@ class Date
     def parse_mday(str, h)
       if (m = PARSE_MDAY_RE.match(str))
         h[:mday] = m[1].to_i
-        str[m.begin(0)...m.end(0)] = ' ' * (m.end(0) - m.begin(0))
+        blank_match!(str, m)
         true
       else
         false
@@ -1306,7 +1314,7 @@ class Date
           end
         end
 
-        str[m.begin(0)...m.end(0)] = ' ' * (m.end(0) - m.begin(0))
+        blank_match!(str, m)
         true
       else
         false
@@ -1316,7 +1324,7 @@ class Date
     def parse_bc_post(str, h)
       if (m = PARSE_BC_RE.match(str))
         h[:_bc] = true
-        str[m.begin(0)...m.end(0)] = ' ' * (m.end(0) - m.begin(0))
+        blank_match!(str, m)
       end
     end
 
