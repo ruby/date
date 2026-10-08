@@ -1,6 +1,7 @@
 source 'https://rubygems.org'
 
-gemspec
+# The java gem is an empty placeholder, and lib/date.rb would shadow JRuby's own date
+gemspec unless RUBY_ENGINE == 'jruby'
 
 group :development do
   gem "bundler"
