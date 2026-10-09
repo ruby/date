@@ -4114,7 +4114,7 @@ static VALUE
 rt_complete_frags(VALUE klass, VALUE hash)
 {
     static VALUE tab = Qnil;
-    long e;
+    rb_len_t e;
     VALUE k, a, d;
 
     if (NIL_P(tab)) {
@@ -4213,7 +4213,7 @@ rt_complete_frags(VALUE klass, VALUE hash)
     k = a = Qnil;
 
     {
-	long i, eno = 0;
+	rb_len_t i, eno = 0;
 	VALUE t = Qnil;
 
 	e = 0;
@@ -4224,7 +4224,7 @@ rt_complete_frags(VALUE klass, VALUE hash)
 	    a = RARRAY_AREF(x, 1);
 
 	    {
-		long j, n = 0;
+		rb_len_t j, n = 0;
 
 		for (j = 0; j < RARRAY_LEN(a); j++)
 		    if (!NIL_P(ref_hash0(RARRAY_AREF(a, j))))
@@ -4255,7 +4255,7 @@ rt_complete_frags(VALUE klass, VALUE hash)
 		set_hash("yday", INT2FIX(1));
 	}
 	else if (k == sym("civil")) {
-	    long i;
+	    rb_len_t i;
 
 	    for (i = 0; i < RARRAY_LEN(a); i++) {
 		VALUE e = RARRAY_AREF(a, i);
@@ -4272,7 +4272,7 @@ rt_complete_frags(VALUE klass, VALUE hash)
 		set_hash("mday", INT2FIX(1));
 	}
 	else if (k == sym("commercial")) {
-	    long i;
+	    rb_len_t i;
 
 	    for (i = 0; i < RARRAY_LEN(a); i++) {
 		VALUE e = RARRAY_AREF(a, i);
@@ -4296,7 +4296,7 @@ rt_complete_frags(VALUE klass, VALUE hash)
 					   ref_hash("wday"))));
 	}
 	else if (k == sym("wnum0")) {
-	    long i;
+	    rb_len_t i;
 
 	    for (i = 0; i < RARRAY_LEN(a); i++) {
 		VALUE e = RARRAY_AREF(a, i);
@@ -4313,7 +4313,7 @@ rt_complete_frags(VALUE klass, VALUE hash)
 		set_hash("wday", INT2FIX(0));
 	}
 	else if (k == sym("wnum1")) {
-	    long i;
+	    rb_len_t i;
 
 	    for (i = 0; i < RARRAY_LEN(a); i++) {
 		VALUE e = RARRAY_AREF(a, i);
@@ -7487,7 +7487,7 @@ strftimev(const char *fmt, VALUE self,
 {
     char buffer[SMALLBUF], *buf = buffer;
     struct tmx tmx;
-    long len;
+    rb_len_t len;
     VALUE str;
 
     (*func)(self, &tmx);
@@ -7650,7 +7650,7 @@ static VALUE
 deconstruct_keys(VALUE self, VALUE keys, int is_datetime)
 {
     VALUE h = rb_hash_new();
-    long i;
+    rb_len_t i;
 
     get_d1(self);
 
