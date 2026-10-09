@@ -5,6 +5,26 @@ require 'envutil'
 
 class TestDateParse < Test::Unit::TestCase
 
+  def test__parse_fractional_zone_offset_deprecated
+    # The fractional hour is honoured today and will be ignored; warn only
+    # where dropping it changes the answer this returns now.
+    assert_warning(/fraction of hour/) do
+      assert_equal(Rational(2214, 5), Date._parse('2001-02-03T00:00:00+00.123')[:offset])
+    end
+    assert_warning(/fraction of hour/) do
+      assert_equal(1800, Date._parse('2001-02-03T00:00:00+00.5')[:offset])
+    end
+    # A zero fraction changes nothing, so it must stay quiet.
+    assert_warning('') do
+      assert_equal(3600, Date._parse('2001-02-03T00:00:00+01.0')[:offset])
+    end
+    # The colon forms have no fractional hour at all.
+    assert_warning('') do
+      assert_equal(1800, Date._parse('2001-02-03T00:00:00+00:30')[:offset])
+      assert_equal(86399, Date._parse('2001-02-03T00:00:00+23:59:59')[:offset])
+    end
+  end
+
   def test__parse
     [
      # ctime(3), asctime(3)

@@ -413,11 +413,14 @@ shrink_space(char *d, const char *s, long l)
 }
 
 VALUE
-date_zone_to_diff(VALUE str)
+date_zone_to_diff_frac(VALUE str, int *fracp, long *whole)
 {
     VALUE offset = Qnil;
     long l = RSTRING_LEN(str);
     const char *s = RSTRING_PTR(str);
+
+    *fracp = 0;
+    *whole = 0;
 
     {
 	int dst = 0;
@@ -533,6 +536,8 @@ date_zone_to_diff(VALUE str)
 			    offset = rb_rational_num(offset);
 			}
 		    }
+		    *fracp = sec != 0;
+		    *whole = hour * 3600;
 		    goto ok;
 		}
 		else if (l > 2) {
@@ -555,6 +560,19 @@ date_zone_to_diff(VALUE str)
     }
     RB_GC_GUARD(str);
   ok:
+    return offset;
+}
+
+VALUE
+date_zone_to_diff(VALUE str)
+{
+    int frac;
+    long whole;
+    VALUE offset = date_zone_to_diff_frac(str, &frac, &whole);
+
+    if (frac)
+	rb_warning("fraction of hour in a zone offset is deprecated"
+		   " and will be ignored");
     return offset;
 }
 

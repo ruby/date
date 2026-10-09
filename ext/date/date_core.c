@@ -2562,6 +2562,7 @@ valid_nth_kday_p(VALUE y, int m, int n, int k, double sg,
 #endif
 
 VALUE date_zone_to_diff(VALUE);
+VALUE date_zone_to_diff_frac(VALUE, int *, long *);
 
 static int
 offset_to_sec(VALUE vof, int *rof)
@@ -2633,13 +2634,21 @@ offset_to_sec(VALUE vof, int *rof)
 	}
       case T_STRING:
 	{
-	    VALUE vs = date_zone_to_diff(vof);
-	    long n;
+	    int frac, ok = 0;
+	    long whole, n = 0;
+	    VALUE vs = date_zone_to_diff_frac(vof, &frac, &whole);
 
-	    if (!FIXNUM_P(vs))
-		return 0;
-	    n = FIX2LONG(vs);
-	    if (n < -DAY_IN_SECONDS || n > DAY_IN_SECONDS)
+	    if (FIXNUM_P(vs)) {
+		n = FIX2LONG(vs);
+		if (n >= -DAY_IN_SECONDS && n <= DAY_IN_SECONDS)
+		    ok = 1;
+	    }
+	    /* warn only where dropping the fraction would give an offset
+	     * different from the one this returns today */
+	    if (frac && (ok ? n : 0) != whole)
+		rb_warning("fraction of hour in a zone offset is deprecated"
+			   " and will be ignored");
+	    if (!ok)
 		return 0;
 	    *rof = (int)n;
 	    return 1;
