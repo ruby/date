@@ -5,6 +5,11 @@
 #include "ruby.h"
 #include "ruby/encoding.h"
 #include "ruby/util.h"
+
+#ifndef HAVE_RB_LEN_T
+typedef long rb_len_t;
+#endif
+
 #include <math.h>
 #include <time.h>
 #if defined(HAVE_SYS_TIME_H)
@@ -7409,7 +7414,7 @@ date_strftime_internal(int argc, VALUE *argv, VALUE self,
 {
     VALUE vfmt;
     const char *fmt;
-    long len;
+    rb_len_t len;
     char buffer[SMALLBUF], *buf = buffer;
     struct tmx tmx;
     VALUE str;
