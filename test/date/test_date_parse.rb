@@ -1075,6 +1075,16 @@ class TestDateParse < Test::Unit::TestCase
     h = Date._jisx0301('R01.05.01')
     assert_equal([2019, 5, 1, nil, nil, nil, nil],
 		 h.values_at(:year, :mon, :mday, :hour, :min, :sec, :offset))
+    h = Date._jisx0301('R100.05.01')
+    assert_equal([2118, 5, 1, nil, nil, nil, nil],
+		 h.values_at(:year, :mon, :mday, :hour, :min, :sec, :offset))
+    h = Date._jisx0301('R100.05.01T04:05:06+09:00')
+    assert_equal([2118, 5, 1, 4, 5, 6, 32400],
+		 h.values_at(:year, :mon, :mday, :hour, :min, :sec, :offset))
+    h = Date._jisx0301('100.05.01')
+    assert_equal({}, h)
+    d = Date.new(2118, 5, 1)
+    assert_equal(d, Date.jisx0301(d.jisx0301))
 
     h = Date._jisx0301('H13.02.03T04:05:06')
     assert_equal([2001, 2, 3, 4, 5, 6, nil],
