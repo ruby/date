@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 require 'test/unit'
 require 'date'
+require 'stringio'
 
 class TestDateNew < Test::Unit::TestCase
 
@@ -211,6 +212,45 @@ class TestDateNew < Test::Unit::TestCase
       d = DateTime.civil(2001,2,3, 0,0,0, Rational(49710, 1))
     end
     assert_equal(0, d.offset)
+  end
+
+  def test_civil__fractional_zone_offset_deprecated
+    # A fraction that makes the offset non-integral is already dropped whole,
+    # so ignoring the fraction will not change these; only the pre-existing
+    # "invalid offset" warning may appear.
+    ['+00.123', '-00.123'].each do |z|
+      out = capture_zone_warning { assert_equal(0, DateTime.civil(2001,2,3, 0,0,0, z).offset) }
+      assert_match(/invalid offset is ignored/, out)
+      refute_match(/fraction of hour/, out)
+    end
+
+    # Here the fraction reaches the result, or dropping it would give an
+    # offset different from the 0 returned today.
+    out = capture_zone_warning do
+      assert_equal(Rational(1800, 86400), DateTime.civil(2001,2,3, 0,0,0, '+00.5').offset)
+    end
+    assert_match(/fraction of hour/, out)
+
+    out = capture_zone_warning do
+      assert_equal(0, DateTime.civil(2001,2,3, 0,0,0, '+01.123').offset)
+    end
+    assert_match(/fraction of hour/, out)
+
+    # A zero fraction and the colon forms change nothing.
+    ['+01.0', '+00:30'].each do |z|
+      out = capture_zone_warning { DateTime.civil(2001,2,3, 0,0,0, z) }
+      refute_match(/fraction of hour/, out)
+    end
+  end
+
+  def capture_zone_warning
+    verbose, $VERBOSE = $VERBOSE, true
+    err, $stderr = $stderr, StringIO.new
+    yield
+    $stderr.string
+  ensure
+    $stderr = err
+    $VERBOSE = verbose
   end
 
   def test_civil__reform
