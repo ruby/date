@@ -6,23 +6,75 @@ require 'envutil'
 class TestDateParse < Test::Unit::TestCase
 
   def test__parse_fractional_zone_offset_deprecated
-    # The fractional hour is honoured today and will be ignored; warn only
-    # where dropping it changes the answer this returns now.
-    assert_warning(/fraction of hour/) do
-      assert_equal(Rational(2214, 5), Date._parse('2001-02-03T00:00:00+00.123')[:offset])
+    with_deprecation_warnings do
+      # The fractional hour is honoured today and will be ignored, which
+      # changes :offset, or at least :zone for a zero fraction.
+      assert_warning(/fraction of hour/) do
+        assert_equal(Rational(2214, 5), Date._parse('2001-02-03T00:00:00+00.123')[:offset])
+      end
+      assert_warning(/fraction of hour/) do
+        assert_equal(1800, Date._parse('2001-02-03T00:00:00+00,5')[:offset])
+      end
+      assert_warning(/fraction of hour/) do
+        h = Date._parse('2001-02-03T00:00:00+01.0')
+        assert_equal(['+01.0', 3600], h.values_at(:zone, :offset))
+      end
+      [
+        ['19990523235521.123[-9.50]', [1999,5,23,23,55,21,'-9.50',-(9*3600+30*60)]],
+        ['19990523235521.123[+9.50]', [1999,5,23,23,55,21,'+9.50',+(9*3600+30*60)]],
+        ['2000-01-31 13:20:00-5.5', [2000,1,31,13,20,0,'-5.5',-5*3600-30*60]],
+        ['2000-01-31 13:20:00-5,5', [2000,1,31,13,20,0,'-5,5',-5*3600-30*60]],
+        ['2000-01-31 13:20:00+3.5', [2000,1,31,13,20,0,'+3.5',3*3600+30*60]],
+        ['2000-01-31 13:20:00+3,5', [2000,1,31,13,20,0,'+3,5',3*3600+30*60]],
+      ].each do |str, expected|
+        assert_warning(/fraction of hour/) do
+          h = Date._parse(str)
+          assert_equal(expected, h.values_at(:year,:mon,:mday,:hour,:min,:sec,:zone,:offset), str)
+        end
+      end
+      # The colon forms have no fractional hour at all.
+      assert_warning('') do
+        assert_equal(1800, Date._parse('2001-02-03T00:00:00+00:30')[:offset])
+        assert_equal(86399, Date._parse('2001-02-03T00:00:00+23:59:59')[:offset])
+      end
     end
-    assert_warning(/fraction of hour/) do
-      assert_equal(1800, Date._parse('2001-02-03T00:00:00+00.5')[:offset])
+  end
+
+  def test__strptime_fractional_zone_offset_deprecated
+    with_deprecation_warnings do
+      assert_warning(/fraction of hour/) do
+        assert_equal(1800, Date._strptime('+00.5', '%z')[:offset])
+      end
+      assert_warning(/fraction of hour/) do
+        assert_equal(Rational(2214, 5), Date._strptime('+00,123', '%z')[:offset])
+      end
+      assert_warning(/fraction of hour/) do
+        assert_equal(['+01.0', 3600], Date._strptime('+01.0', '%z').values_at(:zone, :offset))
+      end
+      assert_warning(/fraction of hour/) do
+        h = Date._strptime('Thu Jul 29 16:39:41 GMT-3.5 1999', '%a %b %d %H:%M:%S %Z %Y')
+        assert_equal(['GMT-3.5', -3*3600-30*60], h.values_at(:zone, :offset))
+      end
+      assert_warning(/fraction of hour/) do
+        h = Date._strptime('Thu Jul 29 16:39:41 GMT-3,5 1999', '%a %b %d %H:%M:%S %Z %Y')
+        assert_equal(['GMT-3,5', -3*3600-30*60], h.values_at(:zone, :offset))
+      end
+      assert_warning(/fraction of hour/) do
+        assert_equal(3600, Date._strptime('+0.9999999999999999999999', '%Z')[:offset])
+      end
+      assert_warning('') do
+        assert_equal(1800, Date._strptime('+00:30', '%z')[:offset])
+        assert_equal(-3600, Date._strptime('-0100', '%z')[:offset])
+      end
     end
-    # A zero fraction changes nothing, so it must stay quiet.
-    assert_warning('') do
-      assert_equal(3600, Date._parse('2001-02-03T00:00:00+01.0')[:offset])
-    end
-    # The colon forms have no fractional hour at all.
-    assert_warning('') do
-      assert_equal(1800, Date._parse('2001-02-03T00:00:00+00:30')[:offset])
-      assert_equal(86399, Date._parse('2001-02-03T00:00:00+23:59:59')[:offset])
-    end
+  end
+
+  def with_deprecation_warnings
+    deprecated = Warning[:deprecated] if Warning.respond_to?(:[])
+    Warning[:deprecated] = true if Warning.respond_to?(:[]=)
+    yield
+  ensure
+    Warning[:deprecated] = deprecated if Warning.respond_to?(:[]=)
   end
 
   def test__parse
@@ -154,8 +206,6 @@ class TestDateParse < Test::Unit::TestCase
      [['19990523235521.123[+9]',false],[1999,5,23,23,55,21,'+9',+(9*3600),nil], __LINE__],
      [['19990523235521.123[9]',false],[1999,5,23,23,55,21,'9',+(9*3600),nil], __LINE__],
      [['19990523235521.123[9 ]',false],[1999,5,23,23,55,21,'9 ',+(9*3600),nil], __LINE__],
-     [['19990523235521.123[-9.50]',false],[1999,5,23,23,55,21,'-9.50',-(9*3600+30*60),nil], __LINE__],
-     [['19990523235521.123[+9.50]',false],[1999,5,23,23,55,21,'+9.50',+(9*3600+30*60),nil], __LINE__],
      [['19990523235521.123[-5:EST]',false],[1999,5,23,23,55,21,'EST',-5*3600,nil], __LINE__],
      [['19990523235521.123[+9:JST]',false],[1999,5,23,23,55,21,'JST',9*3600,nil], __LINE__],
      [['19990523235521.123[+12:XXX YYY ZZZ]',false],[1999,5,23,23,55,21,'XXX YYY ZZZ',12*3600,nil], __LINE__],
@@ -186,10 +236,6 @@ class TestDateParse < Test::Unit::TestCase
      [['2000-01-31 13:20:00-5',false],[2000,1,31,13,20,0,'-5',-5*3600,nil], __LINE__],
 
      # [-+]\d+.\d+
-     [['2000-01-31 13:20:00-5.5',false],[2000,1,31,13,20,0,'-5.5',-5*3600-30*60,nil], __LINE__],
-     [['2000-01-31 13:20:00-5,5',false],[2000,1,31,13,20,0,'-5,5',-5*3600-30*60,nil], __LINE__],
-     [['2000-01-31 13:20:00+3.5',false],[2000,1,31,13,20,0,'+3.5',3*3600+30*60,nil], __LINE__],
-     [['2000-01-31 13:20:00+3,5',false],[2000,1,31,13,20,0,'+3,5',3*3600+30*60,nil], __LINE__],
 
      # mil
      [['2000-01-31 13:20:00 Z',false],[2000,1,31,13,20,0,'Z',0*3600,nil], __LINE__],

@@ -7,6 +7,10 @@
 #include "ruby/re.h"
 #include <ctype.h>
 
+#ifndef HAVE_RB_CATEGORY_WARN
+#define rb_category_warn(category, fmt) rb_warn(fmt)
+#endif
+
 #undef strncasecmp
 #define strncasecmp STRNCASECMP
 
@@ -536,7 +540,7 @@ date_zone_to_diff_frac(VALUE str, int *fracp, long *whole)
 			    offset = rb_rational_num(offset);
 			}
 		    }
-		    *fracp = sec != 0;
+		    *fracp = 1;
 		    *whole = hour * 3600;
 		    goto ok;
 		}
@@ -571,8 +575,8 @@ date_zone_to_diff(VALUE str)
     VALUE offset = date_zone_to_diff_frac(str, &frac, &whole);
 
     if (frac)
-	rb_warning("fraction of hour in a zone offset is deprecated"
-		   " and will be ignored");
+	rb_category_warn(RB_WARN_CATEGORY_DEPRECATED, "fraction of hour in a zone offset is deprecated"
+			 " and will be ignored in a future version");
     return offset;
 }
 

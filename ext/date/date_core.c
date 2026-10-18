@@ -2561,6 +2561,10 @@ valid_nth_kday_p(VALUE y, int m, int n, int k, double sg,
 }
 #endif
 
+#ifndef HAVE_RB_CATEGORY_WARN
+#define rb_category_warn(category, fmt) rb_warn(fmt)
+#endif
+
 VALUE date_zone_to_diff(VALUE);
 VALUE date_zone_to_diff_frac(VALUE, int *, long *);
 
@@ -2646,8 +2650,8 @@ offset_to_sec(VALUE vof, int *rof)
 	    /* warn only where dropping the fraction would give an offset
 	     * different from the one this returns today */
 	    if (frac && (ok ? n : 0) != whole)
-		rb_warning("fraction of hour in a zone offset is deprecated"
-			   " and will be ignored");
+		rb_category_warn(RB_WARN_CATEGORY_DEPRECATED, "fraction of hour in a zone offset is deprecated"
+				 " and will be ignored in a future version");
 	    if (!ok)
 		return 0;
 	    *rof = (int)n;
@@ -4686,10 +4690,6 @@ get_limit(VALUE opt)
     }
     return 128;
 }
-
-#ifndef HAVE_RB_CATEGORY_WARN
-#define rb_category_warn(category, fmt) rb_warn(fmt)
-#endif
 
 static VALUE
 check_limit(VALUE str, VALUE opt)
