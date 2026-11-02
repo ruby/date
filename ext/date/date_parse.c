@@ -3080,7 +3080,8 @@ static int
 jisx0301(VALUE str, VALUE hash)
 {
     static const char pat_source[] =
-        "\\A\\s*([" JISX0301_ERA_INITIALS "])?(\\d{2})\\.(\\d{2})\\.(\\d{2})"
+        "\\A\\s*([" JISX0301_ERA_INITIALS "])?"
+	"(\\d{2}|(?<=[" JISX0301_ERA_INITIALS "])\\d{3,})\\.(\\d{2})\\.(\\d{2})"
 	"(?:t"
 	"(?:(\\d{2}):(\\d{2})(?::(\\d{2})(?:[,.](\\d*))?)?"
 	"(z|[-+]\\d{2}(?::?\\d{2})?)?)?)?\\s*\\z";

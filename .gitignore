@@ -8,3 +8,5 @@
 *.so
 *.[ao]
 /tmp
+config.bat
+node_modules
