@@ -4,6 +4,7 @@ source 'https://rubygems.org'
 gemspec unless RUBY_ENGINE == 'jruby'
 
 group :development do
+  gem "bigdecimal"
   gem "bundler"
   gem "rake"
   gem "rake-compiler"

@@ -97,6 +97,21 @@ class TestDateArith < Test::Unit::TestCase
 		     DateTime.new(2001,1,17,0,0,0,0,Date::GREGORIAN)))
   end
 
+  def test__compare_nan
+    nans = [Float::NAN]
+    begin
+      require "bigdecimal"
+      nans << BigDecimal("NaN")
+    rescue LoadError
+    end
+    d = Date.new(2000,1,1)
+    nans.each do |nan|
+      assert_nil(d <=> nan)
+      assert_equal(false, d == nan)
+      assert_raise(ArgumentError) { d < nan }
+    end
+  end
+
   def test_prev
     d = Date.new(2000,1,1)
     assert_raise(NoMethodError) do
