@@ -7842,6 +7842,22 @@ d_lite_marshal_load(VALUE self, VALUE a)
 	    sf = RARRAY_AREF(a, 3);
 	    of = NUM2INT(RARRAY_AREF(a, 4));
 	    sg = NUM2DBL(RARRAY_AREF(a, 5));
+
+	    if (!RB_INTEGER_TYPE_P(nth))
+		rb_raise(rb_eTypeError, "invalid nth (expected an Integer)");
+	    if (jd < -1 || jd > CM_PERIOD)
+		rb_raise(eDateError, "invalid jd");
+	    if (df < 0 || df >= DAY_IN_SECONDS)
+		rb_raise(eDateError, "invalid day fraction");
+	    if (!RB_INTEGER_TYPE_P(sf) && !RB_TYPE_P(sf, T_RATIONAL))
+		rb_raise(rb_eTypeError, "invalid second fraction (expected an Integer or Rational)");
+	    if (f_lt_p(sf, INT2FIX(0)) ||
+		f_ge_p(sf, INT2FIX(SECOND_IN_NANOSECONDS)))
+		rb_raise(eDateError, "invalid second fraction");
+	    if (of < -DAY_IN_SECONDS || of > DAY_IN_SECONDS)
+		rb_raise(eDateError, "invalid offset");
+	    if (!c_valid_start_p(sg))
+		rb_raise(eDateError, "invalid start");
 	}
 	break;
       default:
