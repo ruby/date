@@ -217,13 +217,13 @@ class TestDateNew < Test::Unit::TestCase
     with_deprecation_warnings do
       # An offset that is already ignored as invalid gets only that warning.
       ['+00.123', '-00.123', '+01.123'].each do |z|
-        assert_warning(/\A(?!.*fraction of hour).*invalid offset is ignored/m) do
+        assert_warning(/\A(?!.*decimal hour).*invalid offset is ignored/m) do
           assert_equal(0, DateTime.civil(2001,2,3, 0,0,0, z).offset)
         end
       end
 
       # Here the fraction reaches the result.
-      assert_warning(/fraction of hour/) do
+      assert_warning(/decimal hour/) do
         assert_equal(Rational(1800, 86400), DateTime.civil(2001,2,3, 0,0,0, '+00.5').offset)
       end
 

@@ -9,13 +9,13 @@ class TestDateParse < Test::Unit::TestCase
     with_deprecation_warnings do
       # The fractional hour is honoured today and will be ignored, which
       # changes :offset, or at least :zone for a zero fraction.
-      assert_warning(/fraction of hour/) do
+      assert_warning(/decimal hour/) do
         assert_equal(Rational(2214, 5), Date._parse('2001-02-03T00:00:00+00.123')[:offset])
       end
-      assert_warning(/fraction of hour/) do
+      assert_warning(/decimal hour/) do
         assert_equal(1800, Date._parse('2001-02-03T00:00:00+00,5')[:offset])
       end
-      assert_warning(/fraction of hour/) do
+      assert_warning(/decimal hour/) do
         h = Date._parse('2001-02-03T00:00:00+01.0')
         assert_equal(['+01.0', 3600], h.values_at(:zone, :offset))
       end
@@ -27,7 +27,7 @@ class TestDateParse < Test::Unit::TestCase
         ['2000-01-31 13:20:00+3.5', [2000,1,31,13,20,0,'+3.5',3*3600+30*60]],
         ['2000-01-31 13:20:00+3,5', [2000,1,31,13,20,0,'+3,5',3*3600+30*60]],
       ].each do |str, expected|
-        assert_warning(/fraction of hour/) do
+        assert_warning(/decimal hour/) do
           h = Date._parse(str)
           assert_equal(expected, h.values_at(:year,:mon,:mday,:hour,:min,:sec,:zone,:offset), str)
         end
@@ -42,24 +42,24 @@ class TestDateParse < Test::Unit::TestCase
 
   def test__strptime_fractional_zone_offset_deprecated
     with_deprecation_warnings do
-      assert_warning(/fraction of hour/) do
+      assert_warning(/decimal hour/) do
         assert_equal(1800, Date._strptime('+00.5', '%z')[:offset])
       end
-      assert_warning(/fraction of hour/) do
+      assert_warning(/decimal hour/) do
         assert_equal(Rational(2214, 5), Date._strptime('+00,123', '%z')[:offset])
       end
-      assert_warning(/fraction of hour/) do
+      assert_warning(/decimal hour/) do
         assert_equal(['+01.0', 3600], Date._strptime('+01.0', '%z').values_at(:zone, :offset))
       end
-      assert_warning(/fraction of hour/) do
+      assert_warning(/decimal hour/) do
         h = Date._strptime('Thu Jul 29 16:39:41 GMT-3.5 1999', '%a %b %d %H:%M:%S %Z %Y')
         assert_equal(['GMT-3.5', -3*3600-30*60], h.values_at(:zone, :offset))
       end
-      assert_warning(/fraction of hour/) do
+      assert_warning(/decimal hour/) do
         h = Date._strptime('Thu Jul 29 16:39:41 GMT-3,5 1999', '%a %b %d %H:%M:%S %Z %Y')
         assert_equal(['GMT-3,5', -3*3600-30*60], h.values_at(:zone, :offset))
       end
-      assert_warning(/fraction of hour/) do
+      assert_warning(/decimal hour/) do
         assert_equal(3600, Date._strptime('+0.9999999999999999999999', '%Z')[:offset])
       end
       assert_warning('') do

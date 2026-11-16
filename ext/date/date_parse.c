@@ -575,7 +575,7 @@ date_zone_to_diff(VALUE str)
     VALUE offset = date_zone_to_diff_frac(str, &frac, &whole);
 
     if (frac)
-	rb_category_warn(RB_WARN_CATEGORY_DEPRECATED, "fraction of hour in a zone offset is deprecated"
+	rb_category_warn(RB_WARN_CATEGORY_DEPRECATED, "decimal hour in a zone offset is deprecated"
 			 " and will be ignored in a future version");
     return offset;
 }

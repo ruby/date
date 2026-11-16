@@ -2649,7 +2649,7 @@ offset_to_sec(VALUE vof, int *rof)
 	    }
 	    /* an invalid offset already warns that it is ignored */
 	    if (frac && ok && n != whole)
-		rb_category_warn(RB_WARN_CATEGORY_DEPRECATED, "fraction of hour in a zone offset is deprecated"
+		rb_category_warn(RB_WARN_CATEGORY_DEPRECATED, "decimal hour in a zone offset is deprecated"
 				 " and will be ignored in a future version");
 	    if (!ok)
 		return 0;
