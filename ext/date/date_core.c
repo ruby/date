@@ -2647,9 +2647,8 @@ offset_to_sec(VALUE vof, int *rof)
 		if (n >= -DAY_IN_SECONDS && n <= DAY_IN_SECONDS)
 		    ok = 1;
 	    }
-	    /* warn only where dropping the fraction would give an offset
-	     * different from the one this returns today */
-	    if (frac && (ok ? n : 0) != whole)
+	    /* an invalid offset already warns that it is ignored */
+	    if (frac && ok && n != whole)
 		rb_category_warn(RB_WARN_CATEGORY_DEPRECATED, "fraction of hour in a zone offset is deprecated"
 				 " and will be ignored in a future version");
 	    if (!ok)

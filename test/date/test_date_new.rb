@@ -215,21 +215,16 @@ class TestDateNew < Test::Unit::TestCase
 
   def test_civil__fractional_zone_offset_deprecated
     with_deprecation_warnings do
-      # A fraction that makes the offset non-integral is already dropped whole,
-      # so ignoring the fraction will not change these.
-      ['+00.123', '-00.123'].each do |z|
+      # An offset that is already ignored as invalid gets only that warning.
+      ['+00.123', '-00.123', '+01.123'].each do |z|
         assert_warning(/\A(?!.*fraction of hour).*invalid offset is ignored/m) do
           assert_equal(0, DateTime.civil(2001,2,3, 0,0,0, z).offset)
         end
       end
 
-      # Here the fraction reaches the result, or dropping it would give an
-      # offset different from the 0 returned today.
+      # Here the fraction reaches the result.
       assert_warning(/fraction of hour/) do
         assert_equal(Rational(1800, 86400), DateTime.civil(2001,2,3, 0,0,0, '+00.5').offset)
-      end
-      assert_warning(/fraction of hour/) do
-        assert_equal(0, DateTime.civil(2001,2,3, 0,0,0, '+01.123').offset)
       end
 
       # A zero fraction and the colon forms change nothing.
