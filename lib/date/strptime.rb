@@ -108,33 +108,25 @@ class Date
 
     # Pre-compiled regex constants for sp_run
     SP_WHITESPACE     = /[ \t\n\r\v\f]+/
-    SP_COLONS         = /:+/
     SP_EO_CHECK       = /[EO]/
-    SP_E_COMBO        = /E[cCxXyY]/
-    SP_O_COMBO        = /O[deHImMSuUVwWy]/
     SP_ALPHA3         = /[A-Za-z]{3}/
-    SP_SIGN           = /[+-]/
     SP_SPACE_OR_DIGIT = / \d|\d{1,2}/
-    SP_AMPM_DOT       = /[AaPp]\.[Mm]\./
-    SP_AMPM           = /[AaPp][Mm]/
     SP_NUM_CHECK      = /\d|%[EO]?[CDdeFGgHIjkLlMmNQRrSsTUuVvWwXxYy0-9]/
     SP_DIGITS_1       = /\d/
     SP_DIGITS_2       = /\d{1,2}/
     SP_DIGITS_3       = /\d{1,3}/
     SP_DIGITS_4       = /\d{1,4}/
-    SP_DIGITS_9       = /\d{1,9}/
     SP_DIGITS_MAX     = /\d+/
-    private_constant :SP_WHITESPACE, :SP_COLONS, :SP_EO_CHECK, :SP_E_COMBO,
-                     :SP_O_COMBO, :SP_ALPHA3, :SP_SIGN, :SP_SPACE_OR_DIGIT,
-                     :SP_AMPM_DOT, :SP_AMPM, :SP_NUM_CHECK,
+    private_constant :SP_WHITESPACE, :SP_EO_CHECK, :SP_ALPHA3,
+                     :SP_SPACE_OR_DIGIT, :SP_NUM_CHECK,
                      :SP_DIGITS_1, :SP_DIGITS_2, :SP_DIGITS_3, :SP_DIGITS_4,
-                     :SP_DIGITS_9, :SP_DIGITS_MAX
+                     :SP_DIGITS_MAX
 
     # Scan an optional leading sign, returning -1 for '-' and 1 otherwise
     # (a '+' or no sign at all). When no sign is present the scanner is left
-    # untouched, since SP_SIGN does not match and #scan does not advance.
+    # untouched.
     def sp_scan_sign(sc)
-      sc.scan(SP_SIGN) == '-' ? -1 : 1
+      sc.scan(/[+-]/) == '-' ? -1 : 1
     end
 
     # Convert an already-scanned numeric field, validate it against an inclusive
@@ -172,7 +164,7 @@ class Date
         fmt_sc.skip(/%/) # skip '%'
 
         # Handle colon modifiers: %:z, %::z, %:::z
-        if fmt_sc.scan(SP_COLONS)
+        if fmt_sc.scan(/:+/)
           throw(:sp_fail) unless fmt_sc.skip(/z/)
           str_sc.pos = sp_zone(str, str_sc.pos, str.bytesize, hash)
           next
@@ -180,7 +172,8 @@ class Date
 
         # Handle E/O locale modifiers
         if fmt_sc.check(SP_EO_CHECK)
-          if fmt_sc.check(SP_E_COMBO) || fmt_sc.check(SP_O_COMBO)
+
+          if fmt_sc.check(/E[cCxXyY]/) || fmt_sc.check(/O[deHImMSuUVwWy]/)
             fmt_sc.skip(SP_EO_CHECK) # skip modifier, fall through to spec
           else
             # Invalid combo: match '%' literally in string
@@ -285,7 +278,7 @@ class Date
           sign = sp_scan_sign(str_sc)
           osi = str_sc.pos
           num_next = !fmt_sc.eos? && fmt_sc.check(SP_NUM_CHECK)
-          s = str_sc.scan(num_next ? SP_DIGITS_9 : SP_DIGITS_MAX)
+          s = str_sc.scan(num_next ? /\d{1,9}/ : SP_DIGITS_MAX)
           throw(:sp_fail) unless s
           n = s.to_i
           n = -n if sign == -1
@@ -304,7 +297,7 @@ class Date
           else
             throw(:sp_fail)
           end
-          unless str_sc.scan(SP_AMPM_DOT) || str_sc.scan(SP_AMPM)
+          unless str_sc.scan(/[AaPp]\.[Mm]\./) || str_sc.scan(/[AaPp][Mm]/)
             throw(:sp_fail)
           end
           hash[:_merid] = merid
@@ -402,39 +395,23 @@ class Date
       str_sc.pos
     end
 
-    # Fast path for %Y-%m-%d / %F format.
-    # Uses match? + byteslice to avoid StringScanner allocation overhead.
-    STRPTIME_YMD_EXACT = /\A\d{4}-\d{2}-\d{2}\z/
-    STRPTIME_YMD_PREFIX = /\A\d{4}-\d{2}-\d{2}/
-    STRPTIME_YMD_GENERAL = /\A([+-]?\d+)-(\d{1,2})-(\d{1,2})(.*)\z/m
-    private_constant :STRPTIME_YMD_EXACT, :STRPTIME_YMD_PREFIX, :STRPTIME_YMD_GENERAL
-
     def internal_strptime_ymd(str)
       slen = str.bytesize
 
-      # Fast path for "YYYY-MM-DD" (exactly 10 chars)
-      if slen == 10 && STRPTIME_YMD_EXACT.match?(str)
-        year = str.byteslice(0, 4).to_i
-        mon  = str.byteslice(5, 2).to_i
-        mday = str.byteslice(8, 2).to_i
-        return nil if mon < 1 || mon > 12 || mday < 1 || mday > 31
-        return { year: year, mon: mon, mday: mday }
-      end
-
-      # Medium path for "YYYY-MM-DD..." (10+ chars, standard 4-digit year with leftover)
-      if slen > 10 && STRPTIME_YMD_PREFIX.match?(str)
+      # Fast path for "YYYY-MM-DD..." (>= 10 chars, standard 4-digit year with possible leftover)
+      if slen >= 10 && /\A\d{4}-\d{2}-\d{2}/.match?(str)
         year = str.byteslice(0, 4).to_i
         mon  = str.byteslice(5, 2).to_i
         mday = str.byteslice(8, 2).to_i
         if mon >= 1 && mon <= 12 && mday >= 1 && mday <= 31
           hash = { year: year, mon: mon, mday: mday }
-          hash[:leftover] = str.byteslice(10..)
+          hash[:leftover] = str.byteslice(10..) if str.length > 10
           return hash
         end
       end
 
       # General path for signed years, short years, etc.
-      m = STRPTIME_YMD_GENERAL.match(str)
+      m = /\A([+-]?\d+)-(\d{1,2})-(\d{1,2})(.*)\z/m.match(str)
       return nil unless m
       year = m[1].to_i
       mon  = m[2].to_i
@@ -446,17 +423,11 @@ class Date
       hash
     end
 
-    # Parse %Y-%m-%d and directly create Date object.
-    # Returns Date object on success, nil on failure.
-    # Uses match? + byteslice to avoid StringScanner allocation overhead.
-    STRPTIME_YMD_GENERAL_EXACT = /\A([+-]?\d+)-(\d{1,2})-(\d{1,2})\z/
-    private_constant :STRPTIME_YMD_GENERAL_EXACT
-
     def internal_strptime_ymd_to_date(str, sg)
       slen = str.bytesize
 
       # Fast path for exactly "YYYY-MM-DD" (10 chars, positive 4-digit year)
-      if slen == 10 && STRPTIME_YMD_EXACT.match?(str)
+      if slen == 10 && /\A\d{4}-\d{2}-\d{2}\z/.match?(str)
         year = str.byteslice(0, 4).to_i
         mon  = str.byteslice(5, 2).to_i
         mday = str.byteslice(8, 2).to_i
@@ -468,7 +439,7 @@ class Date
       end
 
       # General path for signed years, non-standard lengths
-      m = STRPTIME_YMD_GENERAL_EXACT.match(str)
+      m = /\A([+-]?\d+)-(\d{1,2})-(\d{1,2})\z/.match(str)
       return nil unless m
       year = m[1].to_i
       mon  = m[2].to_i

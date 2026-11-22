@@ -181,6 +181,14 @@ class TestDateStrftime < Test::Unit::TestCase
     assert_equal(so, d.strftime(f))
   end
 
+  def test_strftime_ymd_encoding
+    d = Date.new(2000)
+    a = "%Y-%m-%d"
+    [Encoding::BINARY, Encoding::US_ASCII, Encoding::UTF_8, Encoding::ISO8859_1].each do |enc|
+      assert_equal(enc, d.strftime(a.encode(enc)).encoding)
+    end
+  end
+
   def test_strftime__offset
     s = '2006-08-08T23:15:33'
     (-24..24).collect{|x| '%+.2d' % x}.each do |hh|

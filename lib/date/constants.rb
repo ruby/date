@@ -96,12 +96,6 @@ class Date
 
   # === String formatting (from strftime.rb) ===
 
-  DEFAULT_STRFTIME_FMT = '%F'
-  private_constant :DEFAULT_STRFTIME_FMT
-
-  YMD_FMT = '%Y-%m-%d'
-  private_constant :YMD_FMT
-
   # Pre-computed "Sun Jan " prefix table for %c / asctime [wday][month]
   ASCTIME_PREFIX = Array.new(7) { |w|
     Array.new(13) { |m|

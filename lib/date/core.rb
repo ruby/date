@@ -38,6 +38,9 @@ class Date
       civil_fallback(year, month, day, start)
     end
 
+    alias_method :new_from_jd, :new
+    private :new_from_jd
+
     # call-seq:
     #   Date.new(year = -4712, month = 1, mday = 1, start = Date::ITALY) -> date
     #
@@ -564,15 +567,6 @@ class Date
     # Internal object factory
     # ---------------------------------------------------------------------------
 
-    # Build a Date from a Julian Day Number and start. When the civil fields
-    # are already known (e.g. the Date.new fast path), pass them so the new
-    # instance can cache them instead of recomputing from the Julian Day.
-    def new_from_jd(jd, sg, year = nil, month = nil, day = nil)
-      obj = allocate
-      obj.__send__(:initialize, jd, sg, year, month, day)
-      obj
-    end
-
     # Parse offset string like "+09:00", "-07:30", "Z" to seconds.
     def offset_str_to_sec(str)
       # Use the full date_zone_to_diff port so named zones (JST, PST, ...),
@@ -597,8 +591,7 @@ class Date
   #   (Date.new(1, 1, 1) - 1).year # => 0
   #
   def year
-    internal_civil unless @year
-    @year
+    @year || (internal_civil; @year)
   end
 
   # call-seq:
@@ -609,8 +602,7 @@ class Date
   #   Date.new(2001, 2, 3).mon # => 2
   #
   def month
-    internal_civil unless @year
-    @month
+    @month || (internal_civil; @month)
   end
   alias mon month
 
@@ -622,8 +614,7 @@ class Date
   #   Date.new(2001, 2, 3).mday # => 3
   #
   def day
-    internal_civil unless @year
-    @day
+    @day || (internal_civil; @day)
   end
   alias mday day
 
@@ -722,7 +713,7 @@ class Date
   #   Date.new(2001, 2, 3).yday # => 34
   #
   def yday
-    internal_civil unless @year
+    internal_civil
     jd_jan1 = self.class.__send__(:civil_to_jd, @year, 1, 1, @start)
     @jd - jd_jan1 + 1
   end
@@ -781,14 +772,12 @@ class Date
   #   day_fraction -> 0
   #
   # Returns +0+; a \Date has no fractional day component.
-  # (DateTime#day_fraction returns the fractional part of the day.)
   #
   #   Date.new(2001, 2, 3).day_fraction         # => 0
-  #   DateTime.new(2001, 2, 3, 12).day_fraction # => (1/2)
   #
   def day_fraction
     # Date designates a whole day and has no fractional component, so this is
-    # always 0 (an Integer). DateTime overrides this with its own value.
+    # always 0 (an Integer).
     0
   end
 
@@ -801,7 +790,7 @@ class Date
   #   Date.new(2001).leap? # => false
   #
   def leap?
-    internal_civil unless @year
+    internal_civil
     if @jd < @start  # julian?
       @year % 4 == 0
     else
@@ -836,7 +825,7 @@ class Date
   end
 
   # call-seq:
-  #   new_start(start = Date::ITALY]) -> new_date
+  #   new_start(start = Date::ITALY) -> new_date
   #
   # Returns a copy of +self+ with the given +start+ value:
   #
@@ -1149,7 +1138,7 @@ class Date
   # last day of the target month (using the calendar that applies under the
   # cutover). Shared with DateTime#>> so the time of day can be preserved.
   private def month_shifted_jd(n)
-    internal_civil unless @year
+    internal_civil
     m2 = @month + n.to_i
     y2 = @year + (m2 - 1).div(12)
     m2 = (m2 - 1) % 12 + 1
@@ -1420,20 +1409,6 @@ class Date
   # ---------------------------------------------------------------------------
 
   # :nodoc:
-  def initialize_copy(other)
-    # Assign every ivar in the canonical order so copies share the same shape
-    # as freshly constructed instances (see #initialize). This stays an explicit
-    # copy rather than delegating to #initialize: DateTime overrides #initialize
-    # with an incompatible (year, month, day, ...) signature, so a shared
-    # initialize_copy must not dispatch through it.
-    @jd            = other.instance_variable_get(:@jd)
-    @start         = other.instance_variable_get(:@start)
-    @year          = other.instance_variable_get(:@year)
-    @month         = other.instance_variable_get(:@month)
-    @day           = other.instance_variable_get(:@day)
-  end
-
-  # :nodoc:
   def marshal_dump
     # 6-element format: [nth, jd, df, sf, of, sg]. A Date has no day fraction,
     # so df and sf are always 0.
@@ -1540,7 +1515,7 @@ class Date
   # See {asctime}[https://linux.die.net/man/3/asctime].
   #
   def asctime
-    internal_civil unless @year
+    internal_civil
     d = @day
     d_s = d < 10 ? " #{d}" : d.to_s
     y = @year
@@ -1575,7 +1550,7 @@ class Date
   #   Date.new(2001, 2, 3).rfc2822 # => "Sat, 3 Feb 2001 00:00:00 +0000"
   #
   def rfc2822
-    internal_civil unless @year
+    internal_civil
     w = (@jd + 1) % 7
     y = @year
     y_s = y >= 1000 ? y.to_s : (y >= 0 ? format('%04d', y) : format('-%04d', -y))
@@ -1596,7 +1571,7 @@ class Date
   #   Date.new(2001, 2, 3).httpdate # => "Sat, 03 Feb 2001 00:00:00 GMT"
   #
   def httpdate
-    internal_civil unless @year
+    internal_civil
     w = (@jd + 1) % 7
     y = @year
     y_s = y >= 1000 ? y.to_s : (y >= 0 ? format('%04d', y) : format('-%04d', -y))
@@ -1616,7 +1591,7 @@ class Date
   #   Date.new(2001, 2, 3).jisx0301 # => "H13.02.03"
   #
   def jisx0301
-    internal_civil unless @year
+    internal_civil
     jd = @jd
     m = @month
     d = @day

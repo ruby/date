@@ -5,7 +5,7 @@ class DateTime < Date
 
   # Sentinel marking an hour/minute/second argument that was not passed, so a
   # trailing fraction can be rejected only when a smaller unit was actually given.
-  UNSET = Object.new
+  UNSET = Object.new.freeze
   private_constant :UNSET
 
   # ---------------------------------------------------------------------------
@@ -24,7 +24,7 @@ class DateTime < Date
 
     # Validate argument types in the C extension's order (offset, then second
     # down to year) so the same field is reported first when several are bad.
-    of_sec = self.class.__send__(:_parse_of, offset)
+    of_sec = self.class.__send__(:_parse_offset, offset)
     raise TypeError, "invalid second (not numeric)" unless second.is_a?(Numeric)
     raise TypeError, "invalid minute (not numeric)" unless minute.is_a?(Numeric)
     raise TypeError, "invalid hour (not numeric)" unless hour.is_a?(Numeric)
@@ -129,7 +129,12 @@ class DateTime < Date
     abs  = @of.abs
     h    = abs / 3600
     m    = (abs % 3600) / 60
-    format('%s%02d:%02d'.encode(Encoding::US_ASCII), sign, h, m)
+    format('%s%02d:%02d', sign, h, m)
+  end
+
+  def freeze
+    day_fraction
+    super
   end
 
   # call-seq:
@@ -139,7 +144,7 @@ class DateTime < Date
   #
   #   DateTime.new(2001,2,3,12).day_fraction # => (1/2)
   def day_fraction
-    Rational(@hour * 3600 + @min * 60 + @sec, 86400) +
+    @day_fraction ||= Rational(@hour * 3600 + @min * 60 + @sec, 86400) +
       Rational(@sec_fraction.numerator, @sec_fraction.denominator * 86400)
   end
 
@@ -181,7 +186,15 @@ class DateTime < Date
       # other is days (may be fractional) - add as seconds
       extra_sec = other.to_r * 86400
       total_r   = Rational(@jd) * 86400 + @hour * 3600 + @min * 60 + @sec + @sec_fraction + extra_sec
-      _from_total_sec_r(total_r)
+      jd  = (total_r / 86400).floor
+      rem = total_r - jd * 86400
+      h   = rem.to_i / 3600
+      rem -= h * 3600
+      m   = rem.to_i / 60
+      s_r = rem - m * 60
+      s_i = s_r.floor
+      s_f = s_r - s_i
+      self.class.__send__(:_new_dt_from_jd_time,jd, h, m, s_i, s_f, @of, @start)
     when Numeric
       r = other.to_r
       raise TypeError, "#{other.class} can't be coerced into Integer" unless r.is_a?(Rational)
@@ -233,7 +246,7 @@ class DateTime < Date
   end
 
   # call-seq:
-  #   new_start(start = Date::ITALY]) -> new_date
+  #   new_start(start = Date::ITALY) -> new_date
   #
   # Returns a copy of +self+ with the given +start+ value:
   #
@@ -248,7 +261,7 @@ class DateTime < Date
   end
 
   # call-seq:
-  #    d.new_offset([offset=0])  ->  date
+  #    d.new_offset(offset=0)  ->  date
   #
   # Duplicates self and resets its offset.
   #
@@ -256,7 +269,7 @@ class DateTime < Date
   #				#=> #<DateTime: 2001-02-03T04:05:06-02:00 ...>
   #    d.new_offset('+09:00')	#=> #<DateTime: 2001-02-03T15:05:06+09:00 ...>
   def new_offset(of = 0)
-    of_sec = self.class.__send__(:_parse_of, of)
+    of_sec = self.class.__send__(:_parse_offset, of)
     # Keep the same absolute instant, re-expressed in the new offset: shift the
     # locally stored wall-clock fields by the change in offset.
     total = @jd * 86400 + @hour * 3600 + @min * 60 + @sec + (of_sec - @of)
@@ -280,12 +293,12 @@ class DateTime < Date
   #
   # For other formats,
   # see {Formats for Dates and Times}[rdoc-ref:language/strftime_formatting.rdoc]:
-  def strftime(format = '%FT%T%:z'.encode(Encoding::US_ASCII))
+  def strftime(format = '%FT%T%:z')
     super(format)
   end
 
   # call-seq:
-  #    dt.jisx0301([n=0])  ->  string
+  #    dt.jisx0301(n=0)  ->  string
   #
   # Returns a string in a JIS X 0301 format.
   # The optional argument +n+ is the number of digits for fractional seconds.
@@ -312,8 +325,8 @@ class DateTime < Date
   end
 
   # call-seq:
-  #    dt.iso8601([n=0])    ->  string
-  #    dt.xmlschema([n=0])  ->  string
+  #    dt.iso8601(n=0)    ->  string
+  #    dt.xmlschema(n=0)  ->  string
   #
   # This method is equivalent to strftime('%FT%T%:z').
   # The optional argument +n+ is the number of digits for fractional seconds.
@@ -333,7 +346,7 @@ class DateTime < Date
   alias_method :xmlschema, :iso8601
 
   # call-seq:
-  #    dt.rfc3339([n=0])  ->  string
+  #    dt.rfc3339(n=0)  ->  string
   #
   # This method is equivalent to strftime('%FT%T%:z').
   # The optional argument +n+ is the number of digits for fractional seconds.
@@ -423,7 +436,7 @@ class DateTime < Date
   #     DateTime.new(2001,2,3,4,5,6,'-7').to_s
   #				#=> "2001-02-03T04:05:06-07:00"
   def to_s
-    strftime('%Y-%m-%dT%H:%M:%S%:z'.encode(Encoding::US_ASCII))
+    strftime('%Y-%m-%dT%H:%M:%S%:z')
   end
 
   # call-seq:
@@ -544,17 +557,13 @@ class DateTime < Date
   # ---------------------------------------------------------------------------
 
   class << self
-    def new(*args)
-      instance = allocate
-      instance.__send__(:initialize, *args)
-      instance
-    end
+    define_method(:new, Class.instance_method(:new))
     alias_method :civil, :new
 
     undef_method :today
 
     # call-seq:
-    #    DateTime._strptime(string[, format='%FT%T%z'])  ->  hash
+    #    DateTime._strptime(string, format='%FT%T%z')  ->  hash
     #
     # Parses the given representation of date and time with the given
     # template, and returns a hash of parsed elements.  _strptime does
@@ -566,7 +575,7 @@ class DateTime < Date
     end
 
     # call-seq:
-    #    DateTime.strptime([string='-4712-01-01T00:00:00+00:00'[, format='%FT%T%z'[ ,start=Date::ITALY]]])  ->  datetime
+    #    DateTime.strptime(string='-4712-01-01T00:00:00+00:00', format='%FT%T%z' ,start=Date::ITALY)  ->  datetime
     #
     # Parses the given representation of date and time with the given
     # template, and creates a DateTime object.  strptime does not support
@@ -596,7 +605,7 @@ class DateTime < Date
     end
 
     # call-seq:
-    #    DateTime.jd([jd=0[, hour=0[, minute=0[, second=0[, offset=0[, start=Date::ITALY]]]]]])  ->  datetime
+    #    DateTime.jd(jd=0, hour=0, minute=0, second=0, offset=0, start=Date::ITALY)  ->  datetime
     #
     # Creates a DateTime object denoting the given chronological Julian
     # day number.
@@ -611,7 +620,7 @@ class DateTime < Date
       second_given = !UNSET.equal?(second); second = 0 if UNSET.equal?(second)
 
       # Validate in the C extension's order (offset, second, minute, hour, jd).
-      of_sec = _parse_of(offset)
+      of_sec = _parse_offset(offset)
       _check_hms_types(hour, minute, second)
       raise TypeError, "invalid jd (not numeric)" unless jd.is_a?(Numeric)
 
@@ -623,7 +632,7 @@ class DateTime < Date
     end
 
     # call-seq:
-    #    DateTime.ordinal([year=-4712[, yday=1[, hour=0[, minute=0[, second=0[, offset=0[, start=Date::ITALY]]]]]]])  ->  datetime
+    #    DateTime.ordinal(year=-4712, yday=1, hour=0, minute=0, second=0, offset=0, start=Date::ITALY)  ->  datetime
     #
     # Creates a DateTime object denoting the given ordinal date.
     #
@@ -638,7 +647,7 @@ class DateTime < Date
       second_given = !UNSET.equal?(second); second = 0 if UNSET.equal?(second)
 
       # Validate in the C extension's order (offset, second, minute, hour, yday, year).
-      of_sec = _parse_of(offset)
+      of_sec = _parse_offset(offset)
       _check_hms_types(hour, minute, second)
       raise TypeError, "invalid yday (not numeric)" unless yday.is_a?(Numeric)
       raise TypeError, "invalid year (not numeric)" unless year.is_a?(Numeric)
@@ -653,7 +662,7 @@ class DateTime < Date
     end
 
     # call-seq:
-    #    DateTime.commercial([cwyear=-4712[, cweek=1[, cwday=1[, hour=0[, minute=0[, second=0[, offset=0[, start=Date::ITALY]]]]]]]])  ->  datetime
+    #    DateTime.commercial(cwyear=-4712, cweek=1, cwday=1, hour=0, minute=0, second=0, offset=0, start=Date::ITALY)  ->  datetime
     #
     # Creates a DateTime object denoting the given week date.
     #
@@ -668,7 +677,7 @@ class DateTime < Date
 
       # Validate in the C extension's order (offset, second, minute, hour,
       # cwday, cweek, cwyear).
-      of_sec = _parse_of(offset)
+      of_sec = _parse_offset(offset)
       _check_hms_types(hour, minute, second)
       raise TypeError, "invalid cwday (not numeric)" unless cwday.is_a?(Numeric)
       raise TypeError, "invalid cweek (not numeric)" unless cweek.is_a?(Numeric)
@@ -684,7 +693,7 @@ class DateTime < Date
     end
 
     # call-seq:
-    #    DateTime.now([start=Date::ITALY])  ->  datetime
+    #    DateTime.now(start=Date::ITALY)  ->  datetime
     #
     # Creates a DateTime object denoting the present time.
     #
@@ -756,7 +765,7 @@ class DateTime < Date
     end
 
     # call-seq:
-    #    DateTime.parse(string='-4712-01-01T00:00:00+00:00'[, comp=true[, start=Date::ITALY]], limit: 128)  ->  datetime
+    #    DateTime.parse(string='-4712-01-01T00:00:00+00:00', comp=true, start=Date::ITALY, limit: 128)  ->  datetime
     #
     # Parses the given representation of date and time, and creates a
     # DateTime object.
@@ -785,7 +794,7 @@ class DateTime < Date
     end
 
     # call-seq:
-    #    DateTime.iso8601(string='-4712-01-01T00:00:00+00:00'[, start=Date::ITALY], limit: 128)  ->  datetime
+    #    DateTime.iso8601(string='-4712-01-01T00:00:00+00:00', start=Date::ITALY, limit: 128)  ->  datetime
     #
     # Creates a new DateTime object by parsing from a string according to
     # some typical ISO 8601 formats.
@@ -806,7 +815,7 @@ class DateTime < Date
     end
 
     # call-seq:
-    #    DateTime.rfc3339(string='-4712-01-01T00:00:00+00:00'[, start=Date::ITALY], limit: 128)  ->  datetime
+    #    DateTime.rfc3339(string='-4712-01-01T00:00:00+00:00', start=Date::ITALY, limit: 128)  ->  datetime
     #
     # Creates a new DateTime object by parsing from a string according to
     # some typical RFC 3339 formats.
@@ -823,7 +832,7 @@ class DateTime < Date
     end
 
     # call-seq:
-    #    DateTime.xmlschema(string='-4712-01-01T00:00:00+00:00'[, start=Date::ITALY], limit: 128)  ->  datetime
+    #    DateTime.xmlschema(string='-4712-01-01T00:00:00+00:00', start=Date::ITALY, limit: 128)  ->  datetime
     #
     # Creates a new DateTime object by parsing from a string according to
     # some typical XML Schema formats.
@@ -840,8 +849,8 @@ class DateTime < Date
     end
 
     # call-seq:
-    #    DateTime.rfc2822(string='Mon, 1 Jan -4712 00:00:00 +0000'[, start=Date::ITALY], limit: 128)  ->  datetime
-    #    DateTime.rfc822(string='Mon, 1 Jan -4712 00:00:00 +0000'[, start=Date::ITALY], limit: 128)   ->  datetime
+    #    DateTime.rfc2822(string='Mon, 1 Jan -4712 00:00:00 +0000', start=Date::ITALY, limit: 128)  ->  datetime
+    #    DateTime.rfc822(string='Mon, 1 Jan -4712 00:00:00 +0000', start=Date::ITALY, limit: 128)   ->  datetime
     #
     # Creates a new DateTime object by parsing from a string according to
     # some typical RFC 2822 formats.
@@ -859,7 +868,7 @@ class DateTime < Date
     alias rfc822 rfc2822
 
     # call-seq:
-    #    DateTime.httpdate(string='Mon, 01 Jan -4712 00:00:00 GMT'[, start=Date::ITALY])  ->  datetime
+    #    DateTime.httpdate(string='Mon, 01 Jan -4712 00:00:00 GMT', start=Date::ITALY)  ->  datetime
     #
     # Creates a new DateTime object by parsing from a string according to
     # some RFC 2616 format.
@@ -876,7 +885,7 @@ class DateTime < Date
     end
 
     # call-seq:
-    #    DateTime.jisx0301(string='-4712-01-01T00:00:00+00:00'[, start=Date::ITALY], limit: 128)  ->  datetime
+    #    DateTime.jisx0301(string='-4712-01-01T00:00:00+00:00', start=Date::ITALY, limit: 128)  ->  datetime
     #
     # Creates a new DateTime object by parsing from a string according to
     # some typical JIS X 0301 formats.
@@ -924,7 +933,7 @@ class DateTime < Date
       _new_dt_from_jd_time(jd, h, m, s, sf, of, sg)
     end
 
-    def _parse_of(offset)
+    def _parse_offset(offset)
       case offset
       when String
         Date.__send__(:offset_str_to_sec, offset)
@@ -986,28 +995,14 @@ class DateTime < Date
                               "no implicit conversion of #{n.class} into Integer"
   end
 
-  def internal_hour
-    @hour
-  end
-
-  def internal_min
-    @min
-  end
-
-  def internal_sec
-    @sec
-  end
-
-  def sec_frac
-    @sec_fraction
-  end
+  alias internal_hour hour
+  alias internal_min min
+  alias internal_sec sec
+  alias sec_frac sec_fraction
+  alias zone_str zone
 
   def of_seconds
     @of
-  end
-
-  def zone_str
-    zone
   end
 
   # Overrides of the Date strftime time-part helpers (see Date#strftime_hms):
@@ -1060,17 +1055,4 @@ class DateTime < Date
       [Integer(second), 0r]
     end
   end
-
-  def _from_total_sec_r(total_r)
-    jd  = (total_r / 86400).floor
-    rem = total_r - jd * 86400
-    h   = rem.to_i / 3600
-    rem -= h * 3600
-    m   = rem.to_i / 60
-    s_r = rem - m * 60
-    s_i = s_r.floor
-    s_f = s_r - s_i
-    self.class.__send__(:_new_dt_from_jd_time,jd, h, m, s_i, s_f, @of, @start)
-  end
-
 end
