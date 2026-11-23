@@ -786,9 +786,14 @@ class Date
 
       if zone_str[0] == '+' || zone_str[0] == '-'
         sc = StringScanner.new(zone_str)
-        if sc.scan(/([+-])(\d{2}):?(\d{2})\z/)
+        if sc.scan(/([+-])(\d{2})(:?)(\d{2})\z/)
+          hh = sc[2].to_i
+          mm = sc[4].to_i
+          # The colon form (+HH:MM) is range-checked: an hour >= 24 or minute
+          # >= 60 is an invalid offset (nil). The compact form (+HHMM) is not.
+          return nil if !sc[3].empty? && (hh >= 24 || mm >= 60)
           sign = sc[1] == '-' ? -1 : 1
-          return sign * (sc[2].to_i * 3600 + sc[3].to_i * 60)
+          return sign * (hh * 3600 + mm * 60)
         end
       end
 

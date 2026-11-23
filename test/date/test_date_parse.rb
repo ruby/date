@@ -889,6 +889,23 @@ class TestDateParse < Test::Unit::TestCase
     assert_raise(TypeError) {Date._rfc3339('2001-02-03T04:05:06Z'.to_sym)}
   end
 
+  def test_zone_offset_colon_form_range_validated
+    # The colon offset form (+HH:MM) is range-checked: an hour >= 24 or
+    # minute >= 60 yields a nil offset. The compact form (+HHMM) is not
+    # range-checked. This matches the C extension and is format-driven, not
+    # method-driven.
+    %w[_parse _iso8601 _xmlschema].each do |m|
+      assert_nil(Date.send(m, '2001-02-03T04:05:06+99:99')[:offset], "#{m} +99:99")
+      assert_nil(Date.send(m, '2001-02-03T04:05:06+24:00')[:offset], "#{m} +24:00")
+      assert_equal(86340, Date.send(m, '2001-02-03T04:05:06+23:59')[:offset], "#{m} +23:59")
+    end
+    assert_nil(Date._parse('2001-02-03T04:05:06-99:99')[:offset])
+    # Compact form is not range-checked.
+    assert_equal(362340, Date._parse('2001-02-03T04:05:06+9999')[:offset])
+    assert_equal(362340, Date._iso8601('2001-02-03T04:05:06+9999')[:offset])
+    assert_equal(362340, Date._rfc2822('Sat, 3 Feb 2001 04:05:06 +9999')[:offset])
+  end
+
   def test__rfc3339_offset_out_of_range
     # An out-of-range zone offset (hour >= 24 or minute >= 60) gives a nil
     # offset while the remaining fields and the zone string are kept,
