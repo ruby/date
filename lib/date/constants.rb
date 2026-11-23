@@ -44,14 +44,10 @@ class Date
   }.freeze
   private_constant :ABBR_DAY_INFO, :ABBR_MONTH_INFO
 
-  # Case-insensitive abbreviated month name -> month number (1-12)
-  ABBR_MONTH_NUM = ABBR_MONTHNAMES.each_with_index.each_with_object({}) { |(n, i), h|
-    next if n.nil?
-    h[n.downcase] = i
-  }.freeze
-
-  # Case-insensitive abbreviated day name -> wday number (0-6)
-  ABBR_DAY_NUM = ABBR_DAYNAMES.each_with_index.to_h { |n, i| [n.downcase, i] }.freeze
+  # Abbreviated-name -> index maps, derived from the *_INFO tables above: same
+  # (downcased) keys, with the index alone as the value (no name length).
+  ABBR_MONTH_NUM = ABBR_MONTH_INFO.transform_values { |v| v[0] }.freeze
+  ABBR_DAY_NUM   = ABBR_DAY_INFO.transform_values { |v| v[0] }.freeze
   private_constant :ABBR_MONTH_NUM, :ABBR_DAY_NUM
 
   # Lowercase full name strings for StringScanner-based head matching
