@@ -456,6 +456,18 @@ class TestDateStrftime < Test::Unit::TestCase
     assert_equal('SAT FEB  3 04:05:06 +09:00 2001', d.strftime('%^+'))
   end
 
+  def test_rfc2822_httpdate_with_offset
+    # rfc2822 keeps local time and shows the real offset; httpdate converts
+    # the instant to UTC, matching the C extension.
+    d = DateTime.new(2001, 2, 3, 4, 5, 6, '+07:00')
+    assert_equal('Sat, 3 Feb 2001 04:05:06 +0700', d.rfc2822)
+    assert_equal('Fri, 02 Feb 2001 21:05:06 GMT', d.httpdate)
+    # an offset that pushes the UTC instant into the next day
+    d2 = DateTime.new(2001, 2, 3, 22, 5, 6, '-05:00')
+    assert_equal('Sat, 3 Feb 2001 22:05:06 -0500', d2.rfc2822)
+    assert_equal('Sun, 04 Feb 2001 03:05:06 GMT', d2.httpdate)
+  end
+
   def test__different_format
     d = Date.new(2001,2,3)
 

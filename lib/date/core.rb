@@ -1534,7 +1534,7 @@ class Date
     if instance_of?(Date)
       "#{ABBR_DAYNAMES[w]}, #{@day} #{ABBR_MONTHNAMES[@month]} #{y_s} 00:00:00 +0000"
     else
-      "#{ABBR_DAYNAMES[w]}, #{@day} #{ABBR_MONTHNAMES[@month]} #{y_s} #{PAD2[internal_hour]}:#{PAD2[internal_min]}:#{PAD2[internal_sec]} +0000"
+      "#{ABBR_DAYNAMES[w]}, #{@day} #{ABBR_MONTHNAMES[@month]} #{y_s} #{PAD2[internal_hour]}:#{PAD2[internal_min]}:#{PAD2[internal_sec]} #{strftime_zoff}"
     end
   end
   alias_method :rfc822, :rfc2822
@@ -1555,7 +1555,12 @@ class Date
     if instance_of?(Date)
       "#{ABBR_DAYNAMES[w]}, #{PAD2[@day]} #{ABBR_MONTHNAMES[@month]} #{y_s} 00:00:00 GMT"
     else
-      "#{ABBR_DAYNAMES[w]}, #{PAD2[@day]} #{ABBR_MONTHNAMES[@month]} #{y_s} #{PAD2[internal_hour]}:#{PAD2[internal_min]}:#{PAD2[internal_sec]} GMT"
+      # HTTP dates are always in GMT, so convert the instant to UTC first.
+      u = new_offset(0)
+      uw = (u.jd + 1) % 7
+      uy = u.year
+      uy_s = uy >= 1000 ? uy.to_s : (uy >= 0 ? format('%04d', uy) : format('-%04d', -uy))
+      "#{ABBR_DAYNAMES[uw]}, #{PAD2[u.day]} #{ABBR_MONTHNAMES[u.mon]} #{uy_s} #{PAD2[u.hour]}:#{PAD2[u.min]}:#{PAD2[u.sec]} GMT"
     end
   end
 
