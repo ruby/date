@@ -356,7 +356,9 @@ class Date
       expansion = STRFTIME_COMPOSITE[spec]
       if expansion
         s = internal_strftime(expansion)
-        fmt_str(s, width, flags)
+        # The '#' (change-case) flag has no effect on composite conversions
+        # in the C extension; only '^' (upcase), width and justification do.
+        fmt_str(s, width, flags & ~FL_CHCASE)
       else
         nil  # unknown conversion: caller emits the original text verbatim
       end

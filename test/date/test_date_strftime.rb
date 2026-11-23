@@ -189,6 +189,18 @@ class TestDateStrftime < Test::Unit::TestCase
     end
   end
 
+  def test_strftime_hash_flag_ignored_on_composites
+    # The '#' (change-case) flag has no effect on composite conversions
+    # (%c, %r, %v, ...), matching the C extension; the '^' (upcase) flag
+    # still applies.
+    d = Date.new(2001, 2, 3)
+    assert_equal('Sat Feb  3 00:00:00 2001', d.strftime('%#c'))
+    assert_equal('12:00:00 AM', d.strftime('%#r'))
+    assert_equal(' 3-FEB-2001', d.strftime('%#v'))
+    assert_equal('SAT FEB  3 00:00:00 2001', d.strftime('%^c'))
+    assert_equal('SAT FEB  3 00:00:00 2001', d.strftime('%#^c'))
+  end
+
   def test_strftime_v_negative_year
     # %v formats the year with %Y (sign plus at least four digits), matching
     # the C extension, not a width-4 %4Y.
