@@ -439,29 +439,6 @@ class Date
       [year, mon, day]
     end
 
-    # JD -> (year, month, day), respecting start (cutover).
-    def jd_to_civil(jd, sg)
-      if sg == Float::INFINITY
-        jd_to_julian(jd)
-      elsif sg == -Float::INFINITY || jd >= sg
-        jd_to_gregorian(jd)
-      else
-        jd_to_julian(jd)
-      end
-    end
-
-    # Ordinal (year, day-of-year) -> JD
-    def ordinal_to_jd(y, d, sg)
-      civil_to_jd(y, 1, 1, sg) + d - 1
-    end
-
-    # JD -> (year, day-of-year)
-    def jd_to_ordinal(jd, sg)
-      y, = jd_to_civil(jd, sg)
-      jd_jan1 = civil_to_jd(y, 1, 1, sg)
-      [y, jd - jd_jan1 + 1]
-    end
-
     # Commercial (ISO week: cwyear, cweek, cwday) -> JD
     def commercial_to_jd(y, w, d, sg = -Float::INFINITY)
       # Jan 4 is always in week 1 (ISO 8601)
@@ -1659,17 +1636,16 @@ class Date
   end
 
   # Format the start (cutover) for #inspect: "Inf"/"-Inf" for the infinite
-  # sentinels and an integer for whole values.
+  # sentinels, otherwise the integer part of the start (matching the C
+  # extension, which prints a whole jd even for a fractional start).
   private def inspect_sg
     sg = @start
     if sg == Float::INFINITY
       'Inf'
     elsif sg == -Float::INFINITY
       '-Inf'
-    elsif sg == sg.to_i
-      sg.to_i.to_s
     else
-      sg.to_s
+      sg.to_i.to_s
     end
   end
 
