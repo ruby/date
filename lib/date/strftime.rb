@@ -64,11 +64,9 @@ class Date
         next
       end
 
-      # Must be '%' or something unexpected
-      unless sc.skip(/%/)
-        result << sc.getch
-        next
-      end
+      # The scan above consumes every non-'%' byte, so the scanner is now
+      # positioned at a '%'; step over it.
+      sc.skip(/%/)
 
       if sc.eos?
         result << '%'
@@ -473,10 +471,8 @@ class Date
           else
             "#{sign}#{hh_s}"
           end
-        when 0
+        else # 0; internal_strftime rejects four or more colons before this
           "#{sign}#{hh_s}#{mm_s}"
-        else
-          "#{sign}#{hh_s}:#{mm_s}"
         end
 
     if flags & FL_SPACE != 0
