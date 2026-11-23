@@ -31,28 +31,6 @@ class Date
       return {} if string.empty?
       parse_check_limit(string, limit)
 
-      # Fast path: YYYY-MM-DDTHH:MM:SS+HH:MM (25 bytes) or YYYY-MM-DDTHH:MM:SSZ (20 bytes)
-      len = string.length
-      if len == 25 || len == 20
-        sc = StringScanner.new(string)
-        if sc.scan(/(\d{4})-(\d{2})-(\d{2})[Tt](\d{2}):(\d{2}):(\d{2})/)
-          h = {
-            year: sc[1].to_i, mon: sc[2].to_i, mday: sc[3].to_i,
-            hour: sc[4].to_i, min: sc[5].to_i, sec: sc[6].to_i
-          }
-          if sc.scan(/[Zz]\z/)
-            h[:zone] = sc.matched
-            h[:offset] = 0
-            return h
-          elsif sc.scan(/([+-])(\d{2}):(\d{2})\z/)
-            zone = sc.matched
-            h[:zone] = zone
-            h[:offset] = (sc[1] == '-' ? -1 : 1) * (sc[2].to_i * 3600 + sc[3].to_i * 60)
-            return h
-          end
-        end
-      end
-
       h = {}
       if (m = RFC3339_RE.match(string))
         h[:year]  = m[1].to_i
@@ -96,27 +74,6 @@ class Date
       end
       return {} if string.empty?
       parse_check_limit(string, limit)
-
-      # Fast path for Type 1: "Dow, DD Mon YYYY HH:MM:SS GMT" (29 bytes)
-      len = string.length
-      if len == 29
-        sc = StringScanner.new(string)
-        if sc.scan(/([A-Za-z]{3}), (\d{2}) ([A-Za-z]{3}) (\d{4}) (\d{2}):(\d{2}):(\d{2}) (GMT)\z/i)
-          wkey = compute_3key(sc[1])
-          wday_info = ABBR_DAY_3KEY[wkey]
-          if wday_info
-            mkey = compute_3key(sc[3])
-            mon_info = ABBR_MONTH_3KEY[mkey]
-            if mon_info
-              return {
-                wday: wday_info[0], mday: sc[2].to_i, mon: mon_info[0],
-                year: sc[4].to_i, hour: sc[5].to_i, min: sc[6].to_i, sec: sc[7].to_i,
-                zone: 'GMT', offset: 0
-              }
-            end
-          end
-        end
-      end
 
       h = {}
       if (m = HTTPDATE_TYPE1_RE.match(string))
