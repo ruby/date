@@ -7,6 +7,24 @@ class TestDateArith < Test::Unit::TestCase
     def to_r; self; end
   end
 
+  def test_step_upto_downto_additional_paths
+    # step with a negative integer step (Date fast loop).
+    r = []; Date.new(2001, 2, 5).step(Date.new(2001, 2, 1), -2) { |d| r << d.mday }
+    assert_equal([5, 3, 1], r)
+    # step with a non-integer step takes the general path, both directions.
+    r = []; Date.new(2001, 2, 1).step(Date.new(2001, 2, 5), 2r) { |d| r << d.mday }
+    assert_equal([1, 3, 5], r)
+    r = []; Date.new(2001, 2, 5).step(Date.new(2001, 2, 1), -2r) { |d| r << d.mday }
+    assert_equal([5, 3, 1], r)
+    # a zero step is rejected on the general path too.
+    assert_raise(ArgumentError) { Date.new(2001, 2, 1).step(Date.new(2001, 2, 3), 0r) { } }
+    # upto/downto general path (non-Date receiver delegates to step).
+    r = []; DateTime.new(2001, 2, 1).upto(DateTime.new(2001, 2, 3)) { |d| r << d.mday }
+    assert_equal([1, 2, 3], r)
+    r = []; DateTime.new(2001, 2, 3).downto(DateTime.new(2001, 2, 1)) { |d| r << d.mday }
+    assert_equal([3, 2, 1], r)
+  end
+
   def test_new_offset
     d = DateTime.new(2002, 3, 14)
     assert_equal(Rational(9, 24), d.new_offset(Rational(9, 24)).offset)

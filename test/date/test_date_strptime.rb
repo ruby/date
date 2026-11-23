@@ -67,6 +67,14 @@ class TestDateStrptime < Test::Unit::TestCase
   STRFTIME_2001_02_03.update(STRFTIME_2001_02_03_CVS19)
   STRFTIME_2001_02_03.update(STRFTIME_2001_02_03_GNUext)
 
+  def test__strptime_abdy_fast_path
+    # "%a %b %d %Y" has a dedicated fast path in _strptime/strptime.
+    assert_equal({wday: 6, mon: 2, mday: 3, year: 2001},
+                 Date._strptime('Sat Feb 03 2001', '%a %b %d %Y'))
+    assert_equal(Date.new(2001, 2, 3),
+                 Date.strptime('Sat Feb 03 2001', '%a %b %d %Y'))
+  end
+
   def test__strptime
     STRFTIME_2001_02_03.each do |f, s|
       if (f == '%I' and s[0] == '12') or

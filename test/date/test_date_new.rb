@@ -4,6 +4,15 @@ require 'date'
 
 class TestDateNew < Test::Unit::TestCase
 
+  def test_valid_and_leap_predicates_true
+    # Happy paths for the predicate class methods.
+    assert_equal(true, Date.valid_civil?(2001, 2, 3))
+    assert_equal(true, Date.valid_ordinal?(2001, 60))
+    assert_equal(true, Date.gregorian_leap?(2000))
+    assert_equal(true, Date.julian_leap?(1900))
+    assert_equal(true, Date.leap?(2000))
+  end
+
   def test_jd
     d = Date.jd
     dt = DateTime.jd

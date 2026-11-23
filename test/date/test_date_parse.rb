@@ -5,6 +5,18 @@ require 'envutil'
 
 class TestDateParse < Test::Unit::TestCase
 
+  def test__parse_us_month_name_fast_path
+    assert_equal({year: 2001, mon: 2, mday: 3}, Date._parse('February 3, 2001'))
+    assert_equal({year: 2001, mon: 2, mday: 3}, Date._parse('Feb 3 2001'))
+  end
+
+  def test__rfc2822_two_digit_day_fast_path
+    # "Dow, DD Mon YYYY HH:MM:SS +ZZZZ" (31 bytes, 2-digit day) fast path.
+    h = Date._rfc2822('Sat, 03 Feb 2001 04:05:06 +0700')
+    assert_equal([6, 3, 2, 2001, 4, 5, 6, '+0700', 25200],
+		 h.values_at(:wday, :mday, :mon, :year, :hour, :min, :sec, :zone, :offset))
+  end
+
   def test__parse
     [
      # ctime(3), asctime(3)

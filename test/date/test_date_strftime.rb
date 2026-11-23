@@ -67,6 +67,14 @@ class TestDateStrftime < Test::Unit::TestCase
   STRFTIME_2001_02_03.update(STRFTIME_2001_02_03_CVS19)
   STRFTIME_2001_02_03.update(STRFTIME_2001_02_03_GNUext)
 
+  def test_strftime_whole_string_fast_paths
+    # Dedicated whole-format fast paths in internal_strftime.
+    assert_equal('2001-02-03T04:05:06+0700',
+                 DateTime.new(2001, 2, 3, 4, 5, 6, '+07:00').strftime('%Y-%m-%dT%H:%M:%S%z'))
+    assert_equal('Saturday, February 03, 2001',
+                 Date.new(2001, 2, 3).strftime('%A, %B %d, %Y'))
+  end
+
   def test_strftime
     d = Date.new(2001,2,3)
     STRFTIME_2001_02_03.each do |f, s|

@@ -6,6 +6,28 @@ class DateSub < Date; end
 class DateTimeSub < DateTime; end
 
 class TestDate < Test::Unit::TestCase
+  def test_deconstruct_keys_single_key
+    d = Date.new(1999, 5, 23)
+    assert_equal({year: 1999}, d.deconstruct_keys([:year]))
+    assert_equal({month: 5}, d.deconstruct_keys([:month]))
+    assert_equal({day: 23}, d.deconstruct_keys([:day]))
+    assert_equal({wday: 0}, d.deconstruct_keys([:wday]))
+    assert_equal({yday: 143}, d.deconstruct_keys([:yday]))
+    assert_equal({}, d.deconstruct_keys([:century]))
+    dt = DateTime.new(1999, 5, 23, 4, 5, 6, '+03:30')
+    assert_equal({year: 1999}, dt.deconstruct_keys([:year]))
+    assert_equal({month: 5}, dt.deconstruct_keys([:month]))
+    assert_equal({day: 23}, dt.deconstruct_keys([:day]))
+    assert_equal({wday: 0}, dt.deconstruct_keys([:wday]))
+    assert_equal({yday: 143}, dt.deconstruct_keys([:yday]))
+    assert_equal({hour: 4}, dt.deconstruct_keys([:hour]))
+    assert_equal({min: 5}, dt.deconstruct_keys([:min]))
+    assert_equal({sec: 6}, dt.deconstruct_keys([:sec]))
+    assert_equal({sec_fraction: 0r}, dt.deconstruct_keys([:sec_fraction]))
+    assert_equal({zone: '+03:30'}, dt.deconstruct_keys([:zone]))
+    assert_equal({}, dt.deconstruct_keys([:century]))
+  end
+
   def test_range_infinite_float
     today = Date.today
     r = today...Float::INFINITY
