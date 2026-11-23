@@ -4,7 +4,6 @@
 require 'strscan'
 
 require_relative "date/version"
-require_relative "date/shared"
 require_relative "date/constants"
 require_relative "date/core"
 require_relative "date/strftime"

@@ -190,8 +190,7 @@ class Date
         when 65, 97 # 'A', 'a'
           s3 = str_sc.scan(SP_ALPHA3)
           throw(:sp_fail) unless s3
-          key = compute_3key(s3)
-          entry = ABBR_DAY_3KEY[key]
+          entry = ABBR_DAY_INFO[s3.downcase]
           throw(:sp_fail) unless entry
           wday_i = entry[0]
           remaining = entry[1] - 3
@@ -206,8 +205,7 @@ class Date
         when 66, 98, 104 # 'B', 'b', 'h'
           s3 = str_sc.scan(SP_ALPHA3)
           throw(:sp_fail) unless s3
-          key = compute_3key(s3)
-          entry = ABBR_MONTH_3KEY[key]
+          entry = ABBR_MONTH_INFO[s3.downcase]
           throw(:sp_fail) unless entry
           mon_i = entry[0]
           remaining = entry[1] - 3
@@ -461,8 +459,7 @@ class Date
       return nil unless m
 
       # Validate weekday via 3-byte key lookup
-      key = compute_3key(m[1])
-      entry = ABBR_DAY_3KEY[key]
+      entry = ABBR_DAY_INFO[m[1].downcase]
       return nil unless entry
       wday = entry[0]
       day_rest = m[2]
@@ -471,8 +468,7 @@ class Date
       end
 
       # Validate month via 3-byte key lookup
-      key = compute_3key(m[3])
-      entry = ABBR_MONTH_3KEY[key]
+      entry = ABBR_MONTH_INFO[m[3].downcase]
       return nil unless entry
       mon = entry[0]
       mon_rest = m[4]
@@ -498,8 +494,7 @@ class Date
       return nil unless m.post_match.empty?
 
       # Validate weekday via 3-byte key lookup
-      key = compute_3key(m[1])
-      entry = ABBR_DAY_3KEY[key]
+      entry = ABBR_DAY_INFO[m[1].downcase]
       return nil unless entry
       day_rest = m[2]
       unless day_rest.empty?
@@ -507,8 +502,7 @@ class Date
       end
 
       # Validate month via 3-byte key lookup
-      key = compute_3key(m[3])
-      entry = ABBR_MONTH_3KEY[key]
+      entry = ABBR_MONTH_INFO[m[3].downcase]
       return nil unless entry
       mon = entry[0]
       mon_rest = m[4]

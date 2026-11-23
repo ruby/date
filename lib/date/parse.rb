@@ -140,11 +140,9 @@ class Date
       if len == 31
         sc = StringScanner.new(string)
         if sc.scan(/([A-Za-z]{3}), (\d{2}) ([A-Za-z]{3}) (\d{4}) (\d{2}):(\d{2}):(\d{2}) ([+-]\d{4})\z/)
-          wkey = compute_3key(sc[1])
-          wday_info = ABBR_DAY_3KEY[wkey]
+          wday_info = ABBR_DAY_INFO[sc[1].downcase]
           if wday_info
-            mkey = compute_3key(sc[3])
-            mon_info = ABBR_MONTH_3KEY[mkey]
+            mon_info = ABBR_MONTH_INFO[sc[3].downcase]
             if mon_info
               zone = sc[8]
               sign = zone[0] == '-' ? -1 : 1

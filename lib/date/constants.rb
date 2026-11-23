@@ -31,17 +31,18 @@ class Date
   # proleptic Gregorian calendar.
   GREGORIAN = -Float::INFINITY
 
-  # 3-byte integer key lookup tables for O(1) abbreviated name matching.
-  # Key = (byte0_lower << 16) | (byte1_lower << 8) | byte2_lower
-  # Value = [index, full_name_length]
-  ABBR_DAY_3KEY = ABBR_DAYNAMES.each_with_index.to_h { |n, i|
-    [compute_3key(n), [i, DAYNAMES[i].length].freeze]
+  # Case-insensitive abbreviated name lookup tables for O(1) name matching.
+  # Key = downcased 3-letter abbreviation, Value = [index, full_name_length].
+  # The length lets callers verify an optional full-name tail (e.g. the
+  # "day" in "Sunday" following "Sun").
+  ABBR_DAY_INFO = ABBR_DAYNAMES.each_with_index.to_h { |n, i|
+    [n.downcase.freeze, [i, DAYNAMES[i].length].freeze]
   }.freeze
-  ABBR_MONTH_3KEY = ABBR_MONTHNAMES.each_with_index.each_with_object({}) { |(n, i), h|
+  ABBR_MONTH_INFO = ABBR_MONTHNAMES.each_with_index.each_with_object({}) { |(n, i), h|
     next if n.nil?
-    h[compute_3key(n)] = [i, MONTHNAMES[i].length].freeze
+    h[n.downcase.freeze] = [i, MONTHNAMES[i].length].freeze
   }.freeze
-  private_constant :ABBR_DAY_3KEY, :ABBR_MONTH_3KEY
+  private_constant :ABBR_DAY_INFO, :ABBR_MONTH_INFO
 
   # Case-insensitive abbreviated month name -> month number (1-12)
   ABBR_MONTH_NUM = ABBR_MONTHNAMES.each_with_index.each_with_object({}) { |(n, i), h|
