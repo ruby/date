@@ -7,6 +7,29 @@ class TestDateArith < Test::Unit::TestCase
     def to_r; self; end
   end
 
+  def test__compare_nan
+    [Date.new(2000, 1, 1), DateTime.new(2000, 1, 1, 12)].each do |d|
+      assert_nil(d <=> Float::NAN)
+      assert_equal(false, d == Float::NAN)
+    end
+  end
+
+  def test_step__incomparable_limit
+    d = Date.new(2000, 1, 1)
+    [Float::NAN, Object.new].each do |limit|
+      no = proc { flunk("yielded for #{limit.inspect}") }
+      assert_raise(ArgumentError) { d.upto(limit, &no) }
+      assert_raise(ArgumentError) { d.downto(limit, &no) }
+      assert_raise(ArgumentError) { d.step(limit, 1, &no) }
+      assert_raise(ArgumentError) { d.step(limit, -1, &no) }
+    end
+  end
+
+  def test__minus_datetime_offset
+    # Date - DateTime accounts for the DateTime's offset (absolute instants).
+    assert_equal(-11.to_r / 24, Date.new(2001, 2, 3) - DateTime.new(2001, 2, 3, 0, 0, 0, '-11:00'))
+  end
+
   def test_next_month__ex
     e = TypeError
     assert_raise(e) { Date.new(2000, 1, 31) >> nil }

@@ -1080,7 +1080,14 @@ class Date
   def -(other)
     case other
     when Date
-      Rational(@jd - other.jd) + day_fraction - other.day_fraction
+      # Difference as a day count. Plain dates reduce to an integer jd delta
+      # (fast path); otherwise use the absolute instants so an offset on either
+      # side is accounted for, matching the C extension.
+      if instance_of?(Date) && other.instance_of?(Date)
+        Rational(@jd - other.jd)
+      else
+        ajd - other.ajd
+      end
     when Integer
       self.class.__send__(:new_from_jd, @jd - other, @start)
     when Numeric
