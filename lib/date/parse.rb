@@ -142,18 +142,17 @@ class Date
       # Fast path: "Dow, DD Mon YYYY HH:MM:SS +ZZZZ" (31 bytes, 2-digit day)
       len = string.length
       if len == 31
-        sc = StringScanner.new(string)
-        if sc.scan(/([A-Za-z]{3}), (\d{2}) ([A-Za-z]{3}) (\d{4}) (\d{2}):(\d{2}):(\d{2}) ([+-]\d{4})\z/)
-          wday_info = ABBR_DAY_INFO[sc[1].downcase]
+        if (m = /\A([A-Za-z]{3}), (\d{2}) ([A-Za-z]{3}) (\d{4}) (\d{2}):(\d{2}):(\d{2}) ([+-]\d{4})\z/.match(string))
+          wday_info = ABBR_DAY_INFO[m[1].downcase]
           if wday_info
-            mon_info = ABBR_MONTH_INFO[sc[3].downcase]
+            mon_info = ABBR_MONTH_INFO[m[3].downcase]
             if mon_info
-              zone = sc[8]
+              zone = m[8]
               sign = zone[0] == '-' ? -1 : 1
               offset_val = sign * (zone[1, 2].to_i * 3600 + zone[3, 2].to_i * 60)
               return {
-                wday: wday_info[0], mday: sc[2].to_i, mon: mon_info[0],
-                year: sc[4].to_i, hour: sc[5].to_i, min: sc[6].to_i, sec: sc[7].to_i,
+                wday: wday_info[0], mday: m[2].to_i, mon: mon_info[0],
+                year: m[4].to_i, hour: m[5].to_i, min: m[6].to_i, sec: m[7].to_i,
                 zone: zone, offset: offset_val
               }
             end
@@ -218,9 +217,8 @@ class Date
 
       # Fast path: YYYY-MM-DD (exactly 10 bytes, all ASCII)
       if string.length == 10
-        sc = StringScanner.new(string)
-        if sc.scan(/(\d{4})-(\d{2})-(\d{2})\z/)
-          return { year: sc[1].to_i, mon: sc[2].to_i, mday: sc[3].to_i }
+        if (m = /\A(\d{4})-(\d{2})-(\d{2})\z/.match(string))
+          return { year: m[1].to_i, mon: m[2].to_i, mday: m[3].to_i }
         end
       end
 
@@ -279,9 +277,8 @@ class Date
 
       # Fast path: YYYY-MM-DD (exactly 10 bytes, all ASCII)
       if string.length == 10
-        sc = StringScanner.new(string)
-        if sc.scan(/(\d{4})-(\d{2})-(\d{2})\z/)
-          return { mday: sc[3].to_i, year: sc[1].to_i, mon: sc[2].to_i }
+        if (m = /\A(\d{4})-(\d{2})-(\d{2})\z/.match(string))
+          return { mday: m[3].to_i, year: m[1].to_i, mon: m[2].to_i }
         end
       end
 
@@ -334,14 +331,13 @@ class Date
 
       # Fast path: X##.##.## (9 bytes: era + YY.MM.DD)
       if string.length == 9
-        sc = StringScanner.new(string)
-        if sc.scan(/([A-Za-z])(\d{2})\.(\d{2})\.(\d{2})\z/)
-          era_offset = JISX0301_ERA[sc[1].downcase]
+        if (m = /\A([A-Za-z])(\d{2})\.(\d{2})\.(\d{2})\z/.match(string))
+          era_offset = JISX0301_ERA[m[1].downcase]
           if era_offset
             return {
-              year: sc[2].to_i + era_offset,
-              mon:  sc[3].to_i,
-              mday: sc[4].to_i
+              year: m[2].to_i + era_offset,
+              mon:  m[3].to_i,
+              mday: m[4].to_i
             }
           end
         end
@@ -406,17 +402,15 @@ class Date
 
       # Fast ISO: YYYY-MM-DD (exactly 10 ASCII bytes)
       if len == 10
-        sc = StringScanner.new(string)
-        if sc.scan(/(\d{4})-(\d{2})-(\d{2})\z/)
-          return { year: sc[1].to_i, mon: sc[2].to_i, mday: sc[3].to_i }
+        if (m = /\A(\d{4})-(\d{2})-(\d{2})\z/.match(string))
+          return { year: m[1].to_i, mon: m[2].to_i, mday: m[3].to_i }
         end
       end
 
       # Fast compact: YYYYMMDD (exactly 8 ASCII digit bytes)
       if len == 8
-        sc = StringScanner.new(string)
-        if sc.scan(/(\d{4})(\d{2})(\d{2})\z/)
-          return { year: sc[1].to_i, mon: sc[2].to_i, mday: sc[3].to_i }
+        if (m = /\A(\d{4})(\d{2})(\d{2})\z/.match(string))
+          return { year: m[1].to_i, mon: m[2].to_i, mday: m[3].to_i }
         end
       end
 
@@ -785,14 +779,13 @@ class Date
       return 0 if len == 1 && (zone_str[0] == 'Z' || zone_str[0] == 'z')
 
       if zone_str[0] == '+' || zone_str[0] == '-'
-        sc = StringScanner.new(zone_str)
-        if sc.scan(/([+-])(\d{2})(:?)(\d{2})\z/)
-          hh = sc[2].to_i
-          mm = sc[4].to_i
+        if (m = /\A([+-])(\d{2})(:?)(\d{2})\z/.match(zone_str))
+          hh = m[2].to_i
+          mm = m[4].to_i
           # The colon form (+HH:MM) is range-checked: an hour >= 24 or minute
           # >= 60 is an invalid offset (nil). The compact form (+HHMM) is not.
-          return nil if !sc[3].empty? && (hh >= 24 || mm >= 60)
-          sign = sc[1] == '-' ? -1 : 1
+          return nil if !m[3].empty? && (hh >= 24 || mm >= 60)
+          sign = m[1] == '-' ? -1 : 1
           return sign * (hh * 3600 + mm * 60)
         end
       end
