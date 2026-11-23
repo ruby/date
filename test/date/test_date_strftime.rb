@@ -67,6 +67,32 @@ class TestDateStrftime < Test::Unit::TestCase
   STRFTIME_2001_02_03.update(STRFTIME_2001_02_03_CVS19)
   STRFTIME_2001_02_03.update(STRFTIME_2001_02_03_GNUext)
 
+  def test_strftime_width_flag_precision_and_composite_edges
+    d = Date.new(2001, 2, 3)
+    assert_equal('%1-5d', d.strftime('%1-5d'))  # flag after width -> verbatim
+    assert_equal('%1.2d', d.strftime('%1.2d'))  # precision '.' -> verbatim
+    assert_equal('-0005', Date.new(-5, 2, 3).strftime('%G'))
+    assert_equal('2001', d.strftime('%1G'))
+    assert_equal('-5', Date.new(-5, 2, 3).strftime('%1G'))
+    assert_equal('Sat Feb  3 00:00:00 2001', d.strftime('%5c'))
+    assert_equal('    02/03/01', d.strftime('%12x'))
+    dt = DateTime.new(2001, 2, 3, 4, 5, 6, '+07:30')
+    assert_equal('+07:30', dt.strftime('%:z'))
+    assert_equal('+07:30:00', dt.strftime('%::z'))
+  end
+
+  def test_strftime_fast_ymd_and_embedded_composites
+    # fast_ymd year padding for small positive and negative years.
+    assert_equal('0500-02-03', Date.new(500, 2, 3).strftime('%F'))
+    assert_equal('-0005-02-03', Date.new(-5, 2, 3).strftime('%F'))
+    # %c/%D/%x reached through the scanner (not the whole-string fast path,
+    # which only matches those specs standing alone).
+    d = Date.new(2001, 2, 3)
+    assert_equal('(Sat Feb  3 00:00:00 2001)', d.strftime('(%c)'))
+    assert_equal('(02/03/01)', d.strftime('(%D)'))
+    assert_equal('(02/03/01)', d.strftime('(%x)'))
+  end
+
   def test_strftime_whole_string_fast_paths
     # Dedicated whole-format fast paths in internal_strftime.
     assert_equal('2001-02-03T04:05:06+0700',
