@@ -197,6 +197,26 @@ class TestDateStrftime < Test::Unit::TestCase
     assert_equal(' 9-JAN-0005', Date.new(5, 1, 9).strftime('%v'))
   end
 
+  def test_strftime_incomplete_spec_at_eos
+    # Flags and/or a width followed by end-of-string (no conversion character)
+    # are emitted verbatim, matching the C extension, rather than collapsing
+    # to a bare "%".
+    d = Date.new(2001, 2, 3)
+    %w[%- %_ %0 %^ %# %5 %05 %10 %-5].each do |f|
+      assert_equal(f, d.strftime(f), "strftime(#{f.inspect})")
+    end
+  end
+
+  def test_strftime_invalid_spec_with_flags
+    # An unknown conversion character preceded by flags and/or a width is
+    # emitted verbatim, matching the C extension; the flags/width must not be
+    # dropped (which would leave just "%<char>").
+    d = Date.new(2001, 2, 3)
+    %w[%q %-q %5q %05q %-5q %^q %#q].each do |f|
+      assert_equal(f, d.strftime(f), "strftime(#{f.inspect})")
+    end
+  end
+
   def test_strftime_multibyte_invalid_conversion
     # A multibyte character after '%' is an invalid conversion specifier and
     # is emitted verbatim as "%<char>", matching the C extension. It must not

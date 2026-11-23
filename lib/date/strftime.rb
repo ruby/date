@@ -127,6 +127,14 @@ class Date
 
       spec = sc.getch
 
+      # End of string reached after '%' and some flags/width/colons/modifier,
+      # with no conversion character. The C extension emits the original text
+      # verbatim rather than collapsing it to a bare '%'.
+      if spec.nil?
+        result << '%' << fmt[spec_start...sc.charpos]
+        next
+      end
+
       # Colons are valid only for %z and at most three of them. Any other use
       # (a colon before the width, a colon with a non-z spec, or four or more
       # colons) is invalid, and the C extension emits the original text
@@ -156,7 +164,14 @@ class Date
         end
       end
 
-      result << format_spec_b(spec, flags, colons, width)
+      formatted = format_spec_b(spec, flags, colons, width)
+      if formatted
+        result << formatted
+      else
+        # Unknown conversion: emit the original text (flags, width and all)
+        # verbatim, as the C extension does.
+        result << '%' << fmt[spec_start...sc.charpos]
+      end
     end
 
     result
@@ -343,7 +358,7 @@ class Date
         s = internal_strftime(expansion)
         fmt_str(s, width, flags)
       else
-        "%#{spec}"
+        nil  # unknown conversion: caller emits the original text verbatim
       end
     end
   end
