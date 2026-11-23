@@ -189,6 +189,14 @@ class TestDateStrftime < Test::Unit::TestCase
     end
   end
 
+  def test_strftime_v_negative_year
+    # %v formats the year with %Y (sign plus at least four digits), matching
+    # the C extension, not a width-4 %4Y.
+    assert_equal(' 9-JAN--0005', Date.new(-5, 1, 9).strftime('%v'))
+    assert_equal(' 9-JAN--0012', Date.new(-12, 1, 9).strftime('%v'))
+    assert_equal(' 9-JAN-0005', Date.new(5, 1, 9).strftime('%v'))
+  end
+
   def test_strftime_multibyte_invalid_conversion
     # A multibyte character after '%' is an invalid conversion specifier and
     # is emitted verbatim as "%<char>", matching the C extension. It must not
