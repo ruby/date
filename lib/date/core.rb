@@ -950,8 +950,15 @@ class Date
   def <=>(other)
     case other
     when Date
-      d = @jd <=> other.jd
-      d != 0 ? d : day_fraction <=> other.day_fraction
+      # Plain dates have no offset or day fraction, so their jd is the whole
+      # story (fast path). Otherwise compare the absolute instant, so two
+      # DateTimes that denote the same moment with different offsets compare
+      # equal, matching the C extension.
+      if instance_of?(Date) && other.instance_of?(Date)
+        @jd <=> other.jd
+      else
+        ajd <=> other.ajd
+      end
     when Numeric
       ajd <=> other
     else
@@ -963,11 +970,16 @@ class Date
   # and #=== are defined explicitly.
 
   def eql?(other)
-    other.is_a?(Date) && @jd == other.jd && day_fraction == other.day_fraction
+    return false unless other.is_a?(Date)
+    if instance_of?(Date) && other.instance_of?(Date)
+      @jd == other.jd
+    else
+      ajd == other.ajd
+    end
   end
 
   def hash
-    [@jd, @start].hash
+    ajd.hash
   end
 
   # call-seq:

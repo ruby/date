@@ -466,13 +466,8 @@ class DateTime < Date
     "#<DateTime: #{to_s} ((#{utc_jd}j,#{utc_sec}s,#{nano_s}n),#{of_s}s,#{inspect_sg}j)>"
   end
 
-  def hash
-    if @hour == 0 && @min == 0 && @sec == 0
-      [@jd, @start].hash
-    else
-      [@jd, @hour, @min, @sec, @start].hash
-    end
-  end
+  # #hash is inherited from Date (ajd.hash), so DateTimes that denote the same
+  # instant hash equal regardless of offset, matching #eql?.
 
   # ---------------------------------------------------------------------------
   # Serialization override
