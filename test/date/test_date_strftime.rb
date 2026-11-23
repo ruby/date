@@ -229,6 +229,16 @@ class TestDateStrftime < Test::Unit::TestCase
     end
   end
 
+  def test_strftime_invalid_encoding_format
+    # An invalid byte sequence in the format string is emitted verbatim
+    # instead of raising, matching the C extension.
+    d = Date.new(2001, 2, 3)
+    fmt = "%\xFF".dup.force_encoding("UTF-8")
+    assert_equal(fmt, d.strftime(fmt))
+    fmt2 = "x%\xFFy".dup.force_encoding("UTF-8")
+    assert_equal(fmt2, d.strftime(fmt2))
+  end
+
   def test_strftime_multibyte_invalid_conversion
     # A multibyte character after '%' is an invalid conversion specifier and
     # is emitted verbatim as "%<char>", matching the C extension. It must not

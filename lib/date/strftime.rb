@@ -49,6 +49,11 @@ class Date
       return "#{DAYNAMES[w]}, #{MONTHNAMES[@month]} #{PAD2[@day]}, #{y_s}"
     end
 
+    # If the format contains bytes that are invalid in its own encoding, scan
+    # it byte-wise so the regexp engine does not raise; the C extension copies
+    # such bytes through verbatim, and #strftime re-labels the result with the
+    # format's encoding. Valid formats (the common case) are scanned as-is.
+    fmt = fmt.b unless fmt.valid_encoding?
     result = +''.encode(fmt.encoding)
     sc = StringScanner.new(fmt)
 
