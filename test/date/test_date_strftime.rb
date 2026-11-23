@@ -189,6 +189,15 @@ class TestDateStrftime < Test::Unit::TestCase
     end
   end
 
+  def test_strftime_multibyte_invalid_conversion
+    # A multibyte character after '%' is an invalid conversion specifier and
+    # is emitted verbatim as "%<char>", matching the C extension. It must not
+    # raise (an earlier implementation raised RangeError via Integer#chr).
+    d = Date.new(2001, 2, 3)
+    assert_equal("%あ", d.strftime("%あ"))
+    assert_equal("x%あy", d.strftime("x%あy"))
+  end
+
   def test_strftime__offset
     s = '2006-08-08T23:15:33'
     (-24..24).collect{|x| '%+.2d' % x}.each do |hh|

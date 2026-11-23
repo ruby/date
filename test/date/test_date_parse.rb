@@ -1038,6 +1038,16 @@ class TestDateParse < Test::Unit::TestCase
     assert_raise(TypeError) {Date._httpdate('Sat, 03 Feb 2001 04:05:06 GMT'.to_sym)}
   end
 
+  def test__httpdate_preserves_zone_case
+    # The parsed :zone is returned as given, preserving case, matching the
+    # C extension. (A removed fast path used to hardcode it to "GMT".)
+    h = Date._httpdate('sat, 03 feb 2001 04:05:06 gmt')
+    assert_equal([2001, 2, 3, 4, 5, 6, 'gmt', 0],
+		 h.values_at(:year, :mon, :mday, :hour, :min, :sec, :zone, :offset))
+    h = Date._httpdate('Sat, 03 Feb 2001 04:05:06 GMT')
+    assert_equal('GMT', h[:zone])
+  end
+
   def test__jisx0301
     h = Date._jisx0301('13.02.03')
     assert_equal([2001, 2, 3, nil, nil, nil, nil],
