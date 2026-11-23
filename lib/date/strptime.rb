@@ -607,26 +607,6 @@ class Date
         sc = m[3] ? m[3].to_i : 0
         return nil if h > 23 || mn > 59 || sc > 59
         sign * (h * 3600 + mn * 60 + sc)
-      elsif (m = t.match(/\A(\d+)[,.](\d*)/))
-        h = m[1].to_i
-        return nil if h > 23
-        frac_s = m[2]
-        n      = [frac_s.length, 7].min
-        digits = frac_s[0, n].to_i
-        digits += 1 if frac_s.length > n && frac_s[n].to_i >= 5
-        sec = digits * 36
-        os  = if n == 0
-                h * 3600
-              elsif n == 1
-                sec * 10 + h * 3600
-              elsif n == 2
-                sec + h * 3600
-              else
-                denom = 10**(n - 2)
-                r     = Rational(sec, denom) + h * 3600
-                r.denominator == 1 ? r.numerator : r
-              end
-        sign == -1 ? -os : os
       elsif t =~ /\A(\d+)\z/
         digits = $1
         dlen   = digits.length
