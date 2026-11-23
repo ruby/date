@@ -193,6 +193,13 @@ class TestDate < Test::Unit::TestCase
     assert_equal(true, d.frozen?)
     assert_instance_of(Integer, d.yday)
     assert_instance_of(String, d.to_s)
+
+    # clone(freeze: true) freezes without calling #freeze; civil fields must
+    # still be readable on the frozen copy.
+    d = Date.jd(2451944).clone(freeze: true)
+    assert_equal([2001, 2, 3], [d.year, d.mon, d.mday])
+    dt = DateTime.new(2001, 2, 3, 4, 5, 6, '+07:00').clone(freeze: true)
+    assert_equal(Rational(817, 4800), dt.day_fraction)
   end
 
   def test_submillisecond_comparison

@@ -1669,6 +1669,14 @@ class Date
     super
   end
 
+  # clone(freeze: true) freezes the copy directly, without calling #freeze, so
+  # precompute the civil fields here (self is not frozen yet) to keep them
+  # readable on the frozen clone.
+  def initialize_clone(other, **)
+    super
+    internal_civil
+  end
+
   # ---------------------------------------------------------------------------
   # Private helpers
   # ---------------------------------------------------------------------------

@@ -137,6 +137,14 @@ class DateTime < Date
     super
   end
 
+  # clone(freeze: true) freezes the copy without calling #freeze, so precompute
+  # the day fraction (Date#initialize_clone handles the civil fields) before the
+  # copy is frozen.
+  def initialize_clone(other, **)
+    super
+    day_fraction
+  end
+
   # call-seq:
   #   day_fraction -> rational
   #
