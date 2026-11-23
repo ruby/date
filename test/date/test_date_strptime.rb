@@ -67,6 +67,11 @@ class TestDateStrptime < Test::Unit::TestCase
   STRFTIME_2001_02_03.update(STRFTIME_2001_02_03_CVS19)
   STRFTIME_2001_02_03.update(STRFTIME_2001_02_03_GNUext)
 
+  def test__strptime_meridian_failure_and_invalid_ymd
+    assert_nil(Date._strptime('zz', '%p'))               # not AM/PM
+    assert_raise(Date::Error) { Date.strptime('2001-13-45', '%F') }  # bad m/d
+  end
+
   def test__strptime_abdy_full_name_and_invalid
     # Full day/month names (abbreviation plus matching tail) are accepted.
     assert_equal({wday: 6, mon: 2, mday: 3, year: 2001},

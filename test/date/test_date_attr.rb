@@ -4,6 +4,10 @@ require 'date'
 
 class TestDateAttr < Test::Unit::TestCase
 
+  def test_amjd
+    assert_equal(Rational(51943, 1), Date.new(2001, 2, 3).amjd)
+  end
+
   def test__attr
     date = Date.new(1965, 5, 23)
     datetime = DateTime.new(1965, 5, 23, 22, 31, 59)

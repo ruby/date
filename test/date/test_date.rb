@@ -6,6 +6,21 @@ class DateSub < Date; end
 class DateTimeSub < DateTime; end
 
 class TestDate < Test::Unit::TestCase
+  def test_inspect_start_variants
+    assert_equal('#<Date: 2001-02-03 ((2451957j,0s,0n),+0s,Infj)>',
+                 Date.new(2001, 2, 3, Date::JULIAN).inspect)
+    assert_equal('#<Date: 2001-02-03 ((2451944j,0s,0n),+0s,-Infj)>',
+                 Date.new(2001, 2, 3, Date::GREGORIAN).inspect)
+    # A fractional start prints as a whole jd, matching the C extension.
+    assert_equal('#<Date: 2001-02-03 ((2451944j,0s,0n),+0s,2400000j)>',
+                 Date.new(2001, 2, 3, 2400000.5).inspect)
+  end
+
+  def test_spaceship_and_equal_with_incomparable
+    assert_nil(Date.new(2001, 2, 3) <=> Object.new)
+    assert_equal(false, Date.new(2001, 2, 3) == Object.new)
+  end
+
   def test_deconstruct_keys_single_key
     d = Date.new(1999, 5, 23)
     assert_equal({year: 1999}, d.deconstruct_keys([:year]))

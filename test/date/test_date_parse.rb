@@ -10,6 +10,12 @@ class TestDateParse < Test::Unit::TestCase
     assert_equal({year: 2001, mon: 2, mday: 3}, Date._parse('Feb 3 2001'))
   end
 
+  def test__rfc2822_folding_whitespace
+    # Obsolete folding whitespace (CR/LF) is collapsed before parsing.
+    h = Date._rfc2822("Sat,\r\n 3 Feb 2001 00:00:00 +0000")
+    assert_equal([3, 2, 2001], h.values_at(:mday, :mon, :year))
+  end
+
   def test__rfc2822_two_digit_day_fast_path
     # "Dow, DD Mon YYYY HH:MM:SS +ZZZZ" (31 bytes, 2-digit day) fast path.
     h = Date._rfc2822('Sat, 03 Feb 2001 04:05:06 +0700')

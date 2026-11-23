@@ -4,6 +4,18 @@ require 'date'
 
 class TestDateNew < Test::Unit::TestCase
 
+  def test_ordinal_and_calendar_start_paths
+    assert_equal(Date.new(2001, 3, 1), Date.ordinal(2001, 60))
+    assert_equal(2, Date.new(2001, 2, 3, Date::JULIAN).month)
+    assert_equal(2, Date.new(2001, 2, 3, Date::GREGORIAN).month)
+    assert_equal(2086308, Date.new(1000, 1, 1).jd)  # before the reform -> Julian
+  end
+
+  def test_datetime_new_offset_type_errors
+    assert_raise(TypeError) { DateTime.new(2001, 1, 1, 0, 0, 0, Object.new) }
+    assert_raise(TypeError) { DateTime.new(nil) }
+  end
+
   def test_valid_and_leap_predicates_true
     # Happy paths for the predicate class methods.
     assert_equal(true, Date.valid_civil?(2001, 2, 3))
