@@ -45,7 +45,11 @@ class Date
         if zone[0] == 'Z' || zone[0] == 'z'
           h[:offset] = 0
         else
-          h[:offset] = (zone[0] == '-' ? -1 : 1) * (zone[1, 2].to_i * 3600 + zone[4, 2].to_i * 60)
+          hh = zone[1, 2].to_i
+          mm = zone[4, 2].to_i
+          # An out-of-range offset (hour >= 24 or minute >= 60) is invalid; the
+          # C extension keeps the zone string but reports a nil offset.
+          h[:offset] = (hh < 24 && mm < 60) ? (zone[0] == '-' ? -1 : 1) * (hh * 3600 + mm * 60) : nil
         end
       end
       h

@@ -889,6 +889,21 @@ class TestDateParse < Test::Unit::TestCase
     assert_raise(TypeError) {Date._rfc3339('2001-02-03T04:05:06Z'.to_sym)}
   end
 
+  def test__rfc3339_offset_out_of_range
+    # An out-of-range zone offset (hour >= 24 or minute >= 60) gives a nil
+    # offset while the remaining fields and the zone string are kept,
+    # matching the C extension.
+    %w[+24:00 +25:00 +12:60 +99:99].each do |z|
+      h = Date._rfc3339("2001-02-03T04:05:06#{z}")
+      assert_nil(h[:offset], "offset for #{z}")
+      assert_equal(z, h[:zone], "zone for #{z}")
+      assert_equal(2001, h[:year])
+    end
+    # In-range boundaries still compute.
+    assert_equal(86340, Date._rfc3339('2001-02-03T04:05:06+23:59')[:offset])
+    assert_equal(0, Date._rfc3339('2001-02-03T04:05:06+00:00')[:offset])
+  end
+
   def test__xmlschema
     h = Date._xmlschema('2001-02-03')
     assert_equal([2001, 2, 3, nil, nil, nil, nil],
