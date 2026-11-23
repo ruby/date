@@ -72,10 +72,6 @@ class Date
   GJD_MONTH_OFFSET = [nil, 428, 459, 122, 153, 183, 214, 244, 275, 306, 336, 367, 397].freeze
   private_constant :GJD_MONTH_OFFSET
 
-  # Pre-computed " Mon " strings for rfc2822/httpdate: " Jan ", " Feb ", ...
-  RFC_MON_SPACE = ABBR_MONTHNAMES.map { |m| m ? " #{m} ".freeze : nil }.freeze
-  private_constant :RFC_MON_SPACE
-
   ERA_TABLE = [
     [2458605, 'R', 2018],  # Reiwa:   2019-05-01
     [2447535, 'H', 1988],  # Heisei:  1989-01-08
@@ -95,21 +91,6 @@ class Date
   }.freeze
   private_constant :MONTH_DAY_SUFFIX
 
-  # === String formatting (from strftime.rb) ===
-
-  # Pre-computed "Sun Jan " prefix table for %c / asctime [wday][month]
-  ASCTIME_PREFIX = Array.new(7) { |w|
-    Array.new(13) { |m|
-      m == 0 ? nil : "#{ABBR_DAYNAMES[w]} #{ABBR_MONTHNAMES[m]} ".freeze
-    }.freeze
-  }.freeze
-  private_constant :ASCTIME_PREFIX
-
-  # Pre-computed "Saturday, " prefix table for %A format [wday]
-  DAY_FULL_COMMA = DAYNAMES.map { |d| "#{d}, ".freeze }.freeze
-  # Pre-computed "March " prefix table for %B format [month]
-  MONTH_FULL_SPACE = MONTHNAMES.map { |m| m ? "#{m} ".freeze : nil }.freeze
-  private_constant :DAY_FULL_COMMA, :MONTH_FULL_SPACE
 
   # Pre-computed 2-digit zero-padded strings for 0..99
   PAD2 = (0..99).map { |n| format('%02d', n).freeze }.freeze

@@ -46,7 +46,7 @@ class Date
       w = (@jd + 1) % 7
       y = @year
       y_s = y >= 1000 ? y.to_s : (y >= 0 ? format('%04d', y) : format('-%04d', -y))
-      return "#{DAY_FULL_COMMA[w]}#{MONTH_FULL_SPACE[@month]}#{PAD2[@day]}, #{y_s}"
+      return "#{DAYNAMES[w]}, #{MONTHNAMES[@month]} #{PAD2[@day]}, #{y_s}"
     end
 
     result = +''.encode(fmt.encoding)
@@ -169,7 +169,7 @@ class Date
     d_s = d < 10 ? " #{d}" : d.to_s
     y = @year
     y_s = y >= 1000 ? y.to_s : (y >= 0 ? format('%04d', y) : format('-%04d', -y))
-    "#{ASCTIME_PREFIX[w][@month]}#{d_s} #{strftime_hms} #{y_s}"
+    "#{ABBR_DAYNAMES[w]} #{ABBR_MONTHNAMES[@month]} #{d_s} #{strftime_hms} #{y_s}"
   end
 
   # Inline fast path for common specs with default formatting (no flags/width)

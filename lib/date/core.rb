@@ -1555,9 +1555,9 @@ class Date
     y = @year
     y_s = y >= 1000 ? y.to_s : (y >= 0 ? format('%04d', y) : format('-%04d', -y))
     if instance_of?(Date)
-      "#{ABBR_DAYNAMES[w]}, #{@day}#{RFC_MON_SPACE[@month]}#{y_s} 00:00:00 +0000"
+      "#{ABBR_DAYNAMES[w]}, #{@day} #{ABBR_MONTHNAMES[@month]} #{y_s} 00:00:00 +0000"
     else
-      "#{ABBR_DAYNAMES[w]}, #{@day}#{RFC_MON_SPACE[@month]}#{y_s} #{PAD2[internal_hour]}:#{PAD2[internal_min]}:#{PAD2[internal_sec]} +0000"
+      "#{ABBR_DAYNAMES[w]}, #{@day} #{ABBR_MONTHNAMES[@month]} #{y_s} #{PAD2[internal_hour]}:#{PAD2[internal_min]}:#{PAD2[internal_sec]} +0000"
     end
   end
   alias_method :rfc822, :rfc2822
@@ -1576,9 +1576,9 @@ class Date
     y = @year
     y_s = y >= 1000 ? y.to_s : (y >= 0 ? format('%04d', y) : format('-%04d', -y))
     if instance_of?(Date)
-      "#{ABBR_DAYNAMES[w]}, #{PAD2[@day]}#{RFC_MON_SPACE[@month]}#{y_s} 00:00:00 GMT"
+      "#{ABBR_DAYNAMES[w]}, #{PAD2[@day]} #{ABBR_MONTHNAMES[@month]} #{y_s} 00:00:00 GMT"
     else
-      "#{ABBR_DAYNAMES[w]}, #{PAD2[@day]}#{RFC_MON_SPACE[@month]}#{y_s} #{PAD2[internal_hour]}:#{PAD2[internal_min]}:#{PAD2[internal_sec]} GMT"
+      "#{ABBR_DAYNAMES[w]}, #{PAD2[@day]} #{ABBR_MONTHNAMES[@month]} #{y_s} #{PAD2[internal_hour]}:#{PAD2[internal_min]}:#{PAD2[internal_sec]} GMT"
     end
   end
 
