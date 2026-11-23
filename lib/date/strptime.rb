@@ -551,12 +551,13 @@ class Date
       len = zone_str.length
       c0 = zone_str[0]
       if c0 == '+' || c0 == '-'
-        sc = StringScanner.new(zone_str)
-        if sc.scan(/([+-])(\d{2}):?(\d{2})\z/)
-          sign = sc[1] == '-' ? -1 : 1
-          h = sc[2].to_i
-          m = sc[3].to_i
-          return nil if h > 23 || m > 59
+        if (md = /\A([+-])(\d{2})(:?)(\d{2})\z/.match(zone_str))
+          sign = md[1] == '-' ? -1 : 1
+          h = md[2].to_i
+          m = md[4].to_i
+          # Only the colon form (+HH:MM) is range-checked, matching the C
+          # extension; the compact form (+HHMM) is accepted as-is.
+          return nil if !md[3].empty? && (h > 23 || m > 59)
           return sign * (h * 3600 + m * 60)
         end
       elsif len == 1 && (c0 == 'Z' || c0 == 'z')

@@ -67,6 +67,16 @@ class TestDateStrptime < Test::Unit::TestCase
   STRFTIME_2001_02_03.update(STRFTIME_2001_02_03_CVS19)
   STRFTIME_2001_02_03.update(STRFTIME_2001_02_03_GNUext)
 
+  def test__strptime_zone_offset_validation
+    # Compact +HHMM is accepted as given; the colon form +HH:MM is
+    # range-checked (hour > 23 or minute > 59 -> nil), matching the C ext.
+    assert_equal(362340, Date._strptime('2001 +9999', '%Y %z')[:offset])
+    assert_equal(90000, Date._strptime('2001 +2500', '%Y %z')[:offset])
+    assert_equal(25200, Date._strptime('2001 +07:00', '%Y %z')[:offset])
+    assert_nil(Date._strptime('2001 +12:60', '%Y %z')[:offset])
+    assert_nil(Date._strptime('2001 +99:99', '%Y %z')[:offset])
+  end
+
   def test__strptime_meridian_failure_and_invalid_ymd
     assert_nil(Date._strptime('zz', '%p'))               # not AM/PM
     assert_raise(Date::Error) { Date.strptime('2001-13-45', '%F') }  # bad m/d
