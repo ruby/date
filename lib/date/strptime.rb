@@ -184,10 +184,9 @@ class Date
         end
 
         spec_ch = fmt_sc.getch
-        spec = spec_ch&.ord
 
-        case spec
-        when 65, 97 # 'A', 'a'
+        case spec_ch
+        when 'A', 'a'
           s3 = str_sc.scan(SP_ALPHA3)
           throw(:sp_fail) unless s3
           entry = ABBR_DAY_INFO[s3.downcase]
@@ -202,7 +201,7 @@ class Date
           end
           hash[:wday] = wday_i
 
-        when 66, 98, 104 # 'B', 'b', 'h'
+        when 'B', 'b', 'h'
           s3 = str_sc.scan(SP_ALPHA3)
           throw(:sp_fail) unless s3
           entry = ABBR_MONTH_INFO[s3.downcase]
@@ -217,46 +216,46 @@ class Date
           end
           hash[:mon] = mon_i
 
-        when 67 # 'C'
+        when 'C'
           num_next = !fmt_sc.eos? && fmt_sc.check(SP_NUM_CHECK)
           sign = sp_scan_sign(str_sc)
           s = str_sc.scan(num_next ? SP_DIGITS_2 : SP_DIGITS_MAX)
           throw(:sp_fail) unless s
           hash[:_cent] = sign * s.to_i
 
-        when 99 # 'c'
+        when 'c'
           str_sc.pos = sp_run(str, str_sc.pos, '%a %b %e %H:%M:%S %Y', hash)
 
-        when 68 # 'D'
+        when 'D'
           str_sc.pos = sp_run(str, str_sc.pos, '%m/%d/%y', hash)
 
-        when 100, 101 # 'd', 'e'
+        when 'd', 'e'
           sp_store_int(hash, :mday, str_sc.scan(SP_SPACE_OR_DIGIT), 1, 31)
 
-        when 70 # 'F'
+        when 'F'
           str_sc.pos = sp_run(str, str_sc.pos, '%Y-%m-%d', hash)
 
-        when 71 # 'G'
+        when 'G'
           sign = sp_scan_sign(str_sc)
           num_next = !fmt_sc.eos? && fmt_sc.check(SP_NUM_CHECK)
           s = str_sc.scan(num_next ? SP_DIGITS_4 : SP_DIGITS_MAX)
           throw(:sp_fail) unless s
           hash[:cwyear] = sign * s.to_i
 
-        when 103 # 'g'
+        when 'g'
           n = sp_store_int(hash, :cwyear, str_sc.scan(SP_DIGITS_2), 0, 99)
           hash[:_cent] ||= n >= 69 ? 19 : 20
 
-        when 72, 107 # 'H', 'k'
+        when 'H', 'k'
           sp_store_int(hash, :hour, str_sc.scan(SP_SPACE_OR_DIGIT), 0, 24)
 
-        when 73, 108 # 'I', 'l'
+        when 'I', 'l'
           sp_store_int(hash, :hour, str_sc.scan(SP_SPACE_OR_DIGIT), 1, 12)
 
-        when 106 # 'j'
+        when 'j'
           sp_store_int(hash, :yday, str_sc.scan(SP_DIGITS_3), 1, 366)
 
-        when 76 # 'L'
+        when 'L'
           sign = sp_scan_sign(str_sc)
           osi = str_sc.pos
           num_next = !fmt_sc.eos? && fmt_sc.check(SP_NUM_CHECK)
@@ -266,13 +265,13 @@ class Date
           n = -n if sign == -1
           hash[:sec_fraction] = Rational(n, 10**(str_sc.pos - osi))
 
-        when 77 # 'M'
+        when 'M'
           sp_store_int(hash, :min, str_sc.scan(SP_DIGITS_2), 0, 59)
 
-        when 109 # 'm'
+        when 'm'
           sp_store_int(hash, :mon, str_sc.scan(SP_DIGITS_2), 1, 12)
 
-        when 78 # 'N'
+        when 'N'
           sign = sp_scan_sign(str_sc)
           osi = str_sc.pos
           num_next = !fmt_sc.eos? && fmt_sc.check(SP_NUM_CHECK)
@@ -282,10 +281,10 @@ class Date
           n = -n if sign == -1
           hash[:sec_fraction] = Rational(n, 10**(str_sc.pos - osi))
 
-        when 110, 116 # 'n', 't'
+        when 'n', 't'
           str_sc.pos = sp_run(str, str_sc.pos, ' ', hash)
 
-        when 80, 112 # 'P', 'p'
+        when 'P', 'p'
           throw(:sp_fail) if str_sc.eos?
           c0 = str_sc.peek(1)
           if c0 == 'P' || c0 == 'p'
@@ -300,7 +299,7 @@ class Date
           end
           hash[:_merid] = merid
 
-        when 81 # 'Q'
+        when 'Q'
           sign = 1
           if str_sc.skip(/-/)
             sign = -1
@@ -311,16 +310,16 @@ class Date
           n = -n if sign == -1
           hash[:seconds] = Rational(n, 1000)
 
-        when 82 # 'R'
+        when 'R'
           str_sc.pos = sp_run(str, str_sc.pos, '%H:%M', hash)
 
-        when 114 # 'r'
+        when 'r'
           str_sc.pos = sp_run(str, str_sc.pos, '%I:%M:%S %p', hash)
 
-        when 83 # 'S'
+        when 'S'
           sp_store_int(hash, :sec, str_sc.scan(SP_DIGITS_2), 0, 60)
 
-        when 115 # 's'
+        when 's'
           sign = 1
           if str_sc.skip(/-/)
             sign = -1
@@ -331,52 +330,52 @@ class Date
           n = -n if sign == -1
           hash[:seconds] = n
 
-        when 84 # 'T'
+        when 'T'
           str_sc.pos = sp_run(str, str_sc.pos, '%H:%M:%S', hash)
 
-        when 85 # 'U'
+        when 'U'
           sp_store_int(hash, :wnum0, str_sc.scan(SP_DIGITS_2), 0, 53)
 
-        when 117 # 'u'
+        when 'u'
           sp_store_int(hash, :cwday, str_sc.scan(SP_DIGITS_1), 1, 7)
 
-        when 86 # 'V'
+        when 'V'
           sp_store_int(hash, :cweek, str_sc.scan(SP_DIGITS_2), 1, 53)
 
-        when 118 # 'v'
+        when 'v'
           str_sc.pos = sp_run(str, str_sc.pos, '%e-%b-%Y', hash)
 
-        when 87 # 'W'
+        when 'W'
           sp_store_int(hash, :wnum1, str_sc.scan(SP_DIGITS_2), 0, 53)
 
-        when 119 # 'w'
+        when 'w'
           sp_store_int(hash, :wday, str_sc.scan(SP_DIGITS_1), 0, 6)
 
-        when 88 # 'X'
+        when 'X'
           str_sc.pos = sp_run(str, str_sc.pos, '%H:%M:%S', hash)
 
-        when 120 # 'x'
+        when 'x'
           str_sc.pos = sp_run(str, str_sc.pos, '%m/%d/%y', hash)
 
-        when 89 # 'Y'
+        when 'Y'
           sign = sp_scan_sign(str_sc)
           num_next = !fmt_sc.eos? && fmt_sc.check(SP_NUM_CHECK)
           s = str_sc.scan(num_next ? SP_DIGITS_4 : SP_DIGITS_MAX)
           throw(:sp_fail) unless s
           hash[:year] = sign * s.to_i
 
-        when 121 # 'y'
+        when 'y'
           n = sp_store_int(hash, :year, str_sc.scan(SP_DIGITS_2), 0, 99)
           hash[:_cent] ||= n >= 69 ? 19 : 20
 
-        when 90, 122 # 'Z', 'z'
+        when 'Z', 'z'
           str_sc.pos = sp_zone(str, str_sc.pos, str.bytesize, hash)
 
-        when 37 # '%'
+        when '%'
           throw(:sp_fail) if str_sc.eos? || str_sc.peek(1) != '%'
           str_sc.skip(/%/)
 
-        when 43 # '+'
+        when '+'
           str_sc.pos = sp_run(str, str_sc.pos, '%a %b %e %H:%M:%S %Z %Y', hash)
 
         else
