@@ -73,7 +73,7 @@ class Date
       # Quick dispatch: if next char is a simple letter spec (A-Z excluding E/O,
       # or a-z), skip flag/width parsing entirely.
       if (quick = sc.scan(/[A-DFG-NP-Za-z]/))
-        fast = fast_spec(quick.ord)
+        fast = fast_spec(quick)
         if fast
           result << fast
           next
@@ -123,15 +123,15 @@ class Date
       colons = (c = sc.scan(/:+/)) ? c.length : 0
 
       # Locale modifier (%E or %O)
-      locale_mod = sc.scan(/[EO]/)&.ord
+      locale_mod = sc.scan(/[EO]/)
 
-      spec = sc.getch&.ord
+      spec = sc.getch
 
       # Colons are valid only for %z and at most three of them. Any other use
       # (a colon before the width, a colon with a non-z spec, or four or more
       # colons) is invalid, and the C extension emits the original text
       # literally rather than formatting it.
-      if colons > 0 && (spec != 122 || colons > 3)
+      if colons > 0 && (spec != 'z' || colons > 3)
         result << '%' << fmt[spec_start...sc.charpos]
         next
       end
@@ -140,7 +140,7 @@ class Date
       # When it is not, the C extension emits the original text verbatim,
       # including any width, colons, and flags, so restore and emit it here.
       if locale_mod
-        valid = locale_mod == 69 ? STRFTIME_E_VALID_BYTES : STRFTIME_O_VALID_BYTES  # 69='E'
+        valid = locale_mod == 'E' ? STRFTIME_E_VALID_CHARS : STRFTIME_O_VALID_CHARS
         unless valid.include?(spec)
           result << '%' << fmt[spec_start...sc.charpos]
           next
@@ -175,7 +175,7 @@ class Date
   # Inline fast path for common specs with default formatting (no flags/width)
   def fast_spec(spec)
     case spec
-    when 89  # 'Y'
+    when 'Y'
       y = @year
       check_fmt_year(y)
       if y >= 1000
@@ -185,38 +185,38 @@ class Date
       else
         format('-%04d', -y)
       end
-    when 109 # 'm'
+    when 'm'
       PAD2[@month]
-    when 100 # 'd'
+    when 'd'
       PAD2[@day]
-    when 101 # 'e'
+    when 'e'
       d = @day
       d < 10 ? " #{d}" : d.to_s
-    when 72  # 'H'
+    when 'H'
       PAD2[internal_hour]
-    when 77  # 'M'
+    when 'M'
       PAD2[internal_min]
-    when 83  # 'S'
+    when 'S'
       PAD2[internal_sec]
-    when 97  # 'a'
+    when 'a'
       ABBR_DAYNAMES[(@jd + 1) % 7]
-    when 65  # 'A'
+    when 'A'
       DAYNAMES[(@jd + 1) % 7]
-    when 98, 104  # 'b', 'h'
+    when 'b', 'h'
       ABBR_MONTHNAMES[@month]
-    when 66  # 'B'
+    when 'B'
       MONTHNAMES[@month]
-    when 112 # 'p'
+    when 'p'
       internal_hour < 12 ? 'AM' : 'PM'
-    when 80  # 'P'
+    when 'P'
       internal_hour < 12 ? 'am' : 'pm'
-    when 37  # '%'
+    when '%'
       '%'
-    when 110 # 'n'
+    when 'n'
       "\n"
-    when 116 # 't'
+    when 't'
       "\t"
-    when 106 # 'j'
+    when 'j'
       yd = yday
       if yd < 10
         "00#{yd}"
@@ -225,30 +225,30 @@ class Date
       else
         yd.to_s
       end
-    when 119 # 'w'
+    when 'w'
       ((@jd + 1) % 7).to_s
-    when 117 # 'u'
+    when 'u'
       cwday.to_s
-    when 121 # 'y'
+    when 'y'
       PAD2[@year % 100]
-    when 90  # 'Z'
+    when 'Z'
       zone_str
-    when 122 # 'z'
+    when 'z'
       strftime_zoff
-    when 115 # 's'
+    when 's'
       ((@jd - 2440588) * 86400 - of_seconds + internal_hour * 3600 + internal_min * 60 + internal_sec).to_s
     # Composite specs — inline expansion
-    when 99  # 'c'
+    when 'c'
       fmt_asctime_str
-    when 70  # 'F'
+    when 'F'
       fast_ymd
-    when 84, 88  # 'T', 'X'
+    when 'T', 'X'
       strftime_hms
-    when 68, 120  # 'D', 'x'
+    when 'D', 'x'
       "#{PAD2[@month]}/#{PAD2[@day]}/#{PAD2[@year % 100]}"
-    when 82  # 'R'
+    when 'R'
       strftime_hm
-    when 114  # 'r'
+    when 'r'
       strftime_r12
     else
       nil  # fall through to format_spec_b
@@ -258,92 +258,92 @@ class Date
   # Full spec handling with bitmask flags (called when fast_spec returns nil or flags/width present)
   def format_spec_b(spec, flags, colons, width)
     case spec
-    when 89, 71  # 'Y', 'G'
-      y = spec == 89 ? year : cwyear
+    when 'Y', 'G'
+      y = spec == 'Y' ? year : cwyear
       fmt_year(y, width, flags)
-    when 67  # 'C'
+    when 'C'
       cent = year.div(100)
       pad_num(cent, width || 2, flags, zero: true)
-    when 121 # 'y'
+    when 'y'
       pad_num(year % 100, width || 2, flags, zero: true)
-    when 103 # 'g'
+    when 'g'
       pad_num(cwyear % 100, width || 2, flags, zero: true)
-    when 109 # 'm'
+    when 'm'
       pad_num(month, width || 2, flags, zero: true)
-    when 100 # 'd'
+    when 'd'
       pad_num(day, width || 2, flags, zero: true)
-    when 101 # 'e'
+    when 'e'
       pad_num(day, width || 2, flags, zero: false)
-    when 106 # 'j'
+    when 'j'
       pad_num(yday, width || 3, flags, zero: true)
-    when 72  # 'H'
+    when 'H'
       pad_num(internal_hour, width || 2, flags, zero: true)
-    when 107 # 'k'
+    when 'k'
       pad_num(internal_hour, width || 2, flags, zero: false)
-    when 73  # 'I'
+    when 'I'
       h = internal_hour % 12
       h = 12 if h == 0
       pad_num(h, width || 2, flags, zero: true)
-    when 108 # 'l'
+    when 'l'
       h = internal_hour % 12
       h = 12 if h == 0
       pad_num(h, width || 2, flags, zero: false)
-    when 77  # 'M'
+    when 'M'
       pad_num(internal_min, width || 2, flags, zero: true)
-    when 83  # 'S'
+    when 'S'
       pad_num(internal_sec, width || 2, flags, zero: true)
-    when 76  # 'L'
+    when 'L'
       w = width || 3
       ms = (sec_frac * (10**w)).floor
       ms.to_s.rjust(w, '0')
-    when 78  # 'N'
+    when 'N'
       w = width || 9
       ns = (sec_frac * (10**w)).floor
       ns.to_s.rjust(w, '0')
-    when 115 # 's'
+    when 's'
       unix = (@jd - 2440588) * 86400 - of_seconds +
              internal_hour * 3600 + internal_min * 60 + internal_sec
       pad_num(unix, width || 1, flags, zero: true)
-    when 81  # 'Q'
+    when 'Q'
       ms = ((@jd - 2440588) * 86400 - of_seconds +
             internal_hour * 3600 + internal_min * 60 + internal_sec) * 1000 +
            (sec_frac * 1000).floor
       pad_num(ms, width || 1, flags, zero: true)
-    when 65  # 'A'
+    when 'A'
       fmt_str(DAYNAMES[wday], width, flags)
-    when 97  # 'a'
+    when 'a'
       fmt_str(ABBR_DAYNAMES[wday], width, flags)
-    when 66  # 'B'
+    when 'B'
       fmt_str(MONTHNAMES[month], width, flags)
-    when 98, 104  # 'b', 'h'
+    when 'b', 'h'
       fmt_str(ABBR_MONTHNAMES[month], width, flags)
-    when 112 # 'p'
+    when 'p'
       fmt_str(internal_hour < 12 ? 'AM' : 'PM', width, flags)
-    when 80  # 'P'
+    when 'P'
       fmt_str(internal_hour < 12 ? 'am' : 'pm', width, flags)
-    when 90  # 'Z'
+    when 'Z'
       fmt_str(zone_str, width, flags)
-    when 122 # 'z'
+    when 'z'
       fmt_z(colons, width, flags)
-    when 117 # 'u'
+    when 'u'
       pad_num(cwday, width || 1, flags, zero: true)
-    when 119 # 'w'
+    when 'w'
       pad_num(wday, width || 1, flags, zero: true)
-    when 85  # 'U'
+    when 'U'
       pad_num(week_number(0), width || 2, flags, zero: true)
-    when 87  # 'W'
+    when 'W'
       pad_num(week_number(1), width || 2, flags, zero: true)
-    when 86  # 'V'
+    when 'V'
       pad_num(cweek, width || 2, flags, zero: true)
-    when 37  # '%'
+    when '%'
       fmt_str('%', width, flags)
     else
-      expansion = STRFTIME_COMPOSITE_BYTE[spec]
+      expansion = STRFTIME_COMPOSITE[spec]
       if expansion
         s = internal_strftime(expansion)
         fmt_str(s, width, flags)
       else
-        "%#{spec&.chr}"
+        "%#{spec}"
       end
     end
   end

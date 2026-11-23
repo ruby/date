@@ -115,30 +115,28 @@ class Date
   PAD2 = (0..99).map { |n| format('%02d', n).freeze }.freeze
   private_constant :PAD2
 
-  # Map composite spec bytes to their expansion strings
-  STRFTIME_COMPOSITE_BYTE = {
-    43  => '%a %b %e %H:%M:%S %Z %Y',  # '+'
-    99  => '%a %b %e %H:%M:%S %Y',  # 'c'
-    68  => '%m/%d/%y',               # 'D'
-    70  => '%Y-%m-%d',               # 'F'
-    110 => "\n",                     # 'n'
-    114 => '%I:%M:%S %p',            # 'r'
-    82  => '%H:%M',                  # 'R'
-    116 => "\t",                     # 't'
-    84  => '%H:%M:%S',              # 'T'
-    118 => '%e-%^b-%4Y',            # 'v'
-    88  => '%H:%M:%S',              # 'X'
-    120 => '%m/%d/%y',              # 'x'
+  # Map composite spec characters to their expansion strings
+  STRFTIME_COMPOSITE = {
+    '+' => '%a %b %e %H:%M:%S %Z %Y',
+    'c' => '%a %b %e %H:%M:%S %Y',
+    'D' => '%m/%d/%y',
+    'F' => '%Y-%m-%d',
+    'n' => "\n",
+    'r' => '%I:%M:%S %p',
+    'R' => '%H:%M',
+    't' => "\t",
+    'T' => '%H:%M:%S',
+    'v' => '%e-%^b-%4Y',
+    'X' => '%H:%M:%S',
+    'x' => '%m/%d/%y',
   }.freeze
-  private_constant :STRFTIME_COMPOSITE_BYTE
+  private_constant :STRFTIME_COMPOSITE
 
-  # Valid specs for %E locale modifier (as byte values)
-  # c=99, C=67, x=120, X=88, y=121, Y=89
-  STRFTIME_E_VALID_BYTES = [99, 67, 120, 88, 121, 89].freeze
-  # Valid specs for %O locale modifier (as byte values)
-  # d=100, e=101, H=72, k=107, I=73, l=108, m=109, M=77, S=83, u=117, U=85, V=86, w=119, W=87, y=121
-  STRFTIME_O_VALID_BYTES = [100, 101, 72, 107, 73, 108, 109, 77, 83, 117, 85, 86, 119, 87, 121].freeze
-  private_constant :STRFTIME_E_VALID_BYTES, :STRFTIME_O_VALID_BYTES
+  # Valid specs for the %E locale modifier
+  STRFTIME_E_VALID_CHARS = %w[c C x X y Y].freeze
+  # Valid specs for the %O locale modifier
+  STRFTIME_O_VALID_CHARS = %w[d e H k I l m M S u U V w W y].freeze
+  private_constant :STRFTIME_E_VALID_CHARS, :STRFTIME_O_VALID_CHARS
 
   # Maximum allowed format width to prevent unreasonable memory allocation
   STRFTIME_MAX_WIDTH = 65535
