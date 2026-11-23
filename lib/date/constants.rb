@@ -91,7 +91,6 @@ class Date
   }.freeze
   private_constant :MONTH_DAY_SUFFIX
 
-
   # Pre-computed 2-digit zero-padded strings for 0..99
   PAD2 = (0..99).map { |n| format('%02d', n).freeze }.freeze
   private_constant :PAD2
@@ -131,10 +130,7 @@ class Date
   HTTPDATE_TYPE1_RE = /\A\s*(sun|mon|tue|wed|thu|fri|sat)\s*,\s+(\d{2})\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s+(-?\d{4})\s+(\d{2}):(\d{2}):(\d{2})\s+(gmt)\s*\z/i
   HTTPDATE_TYPE2_RE = /\A\s*(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\s*,\s+(\d{2})\s*-\s*(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s*-\s*(\d{2})\s+(\d{2}):(\d{2}):(\d{2})\s+(gmt)\s*\z/i
   HTTPDATE_TYPE3_RE = /\A\s*(sun|mon|tue|wed|thu|fri|sat)\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s+(\d{1,2})\s+(\d{2}):(\d{2}):(\d{2})\s+(\d{4})\s*\z/i
-  # Fast path: simplified Type 1 with generic [a-zA-Z] instead of alternation
-  FAST_HTTPDATE_TYPE1_RE = /\A\s*([a-zA-Z]{3}),\s+(\d{2})\s+([a-zA-Z]{3})\s+(\d{4})\s+(\d{2}):(\d{2}):(\d{2})\s+(GMT)\s*\z/i
-  private_constant :HTTPDATE_TYPE1_RE, :HTTPDATE_TYPE2_RE, :HTTPDATE_TYPE3_RE,
-                   :FAST_HTTPDATE_TYPE1_RE
+  private_constant :HTTPDATE_TYPE1_RE, :HTTPDATE_TYPE2_RE, :HTTPDATE_TYPE3_RE
 
   # Wday lookup from full day name (lowercase key). The abbreviated-name
   # lookup reuses ABBR_DAY_NUM, which is the identical table; both maps are

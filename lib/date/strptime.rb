@@ -457,7 +457,7 @@ class Date
       m = STRPTIME_ABDY_PAT.match(str)
       return nil unless m
 
-      # Validate weekday via 3-byte key lookup
+      # Validate weekday via abbreviation lookup
       entry = ABBR_DAY_INFO[m[1].downcase]
       return nil unless entry
       wday = entry[0]
@@ -466,7 +466,7 @@ class Date
         return nil unless day_rest.length == entry[1] - 3 && day_rest.downcase == DAY_LOWER_STRS[wday][3..]
       end
 
-      # Validate month via 3-byte key lookup
+      # Validate month via abbreviation lookup
       entry = ABBR_MONTH_INFO[m[3].downcase]
       return nil unless entry
       mon = entry[0]
@@ -492,7 +492,7 @@ class Date
       return nil unless m
       return nil unless m.post_match.empty?
 
-      # Validate weekday via 3-byte key lookup
+      # Validate weekday via abbreviation lookup
       entry = ABBR_DAY_INFO[m[1].downcase]
       return nil unless entry
       day_rest = m[2]
@@ -500,7 +500,7 @@ class Date
         return nil unless day_rest.length == entry[1] - 3 && day_rest.downcase == DAY_LOWER_STRS[entry[0]][3..]
       end
 
-      # Validate month via 3-byte key lookup
+      # Validate month via abbreviation lookup
       entry = ABBR_MONTH_INFO[m[3].downcase]
       return nil unless entry
       mon = entry[0]
