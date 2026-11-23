@@ -7,6 +7,20 @@ class TestDateArith < Test::Unit::TestCase
     def to_r; self; end
   end
 
+  def test_next_month__ex
+    e = TypeError
+    assert_raise(e) { Date.new(2000, 1, 31) >> nil }
+    assert_raise(e) { Date.new(2000, 1, 31) >> '1' }
+    assert_raise(e) { DateTime.new(2000, 1, 31) >> nil }
+  end
+
+  def test_prev_month__ex
+    e = TypeError
+    assert_raise(e) { Date.new(2000, 1, 31) << nil }
+    assert_raise(e) { Date.new(2000, 1, 31) << '1' }
+    assert_raise(e) { DateTime.new(2000, 1, 31) << nil }
+  end
+
   def test_step_upto_downto_additional_paths
     # step with a negative integer step (Date fast loop).
     r = []; Date.new(2001, 2, 5).step(Date.new(2001, 2, 1), -2) { |d| r << d.mday }

@@ -1111,12 +1111,21 @@ class Date
     self.class.__send__(:new_from_jd, month_shifted_jd(n), @start)
   end
 
+  # Coerce a month count to an Integer the way the C extension does (NUM2INT):
+  # accept an Integer or anything with #to_int (e.g. Float, truncated),
+  # otherwise raise TypeError rather than silently treating it as zero.
+  private def month_offset_int(n)
+    return n if Integer === n
+    return n.to_int if n.respond_to?(:to_int)
+    raise TypeError, "no implicit conversion of #{n.nil? ? 'nil' : n.class} into Integer"
+  end
+
   # Julian Day number of the date +n+ months from self, clamping the day to the
   # last day of the target month (using the calendar that applies under the
   # cutover). Shared with DateTime#>> so the time of day can be preserved.
   private def month_shifted_jd(n)
     internal_civil
-    m2 = @month + n.to_i
+    m2 = @month + month_offset_int(n)
     y2 = @year + (m2 - 1).div(12)
     m2 = (m2 - 1) % 12 + 1
     klass = self.class
@@ -1160,7 +1169,7 @@ class Date
   #   d2 = d1 << -1 # => #<Date: 2001-03-28>
   #
   def <<(n)
-    self >> -n
+    self >> -month_offset_int(n)
   end
 
   # call-seq:
