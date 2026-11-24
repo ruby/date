@@ -517,8 +517,11 @@ class DateTime < Date
       s_i, s_f = _split_second(s_r)
       _init_datetime(jd, h, m, s_i, s_f, of_sec, sg)
     when 6
-      _nth, jd, df, sf, of, sg = array
+      nth, jd, df, sf, of, sg = array
       sg = normalize_start(sg)
+      # The C extension's jd is within one period; add back the whole periods
+      # counted by nth (our own dumps use nth = 0, so this is then a no-op).
+      jd += nth * CM_PERIOD unless nth == 0
       # jd/df hold the UTC instant; shift by the offset to recover local time.
       jd_carry, local_df = (df + of).divmod(86400)
       jd += jd_carry

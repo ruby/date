@@ -51,6 +51,15 @@ class TestDateMarshal < Test::Unit::TestCase
     assert_raise(Date::Error) { Date.new + 1/2r }
   end
 
+  def test_marshal_nth
+    [Date.new(-123456,7,8), Date.new(2**40,3,31)].each do |d|
+      assert_equal(d, Marshal.load(Marshal.dump(d)))
+    end
+
+    s = "\x04\bU:\tDate[\vi\xFAi\x04\xF4)#\ni\x00i\x00i\x00f\f2299161".b
+    assert_equal(Date.new(-123456,7,8), Marshal.load(s))
+  end
+
   def test_marshal_load_old_format_offset
     d = DateTime.allocate
     d.marshal_load([Rational(0), Rational(1, 24), Date::ITALY])

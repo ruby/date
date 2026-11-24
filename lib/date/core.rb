@@ -1462,7 +1462,10 @@ class Date
       initialize((ajd + 0.5r).floor, sg)
     when 6
       # Current format: [nth, jd, df, sf, of, sg]; a Date ignores df/sf.
-      _nth, jd, _df, _sf, _of, sg = array
+      # The C extension's jd is within one period; add back the whole periods
+      # counted by nth (our own dumps use nth = 0, so this is then a no-op).
+      nth, jd, _df, _sf, _of, sg = array
+      jd += nth * CM_PERIOD unless nth == 0
       initialize(jd, normalize_start(sg))
     else
       raise TypeError, "invalid marshal data"

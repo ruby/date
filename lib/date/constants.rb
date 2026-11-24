@@ -40,6 +40,16 @@ class Date
   VALID_START_MAX = 2426355 # os 1930-12-31
   private_constant :VALID_START_MIN, :VALID_START_MAX
 
+  # Canonical period used by the C extension to split a very large Julian day
+  # number into an (nth, jd) marshal pair: the largest multiple of the combined
+  # week/Julian/Gregorian cycle length (lcm(7, 1461, 146097) = 71149239) that
+  # fits in 28 bits -- i.e. (0xfffffff / 71149239) * 71149239. Needed to decode
+  # marshal data written by the C extension, whose jd field is within one
+  # period and whose nth field counts whole periods. Our own #marshal_dump uses
+  # nth = 0 and stores the full jd, so this only affects foreign dumps.
+  CM_PERIOD = 213447717
+  private_constant :CM_PERIOD
+
   # Case-insensitive abbreviated name lookup tables for O(1) name matching.
   # Key = downcased 3-letter abbreviation, Value = [index, full_name_length].
   # The length lets callers verify an optional full-name tail (e.g. the
