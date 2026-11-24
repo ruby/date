@@ -515,16 +515,31 @@ class Date
       return nil if m < 1 || m > 12
 
       if d < 0
-        # Resolve a negative mday against the JD of the last day of the month,
-        # then convert back to civil. Doing the arithmetic in JD space means a
-        # day counted back from month-end skips the calendar-reform gap exactly
-        # as the C extension does (e.g. 1582-10-(-18) -> 1582-10-04).
-        ny, nm = m == 12 ? [y + 1, 1] : [y, m + 1]
-        ldom_jd = civil_to_jd(ny, nm, 1, sg) - 1
+        # Count back from the last existing day of the month. Find that day the
+        # way the C extension's c_find_ldom does -- scan down from 31 for the
+        # last valid day -- then move (d + 1) days earlier in JD space and
+        # convert back to civil. This handles a calendar-reform gap near the end
+        # of the month under any cutover, including a custom one whose next
+        # month begins inside the gap (where "next month's 1st minus 1" fails).
+        ldom_jd = nil
+        day = 31
+        while day >= 1
+          ldom_jd = valid_civil_positive_jd(y, m, day, sg)
+          break if ldom_jd
+          day -= 1
+        end
+        return nil unless ldom_jd
         ry, rm, d = jd_to_civil(ldom_jd + d + 1, sg)
         return nil if ry != y || rm != m
       end
 
+      valid_civil_positive_jd(y, m, d, sg)
+    end
+
+    # Validate a positive mday (d >= 1) under the given start and return its JD,
+    # or nil. Days skipped by the reform are rejected (their Gregorian JD is
+    # before the cutover and their Julian JD is at/after it).
+    def valid_civil_positive_jd(y, m, d, sg)
       if sg == Float::INFINITY
         # Proleptic Julian calendar.
         dim = days_in_month_julian(y, m)
@@ -532,9 +547,6 @@ class Date
         return julian_to_jd(y, m, d)
       end
 
-      # Gregorian reckoning: valid for GREGORIAN and for the post-reform side of
-      # a finite cutover. Days skipped by the reform have a Gregorian JD before
-      # the cutover (gjd < sg) and are rejected here, then handled below.
       gdim = days_in_month_gregorian(y, m)
       if d >= 1 && d <= gdim
         gjd = gregorian_to_jd(y, m, d)
@@ -542,8 +554,8 @@ class Date
       end
       return nil if sg == -Float::INFINITY
 
-      # Pre-reform (Julian) side. This also accepts Julian-only leap days such as
-      # 1500-02-29 under ITALY. A day skipped by the reform has jjd >= sg.
+      # Pre-reform (Julian) side; also accepts Julian-only leap days such as
+      # 1500-02-29 under ITALY.
       jdim = days_in_month_julian(y, m)
       return nil if d < 1 || d > jdim
       jjd = julian_to_jd(y, m, d)

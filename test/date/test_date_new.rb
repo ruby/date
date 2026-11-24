@@ -262,6 +262,18 @@ class TestDateNew < Test::Unit::TestCase
     assert_equal(false, Date.valid_civil?(1582,10,-22))
   end
 
+  def test_civil__reform_negative_mday_custom_cutover
+    # A custom Gregorian cutover whose reform gap falls near the end of the
+    # month: the last existing day of the month must be found by scanning down
+    # (as the C extension's c_find_ldom does), not by taking the next month's
+    # first day minus one. sg = 1900-02-05 (Gregorian) leaves 1900-01-23 as the
+    # last day of January 1900.
+    sg = Date.new(1900, 2, 5, Date::GREGORIAN).jd
+    assert_equal([1900, 1, 23], Date.new(1900, 1, -1, sg).then { |d| [d.year, d.mon, d.mday] })
+    assert_equal([1900, 1, 10], Date.new(1900, 1, -14, sg).then { |d| [d.year, d.mon, d.mday] })
+    assert_equal(true, Date.valid_civil?(1900, 1, -1, sg))
+  end
+
   def test_invalid_start
     d = nil
     assert_warning(/invalid start/) do
