@@ -1744,6 +1744,19 @@ class Date
     internal_civil
   end
 
+  # :nodoc:
+  #
+  # A plain Date cannot absorb a DateTime's time-of-day, matching the C
+  # extension ("cannot load complex into simple"). Same-class copies (and a
+  # DateTime copying a Date, handled in DateTime#initialize_copy) go through
+  # the default copy.
+  def initialize_copy(other)
+    if other.is_a?(DateTime) && !is_a?(DateTime)
+      raise ArgumentError, "cannot load complex into simple"
+    end
+    super
+  end
+
   # ---------------------------------------------------------------------------
   # Private helpers
   # ---------------------------------------------------------------------------

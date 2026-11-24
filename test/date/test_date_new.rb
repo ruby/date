@@ -451,7 +451,7 @@ class TestDateNew < Test::Unit::TestCase
     require 'objspace'
     t = DateTime.now
     size = ObjectSpace.memsize_of(t)
-    t.__send__(:initialize_copy, DateTime.now)
+    t.__send__(:initialize_copy, Date.today)
     assert_instance_of(DateTime, t)
     assert_equal(size, ObjectSpace.memsize_of(t), "not reallocated but memsize changed")
   end

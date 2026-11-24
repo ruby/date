@@ -146,6 +146,20 @@ class DateTime < Date
     day_fraction
   end
 
+  # :nodoc:
+  #
+  # A DateTime can absorb a plain Date, taking it as midnight UTC with the
+  # Date's start (matching the C extension). Any other source (another
+  # DateTime, or a non-Date) falls back to the inherited copy, which handles
+  # same-class copies and raises for incompatible types.
+  def initialize_copy(other)
+    if !other.is_a?(DateTime) && other.is_a?(Date)
+      _init_datetime(other.jd, 0, 0, 0, 0r, 0, other.start)
+      return self
+    end
+    super
+  end
+
   # call-seq:
   #   day_fraction -> rational
   #
