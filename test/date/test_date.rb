@@ -6,6 +6,47 @@ class DateSub < Date; end
 class DateTimeSub < DateTime; end
 
 class TestDate < Test::Unit::TestCase
+  def test_inspect_start_variants
+    assert_equal('#<Date: 2001-02-03 ((2451957j,0s,0n),+0s,Infj)>',
+                 Date.new(2001, 2, 3, Date::JULIAN).inspect)
+    assert_equal('#<Date: 2001-02-03 ((2451944j,0s,0n),+0s,-Infj)>',
+                 Date.new(2001, 2, 3, Date::GREGORIAN).inspect)
+    # A fractional start prints as a whole jd, rounded to even like the C
+    # extension's %.0f (not truncated).
+    assert_equal('#<Date: 2001-02-03 ((2451944j,0s,0n),+0s,2400000j)>',
+                 Date.new(2001, 2, 3, 2400000.5).inspect)
+    assert_match(/,2299161j\)>\z/, Date.new(2001, 2, 3, 2299160.7).inspect)
+    assert_match(/,2299162j\)>\z/, Date.new(2001, 2, 3, 2299161.5).inspect)
+    assert_match(/,2299160j\)>\z/, Date.new(2001, 2, 3, 2299160.5).inspect)
+  end
+
+  def test_spaceship_and_equal_with_incomparable
+    assert_nil(Date.new(2001, 2, 3) <=> Object.new)
+    assert_equal(false, Date.new(2001, 2, 3) == Object.new)
+  end
+
+  def test_deconstruct_keys_single_key
+    d = Date.new(1999, 5, 23)
+    assert_equal({year: 1999}, d.deconstruct_keys([:year]))
+    assert_equal({month: 5}, d.deconstruct_keys([:month]))
+    assert_equal({day: 23}, d.deconstruct_keys([:day]))
+    assert_equal({wday: 0}, d.deconstruct_keys([:wday]))
+    assert_equal({yday: 143}, d.deconstruct_keys([:yday]))
+    assert_equal({}, d.deconstruct_keys([:century]))
+    dt = DateTime.new(1999, 5, 23, 4, 5, 6, '+03:30')
+    assert_equal({year: 1999}, dt.deconstruct_keys([:year]))
+    assert_equal({month: 5}, dt.deconstruct_keys([:month]))
+    assert_equal({day: 23}, dt.deconstruct_keys([:day]))
+    assert_equal({wday: 0}, dt.deconstruct_keys([:wday]))
+    assert_equal({yday: 143}, dt.deconstruct_keys([:yday]))
+    assert_equal({hour: 4}, dt.deconstruct_keys([:hour]))
+    assert_equal({min: 5}, dt.deconstruct_keys([:min]))
+    assert_equal({sec: 6}, dt.deconstruct_keys([:sec]))
+    assert_equal({sec_fraction: 0r}, dt.deconstruct_keys([:sec_fraction]))
+    assert_equal({zone: '+03:30'}, dt.deconstruct_keys([:zone]))
+    assert_equal({}, dt.deconstruct_keys([:century]))
+  end
+
   def test_range_infinite_float
     today = Date.today
     r = today...Float::INFINITY
@@ -123,6 +164,7 @@ class TestDate < Test::Unit::TestCase
     assert_equal(d, dt)
     assert_equal(d2, dt2)
 
+    # Same instant, different offset: equal, eql?, and same hash.
     dt = DateTime.new(2001,2,3,9,0,0,'+09:00')
     dt2 = DateTime.new(2001,2,3,0,0,0,'+00:00')
     assert_equal(dt, dt2)
@@ -155,9 +197,27 @@ class TestDate < Test::Unit::TestCase
 
     assert_instance_of(String, Date.new(1999,5,25).hash.to_s)
 
+    # The start date does not affect the hash (same instant collides).
     h = {}
     h[Date.new(2001,2,3)] = 0
     assert_equal(0, h[Date.new(2001,2,3,Date::GREGORIAN)])
+  end
+
+  def test_hash_by_utc_instant
+    # The hash is computed from the UTC instant, so different offsets that
+    # denote the same moment hash equal (and are #eql?), while a sub-second
+    # difference is #eql?-distinct (its hash may collide, which is allowed).
+    a = DateTime.new(2001, 2, 3, 9, 0, 0, '+09:00')
+    b = DateTime.new(2001, 2, 3, 0, 0, 0, '+00:00')
+    assert_equal(a.hash, b.hash)
+    assert_operator(a, :eql?, b)
+
+    c = DateTime.new(2001, 2, 3, 0, 0, Rational(1, 1000), '+00:00')
+    assert_not_operator(a, :eql?, c)
+
+    # A DateTime at midnight UTC hashes like the plain Date for that day.
+    assert_equal(Date.new(2001, 2, 3).hash, b.hash)
+    assert_operator(Date.new(2001, 2, 3), :eql?, b)
   end
 
   def test_freeze
@@ -167,8 +227,12 @@ class TestDate < Test::Unit::TestCase
     assert_instance_of(Integer, d.yday)
     assert_instance_of(String, d.to_s)
 
+    # clone(freeze: true) freezes without calling #freeze; civil fields must
+    # still be readable on the frozen copy.
     d = Date.jd(2451944).clone(freeze: true)
     assert_equal([2001, 2, 3], [d.year, d.mon, d.mday])
+    dt = DateTime.new(2001, 2, 3, 4, 5, 6, '+07:00').clone(freeze: true)
+    assert_equal(Rational(817, 4800), dt.day_fraction)
   end
 
   def test_submillisecond_comparison

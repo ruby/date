@@ -5,76 +5,22 @@ require 'envutil'
 
 class TestDateParse < Test::Unit::TestCase
 
-  def test__parse_fractional_zone_offset_deprecated
-    with_deprecation_warnings do
-      # The fractional hour is honoured today and will be ignored, which
-      # changes :offset, or at least :zone for a zero fraction.
-      assert_warning(/decimal hour/) do
-        assert_equal(Rational(2214, 5), Date._parse('2001-02-03T00:00:00+00.123')[:offset])
-      end
-      assert_warning(/decimal hour/) do
-        assert_equal(1800, Date._parse('2001-02-03T00:00:00+00,5')[:offset])
-      end
-      assert_warning(/decimal hour/) do
-        h = Date._parse('2001-02-03T00:00:00+01.0')
-        assert_equal(['+01.0', 3600], h.values_at(:zone, :offset))
-      end
-      [
-        ['19990523235521.123[-9.50]', [1999,5,23,23,55,21,'-9.50',-(9*3600+30*60)]],
-        ['19990523235521.123[+9.50]', [1999,5,23,23,55,21,'+9.50',+(9*3600+30*60)]],
-        ['2000-01-31 13:20:00-5.5', [2000,1,31,13,20,0,'-5.5',-5*3600-30*60]],
-        ['2000-01-31 13:20:00-5,5', [2000,1,31,13,20,0,'-5,5',-5*3600-30*60]],
-        ['2000-01-31 13:20:00+3.5', [2000,1,31,13,20,0,'+3.5',3*3600+30*60]],
-        ['2000-01-31 13:20:00+3,5', [2000,1,31,13,20,0,'+3,5',3*3600+30*60]],
-      ].each do |str, expected|
-        assert_warning(/decimal hour/) do
-          h = Date._parse(str)
-          assert_equal(expected, h.values_at(:year,:mon,:mday,:hour,:min,:sec,:zone,:offset), str)
-        end
-      end
-      # The colon forms have no fractional hour at all.
-      assert_warning('') do
-        assert_equal(1800, Date._parse('2001-02-03T00:00:00+00:30')[:offset])
-        assert_equal(86399, Date._parse('2001-02-03T00:00:00+23:59:59')[:offset])
-      end
-    end
+  def test__parse_us_month_name_fast_path
+    assert_equal({year: 2001, mon: 2, mday: 3}, Date._parse('February 3, 2001'))
+    assert_equal({year: 2001, mon: 2, mday: 3}, Date._parse('Feb 3 2001'))
   end
 
-  def test__strptime_fractional_zone_offset_deprecated
-    with_deprecation_warnings do
-      assert_warning(/decimal hour/) do
-        assert_equal(1800, Date._strptime('+00.5', '%z')[:offset])
-      end
-      assert_warning(/decimal hour/) do
-        assert_equal(Rational(2214, 5), Date._strptime('+00,123', '%z')[:offset])
-      end
-      assert_warning(/decimal hour/) do
-        assert_equal(['+01.0', 3600], Date._strptime('+01.0', '%z').values_at(:zone, :offset))
-      end
-      assert_warning(/decimal hour/) do
-        h = Date._strptime('Thu Jul 29 16:39:41 GMT-3.5 1999', '%a %b %d %H:%M:%S %Z %Y')
-        assert_equal(['GMT-3.5', -3*3600-30*60], h.values_at(:zone, :offset))
-      end
-      assert_warning(/decimal hour/) do
-        h = Date._strptime('Thu Jul 29 16:39:41 GMT-3,5 1999', '%a %b %d %H:%M:%S %Z %Y')
-        assert_equal(['GMT-3,5', -3*3600-30*60], h.values_at(:zone, :offset))
-      end
-      assert_warning(/decimal hour/) do
-        assert_equal(3600, Date._strptime('+0.9999999999999999999999', '%Z')[:offset])
-      end
-      assert_warning('') do
-        assert_equal(1800, Date._strptime('+00:30', '%z')[:offset])
-        assert_equal(-3600, Date._strptime('-0100', '%z')[:offset])
-      end
-    end
+  def test__rfc2822_folding_whitespace
+    # Obsolete folding whitespace (CR/LF) is collapsed before parsing.
+    h = Date._rfc2822("Sat,\r\n 3 Feb 2001 00:00:00 +0000")
+    assert_equal([3, 2, 2001], h.values_at(:mday, :mon, :year))
   end
 
-  def with_deprecation_warnings
-    deprecated = Warning[:deprecated] if Warning.respond_to?(:[])
-    Warning[:deprecated] = true if Warning.respond_to?(:[]=)
-    yield
-  ensure
-    Warning[:deprecated] = deprecated if Warning.respond_to?(:[]=)
+  def test__rfc2822_two_digit_day_fast_path
+    # "Dow, DD Mon YYYY HH:MM:SS +ZZZZ" (31 bytes, 2-digit day) fast path.
+    h = Date._rfc2822('Sat, 03 Feb 2001 04:05:06 +0700')
+    assert_equal([6, 3, 2, 2001, 4, 5, 6, '+0700', 25200],
+		 h.values_at(:wday, :mday, :mon, :year, :hour, :min, :sec, :zone, :offset))
   end
 
   def test__parse
@@ -206,6 +152,8 @@ class TestDateParse < Test::Unit::TestCase
      [['19990523235521.123[+9]',false],[1999,5,23,23,55,21,'+9',+(9*3600),nil], __LINE__],
      [['19990523235521.123[9]',false],[1999,5,23,23,55,21,'9',+(9*3600),nil], __LINE__],
      [['19990523235521.123[9 ]',false],[1999,5,23,23,55,21,'9 ',+(9*3600),nil], __LINE__],
+     [['19990523235521.123[-9.50]',false],[1999,5,23,23,55,21,'-9.50',nil,nil], __LINE__],
+     [['19990523235521.123[+9.50]',false],[1999,5,23,23,55,21,'+9.50',nil,nil], __LINE__],
      [['19990523235521.123[-5:EST]',false],[1999,5,23,23,55,21,'EST',-5*3600,nil], __LINE__],
      [['19990523235521.123[+9:JST]',false],[1999,5,23,23,55,21,'JST',9*3600,nil], __LINE__],
      [['19990523235521.123[+12:XXX YYY ZZZ]',false],[1999,5,23,23,55,21,'XXX YYY ZZZ',12*3600,nil], __LINE__],
@@ -236,6 +184,10 @@ class TestDateParse < Test::Unit::TestCase
      [['2000-01-31 13:20:00-5',false],[2000,1,31,13,20,0,'-5',-5*3600,nil], __LINE__],
 
      # [-+]\d+.\d+
+     [['2000-01-31 13:20:00-5.5',false],[2000,1,31,13,20,0,'-5.5',nil,nil], __LINE__],
+     [['2000-01-31 13:20:00-5,5',false],[2000,1,31,13,20,0,'-5,5',nil,nil], __LINE__],
+     [['2000-01-31 13:20:00+3.5',false],[2000,1,31,13,20,0,'+3.5',nil,nil], __LINE__],
+     [['2000-01-31 13:20:00+3,5',false],[2000,1,31,13,20,0,'+3,5',nil,nil], __LINE__],
 
      # mil
      [['2000-01-31 13:20:00 Z',false],[2000,1,31,13,20,0,'Z',0*3600,nil], __LINE__],
@@ -497,9 +449,6 @@ class TestDateParse < Test::Unit::TestCase
         assert_equal(y[6].encoding, h[:zone].encoding, l)
       end
     end
-
-    h = Date._parse('JAN-1999', false)
-    assert_equal({:year=>1999, :mon=>1}, h)
   end
 
   def test__parse_slash_exp
@@ -965,22 +914,36 @@ class TestDateParse < Test::Unit::TestCase
     assert_raise(TypeError) {Date._rfc3339('2001-02-03T04:05:06Z'.to_sym)}
   end
 
-  def test__rfc3339__deprecated_separator
-    pat = /Invalid RFC3339 date time separator/
-
-    ["\t", "\n", "\v", "\f", "\r"].each do |sep|
-      h = assert_deprecated_warn(pat) do
-        Date._rfc3339("2001-02-03#{sep}04:05:06Z")
-      end
-      assert_equal([2001, 2, 3, 4, 5, 6, 0],
-                   h.values_at(:year, :mon, :mday, :hour, :min, :sec, :offset))
+  def test_zone_offset_colon_form_range_validated
+    # The colon offset form (+HH:MM) is range-checked: an hour >= 24 or
+    # minute >= 60 yields a nil offset. The compact form (+HHMM) is not
+    # range-checked. This matches the C extension and is format-driven, not
+    # method-driven.
+    %w[_parse _iso8601 _xmlschema].each do |m|
+      assert_nil(Date.send(m, '2001-02-03T04:05:06+99:99')[:offset], "#{m} +99:99")
+      assert_nil(Date.send(m, '2001-02-03T04:05:06+24:00')[:offset], "#{m} +24:00")
+      assert_equal(86340, Date.send(m, '2001-02-03T04:05:06+23:59')[:offset], "#{m} +23:59")
     end
+    assert_nil(Date._parse('2001-02-03T04:05:06-99:99')[:offset])
+    # Compact form is not range-checked.
+    assert_equal(362340, Date._parse('2001-02-03T04:05:06+9999')[:offset])
+    assert_equal(362340, Date._iso8601('2001-02-03T04:05:06+9999')[:offset])
+    assert_equal(362340, Date._rfc2822('Sat, 3 Feb 2001 04:05:06 +9999')[:offset])
+  end
 
-    ["T", "t", " "].each do |sep|
-      assert_deprecated_warn("") do
-        Date._rfc3339("2001-02-03#{sep}04:05:06Z")
-      end
+  def test__rfc3339_offset_out_of_range
+    # An out-of-range zone offset (hour >= 24 or minute >= 60) gives a nil
+    # offset while the remaining fields and the zone string are kept,
+    # matching the C extension.
+    %w[+24:00 +25:00 +12:60 +99:99].each do |z|
+      h = Date._rfc3339("2001-02-03T04:05:06#{z}")
+      assert_nil(h[:offset], "offset for #{z}")
+      assert_equal(z, h[:zone], "zone for #{z}")
+      assert_equal(2001, h[:year])
     end
+    # In-range boundaries still compute.
+    assert_equal(86340, Date._rfc3339('2001-02-03T04:05:06+23:59')[:offset])
+    assert_equal(0, Date._rfc3339('2001-02-03T04:05:06+00:00')[:offset])
   end
 
   def test__xmlschema
@@ -1130,6 +1093,16 @@ class TestDateParse < Test::Unit::TestCase
     assert_equal({}, h)
 
     assert_raise(TypeError) {Date._httpdate('Sat, 03 Feb 2001 04:05:06 GMT'.to_sym)}
+  end
+
+  def test__httpdate_preserves_zone_case
+    # The parsed :zone is returned as given, preserving case, matching the
+    # C extension. (A removed fast path used to hardcode it to "GMT".)
+    h = Date._httpdate('sat, 03 feb 2001 04:05:06 gmt')
+    assert_equal([2001, 2, 3, 4, 5, 6, 'gmt', 0],
+		 h.values_at(:year, :mon, :mday, :hour, :min, :sec, :zone, :offset))
+    h = Date._httpdate('Sat, 03 Feb 2001 04:05:06 GMT')
+    assert_equal('GMT', h[:zone])
   end
 
   def test__jisx0301

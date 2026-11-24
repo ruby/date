@@ -67,6 +67,40 @@ class TestDateStrftime < Test::Unit::TestCase
   STRFTIME_2001_02_03.update(STRFTIME_2001_02_03_CVS19)
   STRFTIME_2001_02_03.update(STRFTIME_2001_02_03_GNUext)
 
+  def test_strftime_width_flag_precision_and_composite_edges
+    d = Date.new(2001, 2, 3)
+    assert_equal('%1-5d', d.strftime('%1-5d'))  # flag after width -> verbatim
+    assert_equal('%1.2d', d.strftime('%1.2d'))  # precision '.' -> verbatim
+    assert_equal('-0005', Date.new(-5, 2, 3).strftime('%G'))
+    assert_equal('2001', d.strftime('%1G'))
+    assert_equal('-5', Date.new(-5, 2, 3).strftime('%1G'))
+    assert_equal('Sat Feb  3 00:00:00 2001', d.strftime('%5c'))
+    assert_equal('    02/03/01', d.strftime('%12x'))
+    dt = DateTime.new(2001, 2, 3, 4, 5, 6, '+07:30')
+    assert_equal('+07:30', dt.strftime('%:z'))
+    assert_equal('+07:30:00', dt.strftime('%::z'))
+  end
+
+  def test_strftime_fast_ymd_and_embedded_composites
+    # fast_ymd year padding for small positive and negative years.
+    assert_equal('0500-02-03', Date.new(500, 2, 3).strftime('%F'))
+    assert_equal('-0005-02-03', Date.new(-5, 2, 3).strftime('%F'))
+    # %c/%D/%x reached through the scanner (not the whole-string fast path,
+    # which only matches those specs standing alone).
+    d = Date.new(2001, 2, 3)
+    assert_equal('(Sat Feb  3 00:00:00 2001)', d.strftime('(%c)'))
+    assert_equal('(02/03/01)', d.strftime('(%D)'))
+    assert_equal('(02/03/01)', d.strftime('(%x)'))
+  end
+
+  def test_strftime_whole_string_fast_paths
+    # Dedicated whole-format fast paths in internal_strftime.
+    assert_equal('2001-02-03T04:05:06+0700',
+                 DateTime.new(2001, 2, 3, 4, 5, 6, '+07:00').strftime('%Y-%m-%dT%H:%M:%S%z'))
+    assert_equal('Saturday, February 03, 2001',
+                 Date.new(2001, 2, 3).strftime('%A, %B %d, %Y'))
+  end
+
   def test_strftime
     d = Date.new(2001,2,3)
     STRFTIME_2001_02_03.each do |f, s|
@@ -179,6 +213,73 @@ class TestDateStrftime < Test::Unit::TestCase
     assert_equal(so, d.strftime(f))
     d = DateTime.strptime(si, f)
     assert_equal(so, d.strftime(f))
+  end
+
+  def test_strftime_ymd_encoding
+    d = Date.new(2000)
+    a = "%Y-%m-%d"
+    [Encoding::BINARY, Encoding::US_ASCII, Encoding::UTF_8, Encoding::ISO8859_1].each do |enc|
+      assert_equal(enc, d.strftime(a.encode(enc)).encoding)
+    end
+  end
+
+  def test_strftime_hash_flag_ignored_on_composites
+    # The '#' (change-case) flag has no effect on composite conversions
+    # (%c, %r, %v, ...), matching the C extension; the '^' (upcase) flag
+    # still applies.
+    d = Date.new(2001, 2, 3)
+    assert_equal('Sat Feb  3 00:00:00 2001', d.strftime('%#c'))
+    assert_equal('12:00:00 AM', d.strftime('%#r'))
+    assert_equal(' 3-FEB-2001', d.strftime('%#v'))
+    assert_equal('SAT FEB  3 00:00:00 2001', d.strftime('%^c'))
+    assert_equal('SAT FEB  3 00:00:00 2001', d.strftime('%#^c'))
+  end
+
+  def test_strftime_v_negative_year
+    # %v formats the year with %Y (sign plus at least four digits), matching
+    # the C extension, not a width-4 %4Y.
+    assert_equal(' 9-JAN--0005', Date.new(-5, 1, 9).strftime('%v'))
+    assert_equal(' 9-JAN--0012', Date.new(-12, 1, 9).strftime('%v'))
+    assert_equal(' 9-JAN-0005', Date.new(5, 1, 9).strftime('%v'))
+  end
+
+  def test_strftime_incomplete_spec_at_eos
+    # Flags and/or a width followed by end-of-string (no conversion character)
+    # are emitted verbatim, matching the C extension, rather than collapsing
+    # to a bare "%".
+    d = Date.new(2001, 2, 3)
+    %w[%- %_ %0 %^ %# %5 %05 %10 %-5].each do |f|
+      assert_equal(f, d.strftime(f), "strftime(#{f.inspect})")
+    end
+  end
+
+  def test_strftime_invalid_spec_with_flags
+    # An unknown conversion character preceded by flags and/or a width is
+    # emitted verbatim, matching the C extension; the flags/width must not be
+    # dropped (which would leave just "%<char>").
+    d = Date.new(2001, 2, 3)
+    %w[%q %-q %5q %05q %-5q %^q %#q].each do |f|
+      assert_equal(f, d.strftime(f), "strftime(#{f.inspect})")
+    end
+  end
+
+  def test_strftime_invalid_encoding_format
+    # An invalid byte sequence in the format string is emitted verbatim
+    # instead of raising, matching the C extension.
+    d = Date.new(2001, 2, 3)
+    fmt = "%\xFF".dup.force_encoding("UTF-8")
+    assert_equal(fmt, d.strftime(fmt))
+    fmt2 = "x%\xFFy".dup.force_encoding("UTF-8")
+    assert_equal(fmt2, d.strftime(fmt2))
+  end
+
+  def test_strftime_multibyte_invalid_conversion
+    # A multibyte character after '%' is an invalid conversion specifier and
+    # is emitted verbatim as "%<char>", matching the C extension. It must not
+    # raise (an earlier implementation raised RangeError via Integer#chr).
+    d = Date.new(2001, 2, 3)
+    assert_equal("%あ", d.strftime("%あ"))
+    assert_equal("x%あy", d.strftime("x%あy"))
   end
 
   def test_strftime__offset
@@ -353,6 +454,18 @@ class TestDateStrftime < Test::Unit::TestCase
     assert_equal('Sat Feb  3 04:05:06 +09:00 2001'.rjust(100), d.strftime('%_100+'))
     assert_equal('Sat Feb  3 04:05:06 +09:00 2001'.rjust(100, '0'), d.strftime('%0100+'))
     assert_equal('SAT FEB  3 04:05:06 +09:00 2001', d.strftime('%^+'))
+  end
+
+  def test_rfc2822_httpdate_with_offset
+    # rfc2822 keeps local time and shows the real offset; httpdate converts
+    # the instant to UTC, matching the C extension.
+    d = DateTime.new(2001, 2, 3, 4, 5, 6, '+07:00')
+    assert_equal('Sat, 3 Feb 2001 04:05:06 +0700', d.rfc2822)
+    assert_equal('Fri, 02 Feb 2001 21:05:06 GMT', d.httpdate)
+    # an offset that pushes the UTC instant into the next day
+    d2 = DateTime.new(2001, 2, 3, 22, 5, 6, '-05:00')
+    assert_equal('Sat, 3 Feb 2001 22:05:06 -0500', d2.rfc2822)
+    assert_equal('Sun, 04 Feb 2001 03:05:06 GMT', d2.httpdate)
   end
 
   def test__different_format

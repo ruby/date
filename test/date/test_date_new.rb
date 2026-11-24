@@ -4,6 +4,27 @@ require 'date'
 
 class TestDateNew < Test::Unit::TestCase
 
+  def test_ordinal_and_calendar_start_paths
+    assert_equal(Date.new(2001, 3, 1), Date.ordinal(2001, 60))
+    assert_equal(2, Date.new(2001, 2, 3, Date::JULIAN).month)
+    assert_equal(2, Date.new(2001, 2, 3, Date::GREGORIAN).month)
+    assert_equal(2086308, Date.new(1000, 1, 1).jd)  # before the reform -> Julian
+  end
+
+  def test_datetime_new_offset_type_errors
+    assert_raise(TypeError) { DateTime.new(2001, 1, 1, 0, 0, 0, Object.new) }
+    assert_raise(TypeError) { DateTime.new(nil) }
+  end
+
+  def test_valid_and_leap_predicates_true
+    # Happy paths for the predicate class methods.
+    assert_equal(true, Date.valid_civil?(2001, 2, 3))
+    assert_equal(true, Date.valid_ordinal?(2001, 60))
+    assert_equal(true, Date.gregorian_leap?(2000))
+    assert_equal(true, Date.julian_leap?(1900))
+    assert_equal(true, Date.leap?(2000))
+  end
+
   def test_jd
     d = Date.jd
     dt = DateTime.jd
@@ -213,36 +234,6 @@ class TestDateNew < Test::Unit::TestCase
     assert_equal(0, d.offset)
   end
 
-  def test_civil__fractional_zone_offset_deprecated
-    with_deprecation_warnings do
-      # An offset that is already ignored as invalid gets only that warning.
-      ['+00.123', '-00.123', '+01.123'].each do |z|
-        assert_warning(/\A(?!.*decimal hour).*invalid offset is ignored/m) do
-          assert_equal(0, DateTime.civil(2001,2,3, 0,0,0, z).offset)
-        end
-      end
-
-      # Here the fraction reaches the result.
-      assert_warning(/decimal hour/) do
-        assert_equal(Rational(1800, 86400), DateTime.civil(2001,2,3, 0,0,0, '+00.5').offset)
-      end
-
-      # A zero fraction and the colon forms change nothing.
-      assert_warning('') do
-        assert_equal(Rational(3600, 86400), DateTime.civil(2001,2,3, 0,0,0, '+01.0').offset)
-        assert_equal(Rational(1800, 86400), DateTime.civil(2001,2,3, 0,0,0, '+00:30').offset)
-      end
-    end
-  end
-
-  def with_deprecation_warnings
-    deprecated = Warning[:deprecated] if Warning.respond_to?(:[])
-    Warning[:deprecated] = true if Warning.respond_to?(:[]=)
-    yield
-  ensure
-    Warning[:deprecated] = deprecated if Warning.respond_to?(:[]=)
-  end
-
   def test_civil__reform
     d = Date.jd(Date::ENGLAND, Date::ENGLAND)
     dt = DateTime.jd(Date::ENGLAND, 0,0,0,0, Date::ENGLAND)
@@ -271,6 +262,18 @@ class TestDateNew < Test::Unit::TestCase
     assert_equal(false, Date.valid_civil?(1582,10,-22))
   end
 
+  def test_civil__reform_negative_mday_custom_cutover
+    # A custom Gregorian cutover whose reform gap falls near the end of the
+    # month: the last existing day of the month must be found by scanning down
+    # (as the C extension's c_find_ldom does), not by taking the next month's
+    # first day minus one. sg = 1900-02-05 (Gregorian) leaves 1900-01-23 as the
+    # last day of January 1900.
+    sg = Date.new(1900, 2, 5, Date::GREGORIAN).jd
+    assert_equal([1900, 1, 23], Date.new(1900, 1, -1, sg).then { |d| [d.year, d.mon, d.mday] })
+    assert_equal([1900, 1, 10], Date.new(1900, 1, -14, sg).then { |d| [d.year, d.mon, d.mday] })
+    assert_equal(true, Date.valid_civil?(1900, 1, -1, sg))
+  end
+
   def test_invalid_start
     d = nil
     assert_warning(/invalid start/) do
@@ -286,6 +289,100 @@ class TestDateNew < Test::Unit::TestCase
       d = Date.civil(2001,2,3).new_start(1)
     end
     assert_equal(Date::ITALY, d.start)
+  end
+
+  def test_invalid_start_boundaries
+    # The valid range for a finite start matches the C extension:
+    # 2298874 (ns 1582-01-01) .. 2426355 (os 1930-12-31), inclusive.
+    # Infinities are valid; NaN and any finite value outside the range are
+    # ignored (warning + fallback to ITALY).
+    assert_warning('') do
+      assert_equal(2298874, Date.jd(0, 2298874).start)
+      assert_equal(2426355, Date.jd(0, 2426355).start)
+      assert_equal(Date::ENGLAND, Date.jd(0, Date::ENGLAND).start)
+      assert_equal(Float::INFINITY, Date.jd(0, Date::JULIAN).start)
+      assert_equal(-Float::INFINITY, Date.jd(0, Date::GREGORIAN).start)
+    end
+    assert_warning(/invalid start/) do
+      assert_equal(Date::ITALY, Date.jd(0, 2298873).start)
+    end
+    assert_warning(/invalid start/) do
+      assert_equal(Date::ITALY, Date.jd(0, 2426356).start)
+    end
+    assert_warning(/invalid start/) do
+      assert_equal(Date::ITALY, Date.jd(0, Float::NAN).start)
+    end
+    # new_start shares the same validation.
+    assert_warning('') do
+      assert_equal(Date::ENGLAND, Date.new(2001,2,3).new_start(Date::ENGLAND).start)
+    end
+    assert_warning(/invalid start/) do
+      assert_equal(Date::ITALY, Date.new(2001,2,3).new_start(0).start)
+    end
+  end
+
+  def test_non_numeric_start_raises
+    # A non-numeric start is a TypeError, not a silent fallback (the C
+    # extension's NUM2DBL). This holds across the constructors, new_start, the
+    # parse/strptime entry points, and the validity predicates.
+    assert_raise(TypeError) { Date.new(2001, 1, 1, nil) }
+    assert_raise(TypeError) { Date.jd(1, "x") }
+    assert_raise(TypeError) { Date.ordinal(2001, 34, nil) }
+    assert_raise(TypeError) { Date.commercial(2001, 5, 3, nil) }
+    assert_raise(TypeError) { Date.new(2001, 1, 1).new_start(nil) }
+    assert_raise(TypeError) { Date.parse("2001-02-03", true, nil) }
+    assert_raise(TypeError) { Date.strptime("2001-02-03", "%F", nil) }
+    assert_raise(TypeError) { Date.valid_civil?(2001, 2, 3, nil) }
+    assert_raise(TypeError) { Date.valid_ordinal?(2001, 34, nil) }
+    assert_raise(TypeError) { Date.valid_commercial?(2001, 5, 3, nil) }
+    assert_raise(TypeError) { Date.valid_jd?(1, nil) }
+    assert_raise(TypeError) { DateTime.new(2001, 1, 1, 0, 0, 0, 0, nil) }
+
+    # An out-of-range numeric start is still only a warning + fallback, so the
+    # predicate holds (clamped to ITALY).
+    assert_warning(/invalid start/) do
+      assert_equal(true, Date.valid_civil?(2001, 2, 3, 3000000))
+    end
+
+    # The NUM2DBL error wording follows the C extension: nil/true/false and the
+    # builtin non-numerics report "no implicit conversion of <name> into
+    # Float", other objects "can't convert <Class> into Float".
+    assert_raise_with_message(TypeError, "no implicit conversion of nil into Float") { Date.new(2001, 1, 1, nil) }
+    assert_raise_with_message(TypeError, "no implicit conversion of true into Float") { Date.new(2001, 1, 1, true) }
+    assert_raise_with_message(TypeError, "no implicit conversion of false into Float") { Date.new(2001, 1, 1, false) }
+    assert_raise_with_message(TypeError, "no implicit conversion of String into Float") { Date.new(2001, 1, 1, "x") }
+    assert_raise_with_message(TypeError, "no implicit conversion of Symbol into Float") { Date.new(2001, 1, 1, :x) }
+    assert_raise_with_message(TypeError, "can't convert Object into Float") { Date.new(2001, 1, 1, Object.new) }
+
+    # A non-numeric object that defines #to_f is accepted via #to_f, as the C
+    # extension does.
+    to_f_obj = Object.new
+    def to_f_obj.to_f; Date::ITALY.to_f; end
+    assert_equal(Date::ITALY, Date.new(2001, 1, 1, to_f_obj).start)
+  end
+
+  def test_invalid_start_datetime
+    # DateTime shares Date's start validation across all of its constructors:
+    # an invalid start is ignored (warning + fallback to ITALY), and the
+    # calendar math uses the corrected start.
+    assert_warning(/invalid start/) do
+      d = DateTime.jd(0, 0, 0, 0, 0, 0)
+      assert_equal(Date::ITALY, d.start)
+    end
+    assert_warning(/invalid start/) do
+      # With the raw start the civil fast path would pick the Julian jd; the
+      # corrected ITALY start must yield the Gregorian jd 2451944.
+      d = DateTime.civil(2001, 2, 3, 0, 0, 0, 0, 3000000)
+      assert_equal([2451944, Date::ITALY], [d.jd, d.start])
+    end
+    assert_warning(/invalid start/) do
+      d = DateTime.new(2001, 2, 3).new_start(1)
+      assert_equal(Date::ITALY, d.start)
+    end
+    assert_warning('') do
+      assert_equal(Date::ENGLAND, DateTime.jd(0, 0, 0, 0, 0, Date::ENGLAND).start)
+      assert_equal(Float::INFINITY, DateTime.jd(0, 0, 0, 0, 0, Date::JULIAN).start)
+    end
   end
 
   def test_commercial

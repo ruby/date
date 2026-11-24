@@ -67,6 +67,53 @@ class TestDateStrptime < Test::Unit::TestCase
   STRFTIME_2001_02_03.update(STRFTIME_2001_02_03_CVS19)
   STRFTIME_2001_02_03.update(STRFTIME_2001_02_03_GNUext)
 
+  def test__strptime_zone_offset_validation
+    # Compact +HHMM is accepted as given; the colon form +HH:MM is
+    # range-checked (hour > 23 or minute > 59 -> nil), matching the C ext.
+    assert_equal(362340, Date._strptime('2001 +9999', '%Y %z')[:offset])
+    assert_equal(90000, Date._strptime('2001 +2500', '%Y %z')[:offset])
+    assert_equal(25200, Date._strptime('2001 +07:00', '%Y %z')[:offset])
+    assert_nil(Date._strptime('2001 +12:60', '%Y %z')[:offset])
+    assert_nil(Date._strptime('2001 +99:99', '%Y %z')[:offset])
+  end
+
+  def test__strptime_meridian_failure_and_invalid_ymd
+    assert_nil(Date._strptime('zz', '%p'))               # not AM/PM
+    assert_raise(Date::Error) { Date.strptime('2001-13-45', '%F') }  # bad m/d
+  end
+
+  def test__strptime_abdy_full_name_and_invalid
+    # Full day/month names (abbreviation plus matching tail) are accepted.
+    assert_equal({wday: 6, mon: 2, mday: 3, year: 2001},
+                 Date._strptime('Saturday February 03 2001', '%a %b %d %Y'))
+    assert_equal(Date.new(2001, 2, 3),
+                 Date.strptime('Saturday February 03 2001', '%a %b %d %Y'))
+    # An unknown weekday abbreviation is invalid.
+    assert_raise(Date::Error) { Date.strptime('Xxx Feb 03 2001', '%a %b %d %Y') }
+  end
+
+  def test__strptime_rejects_non_string
+    assert_raise(TypeError) { Date._strptime(true, '%F') }
+    assert_raise(TypeError) { Date._strptime(false, '%F') }
+  end
+
+  def test__strptime_cwday_without_week
+    # A %u (ISO weekday) with no week number cannot form a date, so it is
+    # invalid -- like %a/%w, it must not silently default to civil (year only).
+    assert_raise(Date::Error) { Date.strptime('2001 5', '%Y %u') }
+    # With a week number it resolves normally.
+    assert_equal(Date.new(2001, 1, 26), Date.strptime('2001 04 5', '%Y %W %u'))
+    assert_equal(Date.new(2001, 1, 26), Date.strptime('2001 04 5', '%G %V %u'))
+  end
+
+  def test__strptime_abdy_fast_path
+    # "%a %b %d %Y" has a dedicated fast path in _strptime/strptime.
+    assert_equal({wday: 6, mon: 2, mday: 3, year: 2001},
+                 Date._strptime('Sat Feb 03 2001', '%a %b %d %Y'))
+    assert_equal(Date.new(2001, 2, 3),
+                 Date.strptime('Sat Feb 03 2001', '%a %b %d %Y'))
+  end
+
   def test__strptime
     STRFTIME_2001_02_03.each do |f, s|
       if (f == '%I' and s[0] == '12') or
@@ -142,6 +189,8 @@ class TestDateStrptime < Test::Unit::TestCase
      [['Thu Jul 29 16:39:41 GMT-09 1999', '%a %b %d %H:%M:%S %Z %Y'], [1999,7,29,16,39,41,'GMT-09',-9*3600,4], __LINE__],
      [['Thu Jul 29 16:39:41 GMT-09:08 1999', '%a %b %d %H:%M:%S %Z %Y'], [1999,7,29,16,39,41,'GMT-09:08',-9*3600-8*60,4], __LINE__],
      [['Thu Jul 29 16:39:41 GMT-09:08:07 1999', '%a %b %d %H:%M:%S %Z %Y'], [1999,7,29,16,39,41,'GMT-09:08:07',-9*3600-8*60-7,4], __LINE__],
+     [['Thu Jul 29 16:39:41 GMT-3.5 1999', '%a %b %d %H:%M:%S %Z %Y'], [1999,7,29,16,39,41,'GMT-3.5',nil,4], __LINE__],
+     [['Thu Jul 29 16:39:41 GMT-3,5 1999', '%a %b %d %H:%M:%S %Z %Y'], [1999,7,29,16,39,41,'GMT-3,5',nil,4], __LINE__],
      [['Thu Jul 29 16:39:41 Mountain Daylight Time 1999', '%a %b %d %H:%M:%S %Z %Y'], [1999,7,29,16,39,41,'Mountain Daylight Time',-6*3600,4], __LINE__],
      [['Thu Jul 29 16:39:41 E. Australia Standard Time 1999', '%a %b %d %H:%M:%S %Z %Y'], [1999,7,29,16,39,41,'E. Australia Standard Time',10*3600,4], __LINE__],
 
@@ -180,6 +229,7 @@ class TestDateStrptime < Test::Unit::TestCase
      [['E.  Australia Standard Time', '%Z'], [nil,nil,nil,nil,nil,nil,'E.  Australia Standard Time',10*3600,nil], __LINE__],
 
      # out of range
+     [['+0.9999999999999999999999', '%Z'], [nil,nil,nil,nil,nil,nil,'+0.9999999999999999999999',nil,nil], __LINE__],
      [['+9999999999999999999999.0', '%Z'], [nil,nil,nil,nil,nil,nil,'+9999999999999999999999.0',nil,nil], __LINE__],
     ].each do |x, y|
       h = Date._strptime(*x)
@@ -320,6 +370,10 @@ class TestDateStrptime < Test::Unit::TestCase
 		 DateTime.strptime('2002-03-14T11:22:33-09:00', '%FT%T%Z'))
     assert_equal(DateTime.new(2002,3,14,11,22,33, -9.to_r/24) + 123456789.to_r/1000000000/86400,
 		 DateTime.strptime('2002-03-14T11:22:33.123456789-09:00', '%FT%T.%N%Z'))
+
+    d = DateTime.strptime('2001 Sat', '%Y %a')
+    assert_equal([2001, 1, 6, 0, 0, 0],
+		 [d.year, d.mon, d.mday, d.hour, d.min, d.sec])
   end
 
   def test_strptime__2
@@ -457,10 +511,6 @@ class TestDateStrptime < Test::Unit::TestCase
     d = DateTime.strptime('2004-11', '%Y-%W')
     assert_equal([2004, 11, 1, 0, 0, 0],
 		 [d.year, d.strftime('%W').to_i, d.wday, d.hour, d.min, d.sec])
-
-    d = DateTime.strptime('2001 Sat', '%Y %a')
-    assert_equal([2001, 1, 6, 0, 0, 0],
-		 [d.year, d.mon, d.mday, d.hour, d.min, d.sec])
   end
 
   def test_strptime__d_to_s

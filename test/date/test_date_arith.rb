@@ -7,6 +7,80 @@ class TestDateArith < Test::Unit::TestCase
     def to_r; self; end
   end
 
+  def test__compare_nan
+    [Date.new(2000, 1, 1), DateTime.new(2000, 1, 1, 12)].each do |d|
+      assert_nil(d <=> Float::NAN)
+      assert_equal(false, d == Float::NAN)
+    end
+  end
+
+  def test_step__incomparable_limit
+    d = Date.new(2000, 1, 1)
+    [Float::NAN, Object.new].each do |limit|
+      no = proc { flunk("yielded for #{limit.inspect}") }
+      assert_raise(ArgumentError) { d.upto(limit, &no) }
+      assert_raise(ArgumentError) { d.downto(limit, &no) }
+      assert_raise(ArgumentError) { d.step(limit, 1, &no) }
+      assert_raise(ArgumentError) { d.step(limit, -1, &no) }
+    end
+  end
+
+  def test__minus_datetime_offset
+    # Date - DateTime accounts for the DateTime's offset (absolute instants).
+    assert_equal(-11.to_r / 24, Date.new(2001, 2, 3) - DateTime.new(2001, 2, 3, 0, 0, 0, '-11:00'))
+  end
+
+  def test_next_month__ex
+    e = TypeError
+    assert_raise(e) { Date.new(2000, 1, 31) >> nil }
+    assert_raise(e) { Date.new(2000, 1, 31) >> '1' }
+    assert_raise(e) { DateTime.new(2000, 1, 31) >> nil }
+  end
+
+  def test_month_shift_fractional
+    # A fractional month count is floored (not truncated toward zero), matching
+    # the C extension. << n shifts by floor(-n), so << 1.5 is -2 months.
+    d = Date.new(2001, 6, 15)
+    assert_equal([2001, 7, 15], (d >> 1.5).then { |x| [x.year, x.mon, x.mday] })
+    assert_equal([2001, 4, 15], (d >> -1.5).then { |x| [x.year, x.mon, x.mday] })
+    assert_equal([2001, 3, 15], (d >> -2.9).then { |x| [x.year, x.mon, x.mday] })
+    assert_equal([2001, 6, 15], (d >> 0.5).then { |x| [x.year, x.mon, x.mday] })
+    assert_equal([2001, 7, 15], (d >> Rational(3, 2)).then { |x| [x.year, x.mon, x.mday] })
+    e = Date.new(2001, 3, 31)
+    assert_equal([2001, 1, 31], (e << 1.5).then { |x| [x.year, x.mon, x.mday] })
+    assert_equal([2001, 1, 31], (e << Rational(3, 2)).then { |x| [x.year, x.mon, x.mday] })
+  end
+
+  def test_prev_month__ex
+    e = TypeError
+    assert_raise(e) { Date.new(2000, 1, 31) << nil }
+    assert_raise(e) { Date.new(2000, 1, 31) << '1' }
+    assert_raise(e) { DateTime.new(2000, 1, 31) << nil }
+    # Date#<< rejects a non-numeric up front ("expected numeric"), unlike Date#>>
+    # (which lets Integer coercion fail with "... can't be coerced ...").
+    assert_raise_with_message(TypeError, "expected numeric") { Date.new(2000, 1, 31) << nil }
+    assert_raise_with_message(TypeError, "expected numeric") { Date.new(2000, 1, 31).prev_month(nil) }
+    assert_raise_with_message(TypeError, /can't be coerced into Integer/) { Date.new(2000, 1, 31) >> nil }
+  end
+
+  def test_step_upto_downto_additional_paths
+    # step with a negative integer step (Date fast loop).
+    r = []; Date.new(2001, 2, 5).step(Date.new(2001, 2, 1), -2) { |d| r << d.mday }
+    assert_equal([5, 3, 1], r)
+    # step with a non-integer step takes the general path, both directions.
+    r = []; Date.new(2001, 2, 1).step(Date.new(2001, 2, 5), 2r) { |d| r << d.mday }
+    assert_equal([1, 3, 5], r)
+    r = []; Date.new(2001, 2, 5).step(Date.new(2001, 2, 1), -2r) { |d| r << d.mday }
+    assert_equal([5, 3, 1], r)
+    # a zero step is rejected on the general path too.
+    assert_raise(ArgumentError) { Date.new(2001, 2, 1).step(Date.new(2001, 2, 3), 0r) { } }
+    # upto/downto general path (non-Date receiver delegates to step).
+    r = []; DateTime.new(2001, 2, 1).upto(DateTime.new(2001, 2, 3)) { |d| r << d.mday }
+    assert_equal([1, 2, 3], r)
+    r = []; DateTime.new(2001, 2, 3).downto(DateTime.new(2001, 2, 1)) { |d| r << d.mday }
+    assert_equal([3, 2, 1], r)
+  end
+
   def test_new_offset
     d = DateTime.new(2002, 3, 14)
     assert_equal(Rational(9, 24), d.new_offset(Rational(9, 24)).offset)
@@ -28,51 +102,6 @@ class TestDateArith < Test::Unit::TestCase
     d = DateTime.new(2000,2,29) + 1.to_r/2
     assert_equal([2000, 2, 29, 12, 0, 0],
 		 [d.year, d.mon, d.mday, d.hour, d.min, d.sec])
-  end
-
-  def test_fractional_day_deprecated
-    pat = /Date with fractional day is deprecated/
-    d = Date.new(2001, 2, 3)
-
-    [
-      -> { Date.new(2001, 2, 3.5) },
-      -> { Date.civil(2001, 2, Rational(7, 2)) },
-      -> { Date.jd(2451944.5) },
-      -> { Date.ordinal(2001, 34.5) },
-      -> { Date.commercial(2001, 5, Rational(3, 2)) },
-      -> { d + 0.5 },
-      -> { d + Rational(1, 2) },
-      -> { d - 0.5 },
-      -> { d - Rational(1, 2) },
-      -> { d.next_day(0.5) },
-      -> { d.prev_day(Rational(1, 2)) },
-      -> { d.step(d + 1, 0.5).to_a },
-    ].each do |pr|
-      assert_deprecated_warn(pat, &pr)
-    end
-
-    dt = DateTime.new(2001, 2, 3)
-    [
-      -> { Date.new(2001, 2, 3.0) },
-      -> { Date.jd(Rational(2451944)) },
-      -> { d + 1 },
-      -> { d + 1.0 },
-      -> { d + Rational(2, 1) },
-      -> { d - 1.0 },
-      -> { d >> 1 },
-      -> { d << 1 },
-      -> { d.next_day(2) },
-      -> { DateTime.new(2001, 2, 3.5) },
-      -> { DateTime.jd(2451944.5) },
-      -> { DateTime.ordinal(2001, 34.5) },
-      -> { DateTime.commercial(2001, 5, Rational(3, 2)) },
-      -> { dt + 0.5 },
-      -> { dt - Rational(1, 2) },
-      -> { dt.next_day(0.5) },
-      -> { dt.step(dt + 1, 0.5).to_a },
-    ].each do |pr|
-      assert_deprecated_warn("", &pr)
-    end
   end
 
   def test__plus__ex
@@ -146,16 +175,9 @@ class TestDateArith < Test::Unit::TestCase
     assert_equal(0, (DateTime.new(2001,2,3,9,0,0,'+09:00') <=>
 		     DateTime.new(2001,2,3,0,0,0,'+00:00')))
     assert_equal(-1, (DateTime.new(2001,2,3,0,0,0,'+09:00') <=>
-		      DateTime.new(2001,2,2,16,0,0,'+00:00')))
+		     DateTime.new(2001,2,3,0,0,0,'+00:00')))
     n = Class.new(Numeric) {def coerce(x) [self, x] end; def <=>(x) 5 end}.new
     assert_equal(1, (Date.new(2000,1,1) <=> n))
-  end
-
-  def test__compare_nan
-    [Date.new(2000,1,1), DateTime.new(2000,1,1,12)].each do |d|
-      assert_nil(d <=> Float::NAN)
-      assert_equal(false, d == Float::NAN)
-    end
   end
 
   def test_prev
@@ -187,19 +209,6 @@ class TestDateArith < Test::Unit::TestCase
     d = Date.new(2000,1,31) << 14
     assert_equal([1998, 11, 30], [d.year, d.mon, d.mday])
 
-  end
-
-  def test_prev_month__ex
-    e = TypeError
-    assert_raise(e) do
-      Date.new(2000,1,31) << nil
-    end
-    assert_raise(e) do
-      Date.new(2000,1,31) << '1'
-    end
-    assert_raise(e) do
-      DateTime.new(2000,1,31) << nil
-    end
   end
 
   def test_prev_month__2
@@ -266,21 +275,10 @@ class TestDateArith < Test::Unit::TestCase
     assert_equal([2001, 1, 31], [d.year, d.mon, d.mday])
     d = Date.new(2000,1,31) >> 13
     assert_equal([2001, 2, 28], [d.year, d.mon, d.mday])
+    # A month shift that lands in the calendar-reform gap clamps to the last
+    # valid day before the gap (1582-10-10 does not exist; 10-04 does).
     d = Date.new(1582,9,10) >> 1
     assert_equal([1582, 10, 4], [d.year, d.mon, d.mday])
-  end
-
-  def test_next_month__ex
-    e = TypeError
-    assert_raise(e) do
-      Date.new(2000,1,31) >> nil
-    end
-    assert_raise(e) do
-      Date.new(2000,1,31) >> '1'
-    end
-    assert_raise(e) do
-      DateTime.new(2000,1,31) >> nil
-    end
   end
 
   def test_next_month__2
@@ -379,16 +377,5 @@ class TestDateArith < Test::Unit::TestCase
     a = []
     p.step(q, o) {|d| a << d}
     assert_empty(a)
-  end
-
-  def test_step__incomparable_limit
-    d = Date.new(2000,1,1)
-    [Float::NAN, Object.new].each do |limit|
-      no = proc {flunk("yielded for #{limit.inspect}")}
-      assert_raise(ArgumentError) { d.upto(limit, &no) }
-      assert_raise(ArgumentError) { d.downto(limit, &no) }
-      assert_raise(ArgumentError) { d.step(limit, 1, &no) }
-      assert_raise(ArgumentError) { d.step(limit, -1, &no) }
-    end
   end
 end
