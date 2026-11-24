@@ -1766,7 +1766,9 @@ class Date
     elsif sg == -Float::INFINITY
       '-Inf'
     else
-      sg.to_i.to_s
+      # Round to the nearest integer, ties to even, matching the C extension's
+      # "%.0f" output (not a truncation).
+      sg.round(half: :even).to_s
     end
   end
 

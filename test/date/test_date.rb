@@ -11,9 +11,13 @@ class TestDate < Test::Unit::TestCase
                  Date.new(2001, 2, 3, Date::JULIAN).inspect)
     assert_equal('#<Date: 2001-02-03 ((2451944j,0s,0n),+0s,-Infj)>',
                  Date.new(2001, 2, 3, Date::GREGORIAN).inspect)
-    # A fractional start prints as a whole jd, matching the C extension.
+    # A fractional start prints as a whole jd, rounded to even like the C
+    # extension's %.0f (not truncated).
     assert_equal('#<Date: 2001-02-03 ((2451944j,0s,0n),+0s,2400000j)>',
                  Date.new(2001, 2, 3, 2400000.5).inspect)
+    assert_match(/,2299161j\)>\z/, Date.new(2001, 2, 3, 2299160.7).inspect)
+    assert_match(/,2299162j\)>\z/, Date.new(2001, 2, 3, 2299161.5).inspect)
+    assert_match(/,2299160j\)>\z/, Date.new(2001, 2, 3, 2299160.5).inspect)
   end
 
   def test_spaceship_and_equal_with_incomparable
