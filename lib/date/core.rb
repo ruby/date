@@ -1200,13 +1200,14 @@ class Date
     self.class.__send__(:new_from_jd, month_shifted_jd(n), @start)
   end
 
-  # Coerce a month count to an Integer the way the C extension does (NUM2INT):
-  # accept an Integer or anything with #to_int (e.g. Float, truncated),
-  # otherwise raise TypeError rather than silently treating it as zero.
+  # Coerce a month count to an Integer the way the C extension does: a
+  # fractional count is floored (the shift is applied in month-index space, so
+  # e.g. -1.5 moves two months back, not one), and a non-numeric count raises
+  # the same TypeError that Integer#+ coercion would.
   private def month_offset_int(n)
     return n if Integer === n
-    return n.to_int if n.respond_to?(:to_int)
-    raise TypeError, "no implicit conversion of #{n.nil? ? 'nil' : n.class} into Integer"
+    return n.floor if Numeric === n
+    raise TypeError, "#{n.nil? ? 'nil' : n.class} can't be coerced into Integer"
   end
 
   # Julian Day number of the date +n+ months from self, clamping the day to the
@@ -1257,7 +1258,11 @@ class Date
   #   d2 = d1 << -1 # => #<Date: 2001-03-28>
   #
   def <<(n)
-    self >> -month_offset_int(n)
+    # Negate the raw count before the shift so the floor is applied to -n
+    # (<< 1.5 is -2 months, not -1); a non-numeric count is left for #>> to
+    # reject with the right TypeError.
+    n = -n if Numeric === n
+    self >> n
   end
 
   # call-seq:

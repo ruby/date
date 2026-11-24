@@ -37,6 +37,20 @@ class TestDateArith < Test::Unit::TestCase
     assert_raise(e) { DateTime.new(2000, 1, 31) >> nil }
   end
 
+  def test_month_shift_fractional
+    # A fractional month count is floored (not truncated toward zero), matching
+    # the C extension. << n shifts by floor(-n), so << 1.5 is -2 months.
+    d = Date.new(2001, 6, 15)
+    assert_equal([2001, 7, 15], (d >> 1.5).then { |x| [x.year, x.mon, x.mday] })
+    assert_equal([2001, 4, 15], (d >> -1.5).then { |x| [x.year, x.mon, x.mday] })
+    assert_equal([2001, 3, 15], (d >> -2.9).then { |x| [x.year, x.mon, x.mday] })
+    assert_equal([2001, 6, 15], (d >> 0.5).then { |x| [x.year, x.mon, x.mday] })
+    assert_equal([2001, 7, 15], (d >> Rational(3, 2)).then { |x| [x.year, x.mon, x.mday] })
+    e = Date.new(2001, 3, 31)
+    assert_equal([2001, 1, 31], (e << 1.5).then { |x| [x.year, x.mon, x.mday] })
+    assert_equal([2001, 1, 31], (e << Rational(3, 2)).then { |x| [x.year, x.mon, x.mday] })
+  end
+
   def test_prev_month__ex
     e = TypeError
     assert_raise(e) { Date.new(2000, 1, 31) << nil }
