@@ -1461,6 +1461,7 @@ class Date
     # the full _sp_complete_frags pipeline and directly validate civil date.
     def fast_new_date(hash, sg)
       raise Error, 'invalid date' if hash.nil? || hash.empty?
+      sg = validate_start(sg) unless sg.equal?(ITALY)
       y = hash[:year]
       m = hash[:mon]
       d = hash[:mday]

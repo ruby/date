@@ -254,6 +254,77 @@ class TestDateNew < Test::Unit::TestCase
     assert_equal([1582, 10, 4], [dt.year, dt.mon, dt.mday])
   end
 
+  def test_invalid_start
+    d = nil
+    assert_warning(/invalid start/) do
+      d = Date.jd(0, 0)
+    end
+    assert_equal([-4712, 1, 1, Date::ITALY],
+		 [d.year, d.mon, d.mday, d.start])
+    assert_warning(/invalid start/) do
+      d = Date.civil(2001,2,3, 3000000)
+    end
+    assert_equal([2451944, Date::ITALY], [d.jd, d.start])
+    assert_warning(/invalid start/) do
+      d = Date.civil(2001,2,3).new_start(1)
+    end
+    assert_equal(Date::ITALY, d.start)
+  end
+
+  def test_invalid_start_boundaries
+    # The valid range for a finite start matches the C extension:
+    # 2298874 (ns 1582-01-01) .. 2426355 (os 1930-12-31), inclusive.
+    # Infinities are valid; NaN and any finite value outside the range are
+    # ignored (warning + fallback to ITALY).
+    assert_warning('') do
+      assert_equal(2298874, Date.jd(0, 2298874).start)
+      assert_equal(2426355, Date.jd(0, 2426355).start)
+      assert_equal(Date::ENGLAND, Date.jd(0, Date::ENGLAND).start)
+      assert_equal(Float::INFINITY, Date.jd(0, Date::JULIAN).start)
+      assert_equal(-Float::INFINITY, Date.jd(0, Date::GREGORIAN).start)
+    end
+    assert_warning(/invalid start/) do
+      assert_equal(Date::ITALY, Date.jd(0, 2298873).start)
+    end
+    assert_warning(/invalid start/) do
+      assert_equal(Date::ITALY, Date.jd(0, 2426356).start)
+    end
+    assert_warning(/invalid start/) do
+      assert_equal(Date::ITALY, Date.jd(0, Float::NAN).start)
+    end
+    # new_start shares the same validation.
+    assert_warning('') do
+      assert_equal(Date::ENGLAND, Date.new(2001,2,3).new_start(Date::ENGLAND).start)
+    end
+    assert_warning(/invalid start/) do
+      assert_equal(Date::ITALY, Date.new(2001,2,3).new_start(0).start)
+    end
+  end
+
+  def test_invalid_start_datetime
+    # DateTime shares Date's start validation across all of its constructors:
+    # an invalid start is ignored (warning + fallback to ITALY), and the
+    # calendar math uses the corrected start.
+    assert_warning(/invalid start/) do
+      d = DateTime.jd(0, 0, 0, 0, 0, 0)
+      assert_equal(Date::ITALY, d.start)
+    end
+    assert_warning(/invalid start/) do
+      # With the raw start the civil fast path would pick the Julian jd; the
+      # corrected ITALY start must yield the Gregorian jd 2451944.
+      d = DateTime.civil(2001, 2, 3, 0, 0, 0, 0, 3000000)
+      assert_equal([2451944, Date::ITALY], [d.jd, d.start])
+    end
+    assert_warning(/invalid start/) do
+      d = DateTime.new(2001, 2, 3).new_start(1)
+      assert_equal(Date::ITALY, d.start)
+    end
+    assert_warning('') do
+      assert_equal(Date::ENGLAND, DateTime.jd(0, 0, 0, 0, 0, Date::ENGLAND).start)
+      assert_equal(Float::INFINITY, DateTime.jd(0, 0, 0, 0, 0, Date::JULIAN).start)
+    end
+  end
+
   def test_commercial
     d = Date.commercial
     dt = DateTime.commercial

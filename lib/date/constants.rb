@@ -31,6 +31,15 @@ class Date
   # proleptic Gregorian calendar.
   GREGORIAN = -Float::INFINITY
 
+  # Valid range for a finite start (calendar-reform cutover) value, matching the
+  # C extension: the Julian day numbers of the earliest and latest supported
+  # reform dates (ns 1582-01-01 .. os 1930-12-31), inclusive. A finite start
+  # outside this range (or NaN) is ignored and falls back to ITALY; infinities
+  # are always valid.
+  VALID_START_MIN = 2298874 # ns 1582-01-01
+  VALID_START_MAX = 2426355 # os 1930-12-31
+  private_constant :VALID_START_MIN, :VALID_START_MAX
+
   # Case-insensitive abbreviated name lookup tables for O(1) name matching.
   # Key = downcased 3-letter abbreviation, Value = [index, full_name_length].
   # The length lets callers verify an optional full-name tail (e.g. the

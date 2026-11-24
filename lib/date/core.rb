@@ -13,6 +13,7 @@ class Date
   class << self
     # Same as Date.new.
     def civil(year = -4712, month = 1, day = 1, start = ITALY)
+      start = validate_start(start) unless start.equal?(ITALY)
       if Integer === year && Integer === month && Integer === day &&
          month >= 1 && month <= 12 && day >= 1 && day <= 28
         # Days 1..28 exist in every month of both the Julian and Gregorian
@@ -109,6 +110,7 @@ class Date
     # Related: Date.new.
     def jd(jd = 0, start = ITALY)
       jd = convert_numeric_to_int(jd, "jd")
+      start = validate_start(start) unless start.equal?(ITALY)
       obj = allocate
       obj.__send__(:initialize, jd, start)
       obj
@@ -189,6 +191,7 @@ class Date
     #
     # Related: Date.jd, Date.new.
     def ordinal(year = -4712, yday = 1, start = ITALY)
+      start = validate_start(start) unless start.equal?(ITALY)
       if Integer === year && Integer === yday && yday >= 1 && yday <= 365
         jd1 = civil_to_jd(year, 1, 1, start)
         jd = jd1 + yday - 1
@@ -265,6 +268,7 @@ class Date
     #
     # Related: Date.jd, Date.new, Date.ordinal.
     def commercial(cwyear = -4712, cweek = 1, cwday = 1, start = ITALY)
+      start = validate_start(start) unless start.equal?(ITALY)
       if Integer === cwyear && Integer === cweek && Integer === cwday &&
          cweek >= 1 && cweek <= 52 && cwday >= 1 && cwday <= 7
         # ISO 8601: every normal year has at least 52 weeks, but the
@@ -310,6 +314,7 @@ class Date
     # See argument {start}[rdoc-ref:language/calendars.rdoc@Argument+start].
     #
     def today(start = ITALY)
+      start = validate_start(start) unless start.equal?(ITALY)
       t = Time.now
       jd = civil_to_jd(t.year, t.mon, t.mday, start)
       new_from_jd(jd, start)
@@ -338,6 +343,26 @@ class Date
       r = obj.to_r
       raise Date::Error, "invalid fraction" unless r.denominator == 1
       r.numerator
+    end
+
+    # Validate a start (calendar-reform cutover) value the way the C extension
+    # does, returning it as a Float for internal use. Infinities are always
+    # valid; NaN and any finite value outside VALID_START_MIN..VALID_START_MAX
+    # are ignored, falling back to ITALY with a (verbose-only) warning. Every
+    # public constructor that accepts a +start+ runs its argument through this
+    # before using it, so the calendar math and the stored @start agree.
+    def validate_start(sg)
+      f = sg.to_f
+      # Fast path: a finite value inside the supported range (the common case,
+      # including the ITALY/ENGLAND defaults). Ordered first so the hot path
+      # avoids the #infinite?/#nan? method calls below.
+      return f if f >= VALID_START_MIN && f <= VALID_START_MAX
+      # Outside the finite range: infinities (JULIAN/GREGORIAN) are valid;
+      # anything else -- an out-of-range finite value, or NaN (for which both
+      # comparisons above were false) -- is ignored and falls back to ITALY.
+      return f if f.infinite?
+      warn("invalid start is ignored", uplevel: 1) if $VERBOSE
+      ITALY.to_f
     end
 
     def civil_fallback(year, month, day, start)
@@ -817,7 +842,9 @@ class Date
     obj = self.class.allocate
     obj.instance_variable_set(:@jd, @jd)
     # Store the cutover as a Float so #start/#hash/marshal stay consistent
-    # (see #initialize).
+    # (see #initialize). An invalid start is ignored (see Date.validate_start);
+    # the default ITALY needs no validation and skips the dispatch.
+    start = self.class.__send__(:validate_start, start) unless start.equal?(ITALY)
     obj.instance_variable_set(:@start, start.to_f)
     obj
   end
@@ -1713,7 +1740,9 @@ class Date
     @jd            = jd
     # Store the cutover as a Float. Keeps #start, #hash and marshal output
     # consistent regardless of whether the caller passed an Integer (e.g. ITALY)
-    # or a Float sentinel.
+    # or a Float sentinel. The public constructors have already validated and
+    # normalized +sg+ (see Date.validate_start); internal callers pass an
+    # already-valid @start, so no re-validation happens on this hot path.
     @start         = sg.to_f
     # Cache the civil fields when the caller already knows them (Date.new via
     # the fast path passes them), so #year/#month/#day need not recompute them.

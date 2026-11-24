@@ -65,6 +65,7 @@ class Date
     # Related: Date._strptime (returns a hash).
     def strptime(string = '-4712-01-01', format = '%F', start = ITALY)
       str = to_string_value(string)
+      start = validate_start(start) unless start.equal?(ITALY)
       if format == '%F' || format == '%Y-%m-%d'
         result = internal_strptime_ymd_to_date(str, start)
         return result if result

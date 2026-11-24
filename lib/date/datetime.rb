@@ -33,6 +33,7 @@ class DateTime < Date
     month = Integer(month)
     raise TypeError, "invalid year (not numeric)" unless year.is_a?(Numeric)
     year  = Integer(year)
+    start = self.class.__send__(:validate_start, start) unless start.equal?(ITALY)
 
     # A fractional day/hour/minute is only allowed as the last argument given;
     # if a smaller unit was also supplied, the C extension rejects the fraction.
@@ -265,6 +266,7 @@ class DateTime < Date
   #
   # See argument {start}[rdoc-ref:language/calendars.rdoc@Argument+start].
   def new_start(start = Date::ITALY)
+    start = self.class.__send__(:validate_start, start) unless start.equal?(Date::ITALY)
     self.class.__send__(:_new_dt_from_jd_time, @jd, @hour, @min, @sec, @sec_fraction, @of, start)
   end
 
@@ -626,6 +628,7 @@ class DateTime < Date
       of_sec = _parse_offset(offset)
       _check_hms_types(hour, minute, second)
       raise TypeError, "invalid jd (not numeric)" unless jd.is_a?(Numeric)
+      start = validate_start(start) unless start.equal?(Date::ITALY)
 
       jd_r = jd.to_r
       jd_i = jd_r.floor
@@ -654,6 +657,7 @@ class DateTime < Date
       _check_hms_types(hour, minute, second)
       raise TypeError, "invalid yday (not numeric)" unless yday.is_a?(Numeric)
       raise TypeError, "invalid year (not numeric)" unless year.is_a?(Numeric)
+      start = validate_start(start) unless start.equal?(Date::ITALY)
 
       yday_r = yday.to_r
       yday_i = yday_r.floor
@@ -685,6 +689,7 @@ class DateTime < Date
       raise TypeError, "invalid cwday (not numeric)" unless cwday.is_a?(Numeric)
       raise TypeError, "invalid cweek (not numeric)" unless cweek.is_a?(Numeric)
       raise TypeError, "invalid year (not numeric)"  unless cwyear.is_a?(Numeric)
+      start = validate_start(start) unless start.equal?(Date::ITALY)
 
       cwday_r = cwday.to_r
       cwday_i = cwday_r.floor
@@ -702,6 +707,7 @@ class DateTime < Date
     #
     #    DateTime.now		#=> #<DateTime: 2011-06-11T21:20:44+09:00 ...>
     def now(start = Date::ITALY)
+      start = validate_start(start) unless start.equal?(Date::ITALY)
       t = Time.now
       jd = civil_to_jd(t.year, t.mon, t.mday, start)
       sec_f = Rational(t.subsec)
@@ -916,6 +922,7 @@ class DateTime < Date
     # but additionally extracts time components (hour, min, sec, offset, sec_fraction).
     def _dt_new_by_frags(hash, sg)
       raise Date::Error, 'invalid date' if hash.nil?
+      sg = validate_start(sg) unless sg.equal?(Date::ITALY)
       hash = sp_rewrite_frags(hash)
       orig_sec = hash[:sec]
       hash = sp_complete_frags(DateTime, hash)
