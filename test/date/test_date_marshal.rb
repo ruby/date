@@ -51,6 +51,28 @@ class TestDateMarshal < Test::Unit::TestCase
     assert_raise(Date::Error) { Date.new + 1/2r }
   end
 
+  def test_marshal_load_old_format_offset
+    d = DateTime.allocate
+    d.marshal_load([Rational(0), Rational(1, 24), Date::ITALY])
+    assert_equal(Rational(1, 24), d.offset)
+
+    d = DateTime.allocate
+    d.marshal_load([Rational(0), 1, Date::ITALY])
+    assert_equal(1, d.offset)
+
+    d = DateTime.allocate
+    assert_warning(/invalid offset/) do
+      d.marshal_load([Rational(0), 5, Date::ITALY])
+    end
+    assert_equal(0, d.offset)
+
+    d = DateTime.allocate
+    assert_warning(/invalid offset/) do
+      d.marshal_load([Rational(0), -5, Date::ITALY])
+    end
+    assert_equal(0, d.offset)
+  end
+
   def test_memsize
     require 'objspace'
     t = DateTime.new(2018, 11, 13)

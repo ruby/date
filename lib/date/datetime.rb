@@ -496,7 +496,16 @@ class DateTime < Date
     when 3
       ajd, of_r, sg = array
       sg = normalize_start(sg)
-      of_sec = (of_r * 86400).to_i
+      # Old marshal format stores the offset as a day fraction. Match the C
+      # extension: round it to whole seconds (warning if a sub-second fraction
+      # is dropped) and ignore an offset beyond +/-1 day.
+      of_sec_r = of_r * 86400
+      of_sec = of_sec_r.round
+      warn("fraction of offset is ignored", uplevel: 0) if $VERBOSE && of_sec != of_sec_r
+      if of_sec < -86400 || of_sec > 86400
+        of_sec = 0
+        warn("invalid offset is ignored", uplevel: 0) if $VERBOSE
+      end
       # Reconstruct local JD and time from AJD
       local_r = ajd + 0.5r + of_r
       jd      = local_r.floor
