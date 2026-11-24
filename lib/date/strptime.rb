@@ -686,6 +686,14 @@ class Date
           wnw_n = sp_count_keys(hash, [:year, :wnum0, :wday, :hour, :min, :sec])
           skip_civil = true if wnw_n > best_n
         end
+        if hash.key?(:cwday)
+          # Likewise a :cwday (e.g. "%Y %u") matches the (year, wnum, cwday)
+          # patterns. Letting those win means a cwday with no week number is
+          # left unsatisfiable and reported as an invalid date, as in the C
+          # extension, rather than silently defaulting to civil.
+          cwd_n = sp_count_keys(hash, [:year, :wnum0, :cwday, :hour, :min, :sec])
+          skip_civil = true if cwd_n > best_n
+        end
         unless skip_civil
           k = :civil
           a = [:year, :mon, :mday, :hour, :min, :sec]

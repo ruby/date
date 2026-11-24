@@ -97,6 +97,15 @@ class TestDateStrptime < Test::Unit::TestCase
     assert_raise(TypeError) { Date._strptime(false, '%F') }
   end
 
+  def test__strptime_cwday_without_week
+    # A %u (ISO weekday) with no week number cannot form a date, so it is
+    # invalid -- like %a/%w, it must not silently default to civil (year only).
+    assert_raise(Date::Error) { Date.strptime('2001 5', '%Y %u') }
+    # With a week number it resolves normally.
+    assert_equal(Date.new(2001, 1, 26), Date.strptime('2001 04 5', '%Y %W %u'))
+    assert_equal(Date.new(2001, 1, 26), Date.strptime('2001 04 5', '%G %V %u'))
+  end
+
   def test__strptime_abdy_fast_path
     # "%a %b %d %Y" has a dedicated fast path in _strptime/strptime.
     assert_equal({wday: 6, mon: 2, mday: 3, year: 2001},
