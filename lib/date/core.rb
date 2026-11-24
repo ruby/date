@@ -1793,6 +1793,9 @@ class Date
   # DateTime copying a Date, handled in DateTime#initialize_copy) go through
   # the default copy.
   def initialize_copy(other)
+    unless other.is_a?(Date)
+      raise TypeError, "wrong argument type #{other.nil? ? 'nil' : other.class} (expected Date)"
+    end
     if other.is_a?(DateTime) && !is_a?(DateTime)
       raise ArgumentError, "cannot load complex into simple"
     end
