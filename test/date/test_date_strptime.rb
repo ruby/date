@@ -346,6 +346,8 @@ class TestDateStrptime < Test::Unit::TestCase
     d = Date.new(2002,3,14)
     assert_equal(d, Date.strptime(d.to_s))
     assert_equal(Date.new(2002,3,14), Date.strptime('2002-03-14'))
+    assert_equal(Date.new(2002,3,14), Date.strptime('2002-03-14 11:22:33', '%Y-%m-%d'))
+    assert_equal(Date.new(2002,3,14), Date.strptime('2002-03-14T11:22:33Z', '%F'))
 
     d = DateTime.new(2002,3,14,11,22,33, 0)
     assert_equal(d, DateTime.strptime(d.to_s))
@@ -359,6 +361,10 @@ class TestDateStrptime < Test::Unit::TestCase
 		 DateTime.strptime('2002-03-14T11:22:33-09:00', '%FT%T%Z'))
     assert_equal(DateTime.new(2002,3,14,11,22,33, -9.to_r/24) + 123456789.to_r/1000000000/86400,
 		 DateTime.strptime('2002-03-14T11:22:33.123456789-09:00', '%FT%T.%N%Z'))
+
+    d = DateTime.strptime('2001 Sat', '%Y %a')
+    assert_equal([2001, 1, 6, 0, 0, 0],
+		 [d.year, d.mon, d.mday, d.hour, d.min, d.sec])
   end
 
   def test_strptime__2

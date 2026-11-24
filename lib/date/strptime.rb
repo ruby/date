@@ -66,15 +66,16 @@ class Date
     def strptime(string = '-4712-01-01', format = '%F', start = ITALY)
       str = to_string_value(string)
       start = validate_start(start) unless start.equal?(ITALY)
+      # Fast paths for the two most common formats. They match only when the
+      # whole string is exactly that shape; anything else (e.g. trailing text
+      # that strptime treats as ignorable leftover) falls through to the general
+      # pipeline below rather than being rejected.
       if format == '%F' || format == '%Y-%m-%d'
         result = internal_strptime_ymd_to_date(str, start)
         return result if result
-        raise Error, 'invalid date'
-      end
-      if format == '%a %b %d %Y'
+      elsif format == '%a %b %d %Y'
         result = internal_strptime_abdy_to_date(str, start)
         return result if result
-        raise Error, 'invalid date'
       end
       hash = _strptime(string, format)
       raise Error, 'invalid date' if hash.nil?
@@ -677,6 +678,14 @@ class Date
           wn1_n = sp_count_keys(hash, [:year, :wnum1, :wday, :hour, :min, :sec])
           skip_civil = true if wn1_n > best_n
         end
+        if hash.key?(:wday)
+          # A :wday with no explicit week number still matches the wnum0/wnum1
+          # patterns (which include :wday). If that beats the civil match, let
+          # the general table scan pick the week-number pattern instead of
+          # defaulting to civil and dropping the weekday (e.g. "%Y %a").
+          wnw_n = sp_count_keys(hash, [:year, :wnum0, :wday, :hour, :min, :sec])
+          skip_civil = true if wnw_n > best_n
+        end
         unless skip_civil
           k = :civil
           a = [:year, :mon, :mday, :hour, :min, :sec]
@@ -766,6 +775,26 @@ class Date
       (jd_jan7 - (jd_jan7 - f + 1) % 7 - 7) + 7 * w + d
     end
 
+    # Inverse of sp_weeknum_to_jd: JD -> [year, weeknum, wday] for style f.
+    # Ported from the C c_jd_to_weeknum().
+    def sp_jd_to_weeknum(jd, f, sg)
+      y, = jd_to_civil(jd, sg)
+      rjd = civil_to_jd(y, 1, 1, sg) + 6
+      j = jd - (rjd - ((rjd - f) + 1) % 7) + 7
+      [y, j.div(7), j % 7]
+    end
+
+    # Validate a (year, weeknum, wday) triple the way c_valid_weeknum_p does:
+    # compute the JD, convert it back, and require the fields to round-trip
+    # (rejecting e.g. a week-0 day that falls into the previous year). Returns
+    # the JD or nil.
+    def sp_valid_weeknum?(y, w, d, f, sg)
+      jd = sp_weeknum_to_jd(y, w, d, f, sg)
+      ry, rw, rd = sp_jd_to_weeknum(jd, f, sg)
+      return nil if y != ry || w != rw || d != rd
+      jd
+    end
+
     # Find the Julian Day number from the fragment hash.
     # Tries jd, ordinal, civil, commercial, wnum0, wnum1 in order.
     # Returns jd integer or nil.
@@ -800,7 +829,7 @@ class Date
         wday = 0 if !wday.nil? && wday == 7
       end
       if wday && (week = hash[:wnum0]) && (year = hash[:year])
-        jd = sp_weeknum_to_jd(year, week, wday, 0, sg)
+        jd = sp_valid_weeknum?(year, week, wday, 0, sg)
         return jd if jd
       end
 
@@ -810,7 +839,7 @@ class Date
       wday = hash[:cwday] if wday.nil?
       wday = (wday - 1) % 7 if wday
       if wday && (week = hash[:wnum1]) && (year = hash[:year])
-        jd = sp_weeknum_to_jd(year, week, wday, 1, sg)
+        jd = sp_valid_weeknum?(year, week, wday, 1, sg)
         return jd if jd
       end
 
