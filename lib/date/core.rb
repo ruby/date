@@ -80,6 +80,7 @@ class Date
     # Related: Date.jd, Date.new.
     def valid_civil?(year, month, day, start = ITALY)
       return false unless year.is_a?(Numeric) && month.is_a?(Numeric) && day.is_a?(Numeric)
+      start = validate_start(start) unless start.equal?(ITALY)
       !!internal_valid_civil?(year, month, day, start)
     end
     alias_method :valid_date?, :valid_civil?
@@ -127,7 +128,8 @@ class Date
     # See argument {start}[rdoc-ref:language/calendars.rdoc@Argument+start].
     #
     # Related: Date.jd.
-    def valid_jd?(jd, _start = ITALY)
+    def valid_jd?(jd, start = ITALY)
+      validate_start(start) unless start.equal?(ITALY)
       jd.is_a?(Numeric)
     end
 
@@ -222,6 +224,7 @@ class Date
     # Related: Date.jd, Date.ordinal.
     def valid_ordinal?(year, day, start = ITALY)
       return false unless year.is_a?(Numeric) && day.is_a?(Numeric)
+      start = validate_start(start) unless start.equal?(ITALY)
       !!internal_valid_ordinal?(year, day, start)
     end
 
@@ -301,6 +304,7 @@ class Date
     # Related: Date.jd, Date.commercial.
     def valid_commercial?(year, week, day, start = ITALY)
       return false unless year.is_a?(Numeric) && week.is_a?(Numeric) && day.is_a?(Numeric)
+      start = validate_start(start) unless start.equal?(ITALY)
       !!internal_valid_commercial?(year, week, day, start)
     end
 
@@ -352,6 +356,14 @@ class Date
     # public constructor that accepts a +start+ runs its argument through this
     # before using it, so the calendar math and the stored @start agree.
     def validate_start(sg)
+      unless sg.is_a?(Numeric)
+        # Reject a non-numeric start with a TypeError, as the C extension's
+        # NUM2DBL does, rather than silently coercing it via #to_f.
+        if sg.nil? || sg.is_a?(String) || sg.is_a?(Symbol)
+          raise TypeError, "no implicit conversion of #{sg.nil? ? 'nil' : sg.class} into Float"
+        end
+        raise TypeError, "can't convert #{sg.class} into Float"
+      end
       f = sg.to_f
       # Fast path: a finite value inside the supported range (the common case,
       # including the ITALY/ENGLAND defaults). Ordered first so the hot path

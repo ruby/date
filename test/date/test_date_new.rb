@@ -321,6 +321,30 @@ class TestDateNew < Test::Unit::TestCase
     end
   end
 
+  def test_non_numeric_start_raises
+    # A non-numeric start is a TypeError, not a silent fallback (the C
+    # extension's NUM2DBL). This holds across the constructors, new_start, the
+    # parse/strptime entry points, and the validity predicates.
+    assert_raise(TypeError) { Date.new(2001, 1, 1, nil) }
+    assert_raise(TypeError) { Date.jd(1, "x") }
+    assert_raise(TypeError) { Date.ordinal(2001, 34, nil) }
+    assert_raise(TypeError) { Date.commercial(2001, 5, 3, nil) }
+    assert_raise(TypeError) { Date.new(2001, 1, 1).new_start(nil) }
+    assert_raise(TypeError) { Date.parse("2001-02-03", true, nil) }
+    assert_raise(TypeError) { Date.strptime("2001-02-03", "%F", nil) }
+    assert_raise(TypeError) { Date.valid_civil?(2001, 2, 3, nil) }
+    assert_raise(TypeError) { Date.valid_ordinal?(2001, 34, nil) }
+    assert_raise(TypeError) { Date.valid_commercial?(2001, 5, 3, nil) }
+    assert_raise(TypeError) { Date.valid_jd?(1, nil) }
+    assert_raise(TypeError) { DateTime.new(2001, 1, 1, 0, 0, 0, 0, nil) }
+
+    # An out-of-range numeric start is still only a warning + fallback, so the
+    # predicate holds (clamped to ITALY).
+    assert_warning(/invalid start/) do
+      assert_equal(true, Date.valid_civil?(2001, 2, 3, 3000000))
+    end
+  end
+
   def test_invalid_start_datetime
     # DateTime shares Date's start validation across all of its constructors:
     # an invalid start is ignored (warning + fallback to ITALY), and the
