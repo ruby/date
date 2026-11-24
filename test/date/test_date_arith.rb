@@ -124,6 +124,9 @@ class TestDateArith < Test::Unit::TestCase
     d = DateTime.new(2000,3,1) - 1.to_r/2
     assert_equal([2000, 2, 29, 12, 0, 0],
 		 [d.year, d.mon, d.mday, d.hour, d.min, d.sec])
+
+    d = Date.new(2001,2,3) - DateTime.new(2001,2,3,0,0,0,'-11:00')
+    assert_equal(-11.to_r/24, d)
   end
 
   def test__minus__ex
