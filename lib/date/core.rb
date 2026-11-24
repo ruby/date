@@ -1655,18 +1655,25 @@ class Date
     d = @day
     md = "#{PAD2[m]}.#{PAD2[d]}"
     if jd >= 2458605       # Reiwa (2019-05-01)
-      "R#{PAD2[@year - 2018]}.#{md}"
+      "R#{jisx_era_year(@year - 2018)}.#{md}"
     elsif jd >= 2447535    # Heisei (1989-01-08)
-      "H#{PAD2[@year - 1988]}.#{md}"
+      "H#{jisx_era_year(@year - 1988)}.#{md}"
     elsif jd >= 2424875    # Showa (1926-12-25)
-      "S#{PAD2[@year - 1925]}.#{md}"
+      "S#{jisx_era_year(@year - 1925)}.#{md}"
     elsif jd >= 2419614    # Taisho (1912-07-30)
-      "T#{PAD2[@year - 1911]}.#{md}"
+      "T#{jisx_era_year(@year - 1911)}.#{md}"
     elsif jd >= 2405160    # Meiji (1873-01-01)
-      "M#{PAD2[@year - 1867]}.#{md}"
+      "M#{jisx_era_year(@year - 1867)}.#{md}"
     else
       to_s
     end
+  end
+
+  # Zero-pad an era year to at least two digits. An era year of 100 or more
+  # (e.g. Reiwa 100 = 2118) keeps all its digits, matching the C extension's
+  # %02d (PAD2 only covers 0..99).
+  private def jisx_era_year(n)
+    n < 100 ? PAD2[n] : n.to_s
   end
 
   # call-seq:

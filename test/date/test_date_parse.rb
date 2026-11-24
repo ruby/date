@@ -608,6 +608,13 @@ class TestDateParse < Test::Unit::TestCase
     assert_equal(5025, h[:offset])
   end
 
+  def test__parse_invalid_offset
+    h = DateTime._parse('2001-02-03T04:05:06+24:00')
+    assert_equal(['+24:00', nil], h.values_at(:zone, :offset))
+    h = DateTime._parse('2001-02-03T04:05:06+12:60')
+    assert_equal(['+12:60', nil], h.values_at(:zone, :offset))
+  end
+
   def test__parse_too_long_year
     omit 'transient' if RUBY_ENGINE == 'truffleruby'
 
