@@ -252,6 +252,14 @@ class TestDateNew < Test::Unit::TestCase
     dt -= 1
     assert_equal([1582, 10, 4], [d.year, d.mon, d.mday])
     assert_equal([1582, 10, 4], [dt.year, dt.mon, dt.mday])
+
+    d = Date.civil(1582,10,-17)
+    assert_equal([1582, 10, 15], [d.year, d.mon, d.mday])
+    d = Date.civil(1582,10,-18)
+    assert_equal([1582, 10, 4], [d.year, d.mon, d.mday])
+    d = DateTime.civil(1582,10,-21)
+    assert_equal([1582, 10, 1], [d.year, d.mon, d.mday])
+    assert_equal(false, Date.valid_civil?(1582,10,-22))
   end
 
   def test_invalid_start

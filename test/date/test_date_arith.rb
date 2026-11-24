@@ -247,6 +247,10 @@ class TestDateArith < Test::Unit::TestCase
     assert_equal([2001, 1, 31], [d.year, d.mon, d.mday])
     d = Date.new(2000,1,31) >> 13
     assert_equal([2001, 2, 28], [d.year, d.mon, d.mday])
+    # A month shift that lands in the calendar-reform gap clamps to the last
+    # valid day before the gap (1582-10-10 does not exist; 10-04 does).
+    d = Date.new(1582,9,10) >> 1
+    assert_equal([1582, 10, 4], [d.year, d.mon, d.mday])
   end
 
   def test_next_month__2

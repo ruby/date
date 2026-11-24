@@ -452,6 +452,13 @@ class Date
       [year, mon, day]
     end
 
+    # JD -> (year, month, day), choosing the calendar by the start value the
+    # same way civil_to_jd does (Gregorian when jd >= sg, Julian otherwise; the
+    # infinities select a single calendar).
+    def jd_to_civil(jd, sg)
+      jd >= sg ? jd_to_gregorian(jd) : jd_to_julian(jd)
+    end
+
     # Julian JD -> (year, month, day)
     def jd_to_julian(jd)
       c = jd + 32082
@@ -507,10 +514,20 @@ class Date
       m += 13 if m < 0
       return nil if m < 1 || m > 12
 
+      if d < 0
+        # Resolve a negative mday against the JD of the last day of the month,
+        # then convert back to civil. Doing the arithmetic in JD space means a
+        # day counted back from month-end skips the calendar-reform gap exactly
+        # as the C extension does (e.g. 1582-10-(-18) -> 1582-10-04).
+        ny, nm = m == 12 ? [y + 1, 1] : [y, m + 1]
+        ldom_jd = civil_to_jd(ny, nm, 1, sg) - 1
+        ry, rm, d = jd_to_civil(ldom_jd + d + 1, sg)
+        return nil if ry != y || rm != m
+      end
+
       if sg == Float::INFINITY
         # Proleptic Julian calendar.
         dim = days_in_month_julian(y, m)
-        d += dim + 1 if d < 0
         return nil if d < 1 || d > dim
         return julian_to_jd(y, m, d)
       end
@@ -519,9 +536,8 @@ class Date
       # a finite cutover. Days skipped by the reform have a Gregorian JD before
       # the cutover (gjd < sg) and are rejected here, then handled below.
       gdim = days_in_month_gregorian(y, m)
-      gd = d < 0 ? d + gdim + 1 : d
-      if gd >= 1 && gd <= gdim
-        gjd = gregorian_to_jd(y, m, gd)
+      if d >= 1 && d <= gdim
+        gjd = gregorian_to_jd(y, m, d)
         return gjd if gjd >= sg
       end
       return nil if sg == -Float::INFINITY
@@ -529,9 +545,8 @@ class Date
       # Pre-reform (Julian) side. This also accepts Julian-only leap days such as
       # 1500-02-29 under ITALY. A day skipped by the reform has jjd >= sg.
       jdim = days_in_month_julian(y, m)
-      jd2 = d < 0 ? d + jdim + 1 : d
-      return nil if jd2 < 1 || jd2 > jdim
-      jjd = julian_to_jd(y, m, jd2)
+      return nil if d < 1 || d > jdim
+      jjd = julian_to_jd(y, m, d)
       jjd < sg ? jjd : nil
     end
 
@@ -1176,17 +1191,16 @@ class Date
     m2 = (m2 - 1) % 12 + 1
     klass = self.class
     sg = @start
-    julian = if sg == Float::INFINITY
-               true
-             elsif sg == -Float::INFINITY
-               false
-             else
-               klass.__send__(:gregorian_to_jd, y2, m2, 1) < sg
-             end
-    dim = julian ? klass.__send__(:days_in_month_julian, y2, m2)
-                 : klass.__send__(:days_in_month_gregorian, y2, m2)
-    d2 = @day < dim ? @day : dim
-    klass.__send__(:civil_to_jd, y2, m2, d2, sg)
+    d2 = @day
+    # Decrement the day until the date exists. This handles both a day past the
+    # end of the target month (e.g. Jan 31 >> 1 -> Feb 28/29) and a day that
+    # falls in the calendar-reform gap (e.g. 1582-09-10 >> 1 -> 1582-10-04),
+    # matching the C extension's d_lite_rshift.
+    while (jd = klass.__send__(:internal_valid_civil?, y2, m2, d2, sg)).nil?
+      d2 -= 1
+      raise Date::Error, "invalid date" if d2 < 1
+    end
+    jd
   end
 
   # call-seq:
