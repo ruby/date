@@ -343,6 +343,22 @@ class TestDateNew < Test::Unit::TestCase
     assert_warning(/invalid start/) do
       assert_equal(true, Date.valid_civil?(2001, 2, 3, 3000000))
     end
+
+    # The NUM2DBL error wording follows the C extension: nil/true/false and the
+    # builtin non-numerics report "no implicit conversion of <name> into
+    # Float", other objects "can't convert <Class> into Float".
+    assert_raise_with_message(TypeError, "no implicit conversion of nil into Float") { Date.new(2001, 1, 1, nil) }
+    assert_raise_with_message(TypeError, "no implicit conversion of true into Float") { Date.new(2001, 1, 1, true) }
+    assert_raise_with_message(TypeError, "no implicit conversion of false into Float") { Date.new(2001, 1, 1, false) }
+    assert_raise_with_message(TypeError, "no implicit conversion of String into Float") { Date.new(2001, 1, 1, "x") }
+    assert_raise_with_message(TypeError, "no implicit conversion of Symbol into Float") { Date.new(2001, 1, 1, :x) }
+    assert_raise_with_message(TypeError, "can't convert Object into Float") { Date.new(2001, 1, 1, Object.new) }
+
+    # A non-numeric object that defines #to_f is accepted via #to_f, as the C
+    # extension does.
+    to_f_obj = Object.new
+    def to_f_obj.to_f; Date::ITALY.to_f; end
+    assert_equal(Date::ITALY, Date.new(2001, 1, 1, to_f_obj).start)
   end
 
   def test_invalid_start_datetime

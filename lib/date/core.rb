@@ -356,15 +356,21 @@ class Date
     # public constructor that accepts a +start+ runs its argument through this
     # before using it, so the calendar math and the stored @start agree.
     def validate_start(sg)
-      unless sg.is_a?(Numeric)
-        # Reject a non-numeric start with a TypeError, as the C extension's
-        # NUM2DBL does, rather than silently coercing it via #to_f.
-        if sg.nil? || sg.is_a?(String) || sg.is_a?(Symbol)
-          raise TypeError, "no implicit conversion of #{sg.nil? ? 'nil' : sg.class} into Float"
-        end
+      # Convert the start the way the C extension's NUM2DBL does: a Numeric via
+      # #to_f; nil/true/false and the builtin non-numerics (String, Symbol) are
+      # rejected outright ("no implicit conversion"); any other object is
+      # accepted through #to_f and otherwise rejected ("can't convert").
+      if sg.is_a?(Numeric)
+        f = sg.to_f
+      elsif sg.nil? || sg.equal?(true) || sg.equal?(false) ||
+            sg.is_a?(String) || sg.is_a?(Symbol)
+        name = sg.nil? ? "nil" : (sg.equal?(true) ? "true" : (sg.equal?(false) ? "false" : sg.class))
+        raise TypeError, "no implicit conversion of #{name} into Float"
+      elsif sg.respond_to?(:to_f) && (v = sg.to_f).is_a?(Float)
+        f = v
+      else
         raise TypeError, "can't convert #{sg.class} into Float"
       end
-      f = sg.to_f
       # Fast path: a finite value inside the supported range (the common case,
       # including the ITALY/ENGLAND defaults). Ordered first so the hot path
       # avoids the #infinite?/#nan? method calls below.
