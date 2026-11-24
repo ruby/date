@@ -56,6 +56,11 @@ class TestDateArith < Test::Unit::TestCase
     assert_raise(e) { Date.new(2000, 1, 31) << nil }
     assert_raise(e) { Date.new(2000, 1, 31) << '1' }
     assert_raise(e) { DateTime.new(2000, 1, 31) << nil }
+    # Date#<< rejects a non-numeric up front ("expected numeric"), unlike Date#>>
+    # (which lets Integer coercion fail with "... can't be coerced ...").
+    assert_raise_with_message(TypeError, "expected numeric") { Date.new(2000, 1, 31) << nil }
+    assert_raise_with_message(TypeError, "expected numeric") { Date.new(2000, 1, 31).prev_month(nil) }
+    assert_raise_with_message(TypeError, /can't be coerced into Integer/) { Date.new(2000, 1, 31) >> nil }
   end
 
   def test_step_upto_downto_additional_paths

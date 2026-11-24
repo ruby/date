@@ -1268,11 +1268,11 @@ class Date
   #   d2 = d1 << -1 # => #<Date: 2001-03-28>
   #
   def <<(n)
-    # Negate the raw count before the shift so the floor is applied to -n
-    # (<< 1.5 is -2 months, not -1); a non-numeric count is left for #>> to
-    # reject with the right TypeError.
-    n = -n if Numeric === n
-    self >> n
+    # The C extension's d_lite_lshift rejects a non-numeric count up front
+    # (TypeError "expected numeric"), unlike #>>. Negate the raw count so the
+    # floor is applied to -n (<< 1.5 is -2 months, not -1).
+    raise TypeError, "expected numeric" unless Numeric === n
+    self >> -n
   end
 
   # call-seq:
