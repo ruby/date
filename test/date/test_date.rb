@@ -203,6 +203,23 @@ class TestDate < Test::Unit::TestCase
     assert_equal(0, h[Date.new(2001,2,3,Date::GREGORIAN)])
   end
 
+  def test_hash_by_utc_instant
+    # The hash is computed from the UTC instant, so different offsets that
+    # denote the same moment hash equal (and are #eql?), while a sub-second
+    # difference is #eql?-distinct (its hash may collide, which is allowed).
+    a = DateTime.new(2001, 2, 3, 9, 0, 0, '+09:00')
+    b = DateTime.new(2001, 2, 3, 0, 0, 0, '+00:00')
+    assert_equal(a.hash, b.hash)
+    assert_operator(a, :eql?, b)
+
+    c = DateTime.new(2001, 2, 3, 0, 0, Rational(1, 1000), '+00:00')
+    assert_not_operator(a, :eql?, c)
+
+    # A DateTime at midnight UTC hashes like the plain Date for that day.
+    assert_equal(Date.new(2001, 2, 3).hash, b.hash)
+    assert_operator(Date.new(2001, 2, 3), :eql?, b)
+  end
+
   def test_freeze
     d = Date.new
     d.freeze
