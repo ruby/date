@@ -539,8 +539,13 @@ class Date
         # convert back to civil. This handles a calendar-reform gap near the end
         # of the month under any cutover, including a custom one whose next
         # month begins inside the gap (where "next month's 1st minus 1" fails).
+        # Start the scan at the month's nominal length (the longer of the two
+        # calendars' counts) so an ordinary month resolves in one check; only a
+        # month truncated by a reform gap needs to step down further.
         ldom_jd = nil
-        day = 31
+        day = days_in_month_gregorian(y, m)
+        jdim = days_in_month_julian(y, m)
+        day = jdim if jdim > day
         while day >= 1
           ldom_jd = valid_civil_positive_jd(y, m, day, sg)
           break if ldom_jd
