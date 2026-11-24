@@ -1049,7 +1049,11 @@ class Date
   end
 
   def hash
-    ajd.hash
+    # Hash the absolute instant as the integer triple (jd, seconds-in-day,
+    # sub-second nanoseconds) in UTC, the way the C extension does, so values
+    # that are #eql? hash equal without building a Rational (as ajd.hash did).
+    # A plain Date has no time or offset, so the triple is simply (jd, 0, 0).
+    [@jd, 0, 0].hash
   end
 
   # call-seq:

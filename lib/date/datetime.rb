@@ -160,6 +160,20 @@ class DateTime < Date
     super
   end
 
+  # :nodoc:
+  #
+  # Hash the absolute instant as the integer triple (jd, seconds-in-day,
+  # sub-second nanoseconds) in UTC, matching the C extension. Two DateTimes
+  # that denote the same moment with different offsets -- and a Date and a
+  # DateTime at the same instant -- hash equal (as they are #eql?), without
+  # building a Rational.
+  def hash
+    secs = @hour * 3600 + @min * 60 + @sec - @of
+    carry, df = secs.divmod(86400)
+    sf = (@sec_fraction * 1_000_000_000).to_i
+    [@jd + carry, df, sf].hash
+  end
+
   # call-seq:
   #   day_fraction -> rational
   #
