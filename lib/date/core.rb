@@ -1002,7 +1002,11 @@ class Date
         ajd <=> other.ajd
       end
     when Numeric
-      ajd <=> other
+      # Compare by the absolute instant, then normalize to -1/0/1: a custom
+      # Numeric's #<=> (reached via coerce) may return any integer, and the C
+      # extension reduces it to its sign (nil stays nil, e.g. for NaN).
+      c = ajd <=> other
+      c && (c <=> 0)
     else
       nil
     end
