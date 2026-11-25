@@ -7827,7 +7827,7 @@ d_lite_marshal_load(VALUE self, VALUE a)
 
 	    if (!RB_INTEGER_TYPE_P(nth))
 		rb_raise(rb_eTypeError, "invalid nth (expected an Integer)");
-	    if (jd < -1 || jd > CM_PERIOD)
+	    if (jd < -1 || jd > CM_PERIOD + 38)
 		rb_raise(eDateError, "invalid jd");
 	    if (df < 0 || df >= DAY_IN_SECONDS)
 		rb_raise(eDateError, "invalid day fraction");
