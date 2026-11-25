@@ -66,9 +66,9 @@ class TestDateMarshal < Test::Unit::TestCase
     assert_raise(TypeError) { d.marshal_load([0, 0, 0, 1.5, 0, 0.0]) }
     assert_raise(TypeError) { d.marshal_load([0, 0, 0, "0", 0, 0.0]) }
     assert_raise(TypeError) { d.marshal_load([0, 0, 0, Date.new(2000), 0, 0.0]) }
-    assert_raise(Date::Error) { d.marshal_load([0, 0, 86400, 0, 0, 0.0]) }
-    assert_raise(Date::Error) { d.marshal_load([0, 0, 0, -1, 0, 0.0]) }
-    assert_raise(Date::Error) { d.marshal_load([0, 0, 0, 1_000_000_000, 0, 0.0]) }
+    assert_raise(Date::Error) { d.marshal_load([0, 0, 86400, 0, 0, 2299161.0]) }
+    assert_raise(Date::Error) { d.marshal_load([0, 0, 0, -1, 0, 2299161.0]) }
+    assert_raise(Date::Error) { d.marshal_load([0, 0, 0, 1_000_000_000, 0, 2299161.0]) }
     assert_raise(Date::Error) { d.marshal_load([0, -2, 0, 0, 0, 2299161.0]) }
     assert_raise(Date::Error) { d.marshal_load([0, 213447756, 0, 0, 0, 2299161.0]) }
     assert_raise(Date::Error) { d.marshal_load([0, 0, 0, 0, 86401, 2299161.0]) }
@@ -86,7 +86,7 @@ class TestDateMarshal < Test::Unit::TestCase
       DateTime.new(-4713, 12, 31, 23, 59, 59, -1, Date::GREGORIAN),
       Date.new(-4713, 12, 31, Date::GREGORIAN),
       Date.new(579687, 12, 31, Date::GREGORIAN),
-      DateTime.new(2001, 2, 3, 4, 5, 6, "+24:00"),
+      DateTime.new(2001, 2, 3, 4, 5, 6, Rational(1)),
       Date.new(2001, 2, 3, Date::GREGORIAN),
       Date.new(2001, 2, 3, Date::JULIAN),
     ].each do |x|
