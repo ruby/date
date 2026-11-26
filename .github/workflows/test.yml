@@ -28,7 +28,9 @@ jobs:
         include:
           - ruby: mingw
             os: windows-latest
-          - ruby: mswin
+          - ruby: mswin-head
+            os: windows-2022
+          - ruby: mswin-4.0
             os: windows-2022
           - ruby: truffleruby
             os: ubuntu-latest
@@ -41,6 +43,6 @@ jobs:
         ruby-version: ${{ matrix.ruby }}
         bundler-cache: true # 'bundle install' and cache
     - run: choco install gperf
-      if: ${{ matrix.ruby == 'mswin' }}
+      if: ${{ startsWith(matrix.ruby, 'mswin') }}
     - name: Run test
       run: bundle exec rake compile test
