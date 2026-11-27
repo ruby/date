@@ -389,6 +389,32 @@ class TestDateStrptime < Test::Unit::TestCase
 		 [d.year, d.mon, d.mday, d.hour, d.min, d.sec, d.sec_fraction])
   end
 
+  def test_strptime__seconds_with_fraction
+    d = DateTime.strptime('1.5', '%s.%N')
+    assert_equal([1970, 1, 1, 0, 0, 1, 1.to_r/2],
+		 [d.year, d.mon, d.mday, d.hour, d.min, d.sec, d.sec_fraction])
+    d = DateTime.strptime('981158400.123456789', '%s.%N')
+    assert_equal([2001, 2, 3, 0, 0, 0, 123456789.to_r/10**9],
+		 [d.year, d.mon, d.mday, d.hour, d.min, d.sec, d.sec_fraction])
+    d = DateTime.strptime('981158400 123', '%s %L')
+    assert_equal([2001, 2, 3, 0, 0, 0, 123.to_r/10**3],
+		 [d.year, d.mon, d.mday, d.hour, d.min, d.sec, d.sec_fraction])
+
+    # The fraction takes the sign of the seconds, as in Time.strptime.
+    d = DateTime.strptime('-1.25', '%s.%N')
+    assert_equal([1969, 12, 31, 23, 59, 58, 3.to_r/4],
+		 [d.year, d.mon, d.mday, d.hour, d.min, d.sec, d.sec_fraction])
+
+    d = DateTime.strptime('1.5 +0900', '%s.%N %z')
+    assert_equal([1970, 1, 1, 9, 0, 1, 1.to_r/2, 9.to_r/24],
+		 [d.year, d.mon, d.mday, d.hour, d.min, d.sec, d.sec_fraction, d.offset])
+
+    # %Q already holds the fraction.
+    d = DateTime.strptime('1500 500000000', '%Q %N')
+    assert_equal([1970, 1, 1, 0, 0, 1, 1.to_r/2],
+		 [d.year, d.mon, d.mday, d.hour, d.min, d.sec, d.sec_fraction])
+  end
+
   def test_strptime__comp
     n = DateTime.now
 

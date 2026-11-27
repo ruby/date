@@ -4098,6 +4098,16 @@ rt_rewrite_frags(VALUE hash)
     if (!NIL_P(seconds)) {
 	VALUE offset, d, h, min, s, fr;
 
+	fr = ref_hash("sec_fraction");
+	if (!NIL_P(fr) && RB_INTEGER_TYPE_P(seconds)) {
+	    /* "%s.%N": the fraction has the sign of the seconds,
+	       as in Time.strptime. */
+	    if (f_negative_p(seconds))
+		seconds = f_sub(seconds, fr);
+	    else
+		seconds = f_add(seconds, fr);
+	}
+
 	offset = ref_hash("offset");
 	if (!NIL_P(offset))
 	    seconds = f_add(seconds, offset);
